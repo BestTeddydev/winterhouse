@@ -1,0 +1,32 @@
+<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="600" fill="#f8fafc"/>
+  <rect x="50" y="50" width="700" height="500" fill="white" stroke="#e2e8f0" stroke-width="2"/>
+  
+  <!-- Title -->
+  <text x="400" y="100" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#1f2937">
+    แผนผังอาคาร
+  </text>
+  <text x="400" y="130" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#6b7280">
+    กรุณาเพิ่มแผนผังในหน้าแอดมิน
+  </text>
+  
+  <!-- Sample buildings -->
+  <rect x="150" y="200" width="120" height="80" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+  <text x="210" y="250" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#1e40af">อาคาร A</text>
+  
+  <rect x="350" y="180" width="120" height="80" fill="#dcfce7" stroke="#10b981" stroke-width="2"/>
+  <text x="410" y="230" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#166534">อาคาร B</text>
+  
+  <rect x="550" y="220" width="120" height="80" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+  <text x="610" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#92400e">อาคาร C</text>
+  
+  <!-- Sample hotspots -->
+  <circle cx="210" y="240" r="12" fill="#3b82f6" opacity="0.8"/>
+  <text x="210" y="245" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">🏠</text>
+  
+  <circle cx="410" y="220" r="12" fill="#10b981" opacity="0.8"/>
+  <text x="410" y="225" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">☕</text>
+  
+  <circle cx="610" y="260" r="12" fill="#f59e0b" opacity="0.8"/>
+  <text x="610" y="265" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">🏢</text>
+</svg>
