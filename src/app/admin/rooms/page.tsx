@@ -274,7 +274,7 @@ export default function AdminRooms() {
               <div key={room.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
                 <div className="relative h-48">
                   <Image
-                    src={room.imageUrl}
+                    src={room.imageUrls?.[0] || room.imageUrl || '/placeholder.jpg'}
                     alt={room.name}
                     fill
                     className="object-cover"
@@ -292,6 +292,15 @@ export default function AdminRooms() {
                       {room.isActive ? 'เปิด' : 'ปิด'}
                     </button>
                   </div>
+                  
+                  {/* Image Count Badge */}
+                  {room.imageUrls && room.imageUrls.length > 1 && (
+                    <div className="absolute bottom-4 left-4">
+                      <div className="bg-black/70 text-white px-2 py-1 rounded-full text-xs font-medium">
+                        {room.imageUrls.length} รูป
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-6">
@@ -372,15 +381,20 @@ export default function AdminRooms() {
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-16 w-16 relative">
                             <Image
-                              src={room.imageUrl}
+                              src={room.imageUrls?.[0] || room.imageUrl || '/placeholder.jpg'}
                               alt={room.name}
                               fill
                               className="rounded-lg object-cover"
                             />
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
                               {room.name}
+                              {room.imageUrls && room.imageUrls.length > 1 && (
+                                <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                                  {room.imageUrls.length} รูป
+                                </span>
+                              )}
                             </div>
                             <div className="text-sm text-gray-500 line-clamp-1">
                               {room.description}

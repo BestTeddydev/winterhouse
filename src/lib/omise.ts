@@ -15,6 +15,13 @@ export interface CreateChargeParams {
 
 export async function createCharge(params: CreateChargeParams) {
   try {
+    console.log('Creating Omise charge with params:', {
+      amount: params.amount,
+      currency: params.currency,
+      description: params.description,
+      return_uri: params.return_uri
+    })
+    
     const charge = await omise.charges.create({
       amount: params.amount,
       currency: params.currency,
@@ -22,9 +29,23 @@ export async function createCharge(params: CreateChargeParams) {
       source: params.source,
       return_uri: params.return_uri,
     })
+    
+    console.log('Omise charge created successfully:', charge.id)
     return charge
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating Omise charge:', error)
+    
+    // Log more detailed error information
+    if (error.code) {
+      console.error('Omise Error Code:', error.code)
+    }
+    if (error.message) {
+      console.error('Omise Error Message:', error.message)
+    }
+    if (error.location) {
+      console.error('Omise Error Location:', error.location)
+    }
+    
     throw error
   }
 }

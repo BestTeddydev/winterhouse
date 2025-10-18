@@ -1,69 +1,40 @@
-import mongoose from 'mongoose'
+import mongoose, { Document, Schema } from 'mongoose'
 
-export interface BuildingHotspot {
-  id: string
-  x: number
-  y: number
-  buildingName: string
-  buildingType: 'accommodation' | 'cafe' | 'restaurant' | 'facility' | 'parking' | 'garden'
-  rooms: string[]
+export interface ISiteMap extends Document {
+  name: string
   description: string
-  facilities: string[]
-}
-
-export interface ISiteMap extends mongoose.Document {
   imageUrl: string
-  hotspots: BuildingHotspot[]
+  isActive: boolean
   createdAt: Date
   updatedAt: Date
 }
 
-const BuildingHotspotSchema = new mongoose.Schema({
-  id: {
+const SiteMapSchema = new Schema<ISiteMap>({
+  name: {
     type: String,
     required: true,
+    trim: true,
+    default: 'แผนผังหลัก'
   },
-  x: {
-    type: Number,
-    required: true,
-  },
-  y: {
-    type: Number,
-    required: true,
-  },
-  buildingName: {
-    type: String,
-    required: true,
-  },
-  buildingType: {
-    type: String,
-    enum: ['accommodation', 'cafe', 'restaurant', 'facility', 'parking', 'garden'],
-    default: 'accommodation',
-  },
-  rooms: [{
-    type: String,
-  }],
   description: {
     type: String,
-    default: '',
+    trim: true,
+    default: ''
   },
-  facilities: [{
+  imageUrl: {
     type: String,
-  }],
+    required: true,
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+}, {
+  timestamps: true,
 })
 
-const SiteMapSchema = new mongoose.Schema(
-  {
-    imageUrl: {
-      type: String,
-      required: true,
-    },
-    hotspots: [BuildingHotspotSchema],
-  },
-  {
-    timestamps: true,
-  }
-)
+// Index for efficient queries
+SiteMapSchema.index({ isActive: 1 })
 
 export default mongoose.models.SiteMap || mongoose.model<ISiteMap>('SiteMap', SiteMapSchema)
 

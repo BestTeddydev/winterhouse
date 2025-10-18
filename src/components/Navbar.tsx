@@ -2,21 +2,58 @@
 
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
-import { Home, Calendar, User, LogOut, Settings, Coffee, Bed, Phone } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Home, Calendar, User, LogOut, Settings, Coffee, Bed, Phone, Menu, X } from 'lucide-react'
 
 export default function Navbar() {
   const { data: session } = useSession()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen)
+  }
+
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setIsMobileMenuOpen(false)
+      }
+    }
+
+    if (isMobileMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isMobileMenuOpen])
+
+  // Close mobile menu on window resize to desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) { // lg breakpoint
+        setIsMobileMenuOpen(false)
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   return (
-    <nav className="bg-white shadow-lg sticky top-0 z-50">
+    <nav className="bg-white shadow-lg sticky top-0 z-50" ref={mobileMenuRef}>
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-20">
-          <Link href="/" className="flex items-center gap-2 text-2xl font-bold text-primary-600">
-            <Coffee size={28} />
-            Winterhouse
+        <div className="flex items-center justify-between h-16 sm:h-20">
+          <Link href="/" className="flex items-center gap-2 text-xl sm:text-2xl font-bold text-primary-600">
+            <Coffee size={24} className="sm:w-7 sm:h-7" />
+            <span className="hidden xs:inline">Winterhouse</span>
+            <span className="xs:hidden">WH</span>
           </Link>
 
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden lg:flex items-center gap-4 xl:gap-6">
             <Link
               href="/"
               className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 transition-colors"
@@ -51,108 +88,165 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-4">
-            {session ? (
-              <>
-                <Link
-                  href="/bookings"
-                  className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 transition-colors"
-                >
-                  <Calendar size={20} />
-                  <span className="hidden sm:inline">การจองของฉัน</span>
-                </Link>
-
-                {session.user.role === 'ADMIN' && (
+            {/* Desktop User Actions */}
+            <div className="hidden lg:flex items-center gap-4">
+              {session ? (
+                <>
                   <Link
-                    href="/admin"
+                    href="/bookings"
                     className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 transition-colors"
                   >
-                    <Settings size={20} />
-                    <span className="hidden sm:inline">จัดการระบบ</span>
+                    <Calendar size={20} />
+                    <span>การจองของฉัน</span>
                   </Link>
-                )}
 
-                <div className="flex items-center gap-2 px-4 py-2 text-gray-700">
-                  <User size={20} />
-                  <span className="hidden sm:inline text-sm">
-                    {session.user.name || session.user.email}
-                  </span>
-                </div>
+                  {session.user.role === 'ADMIN' && (
+                    <Link
+                      href="/admin"
+                      className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 transition-colors"
+                    >
+                      <Settings size={20} />
+                      <span>จัดการระบบ</span>
+                    </Link>
+                  )}
 
-                <button
-                  onClick={() => signOut({ callbackUrl: '/', redirect:true })}
-                  className="flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-700 transition-colors"
+                  <div className="flex items-center gap-2 px-4 py-2 text-gray-700">
+                    <User size={20} />
+                    <span className="text-sm">
+                      {session.user.name || session.user.email}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => signOut({ callbackUrl: '/', redirect:true })}
+                    className="flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-700 transition-colors"
+                  >
+                    <LogOut size={20} />
+                    <span>ออกจากระบบ</span>
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/auth/signin"
+                  className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-semibold"
                 >
-                  <LogOut size={20} />
-                  <span className="hidden sm:inline">ออกจากระบบ</span>
-                </button>
-              </>
-            ) : (
-              <Link
-                href="/auth/signin"
-                className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-semibold"
-              >
-                เข้าสู่ระบบ
-              </Link>
-            )}
+                  เข้าสู่ระบบ
+                </Link>
+              )}
+            </div>
+
+            {/* Mobile Hamburger Menu Button */}
+            <button
+              onClick={toggleMobileMenu}
+              className="lg:hidden p-2 rounded-lg text-gray-700 hover:text-primary-600 hover:bg-gray-100 transition-colors"
+              aria-label="Toggle mobile menu"
+            >
+              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
           </div>
         </div>
 
         {/* Mobile Menu */}
-        <div className="md:hidden border-t border-gray-200 py-4">
-          <div className="flex flex-col gap-2">
-            <Link
-              href="/"
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
-            >
-              <Home size={20} />
-              หน้าแรก
-            </Link>
-            
-            <Link
-              href="/rooms"
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
-            >
-              <Bed size={20} />
-              ห้องพัก
-            </Link>
+        <div className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${
+          isMobileMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
+        }`}>
+          <div className="border-t border-gray-200 py-4">
+            <div className="flex flex-col gap-2">
+              {/* Navigation Links */}
+              <Link
+                href="/"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <Home size={20} />
+                หน้าแรก
+              </Link>
+              
+              <Link
+                href="/rooms"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <Bed size={20} />
+                ห้องพัก
+              </Link>
 
-            <Link
-              href="#cafe"
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
-            >
-              <Coffee size={20} />
-              คาเฟ่
-            </Link>
+              <Link
+                href="#cafe"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <Coffee size={20} />
+                คาเฟ่
+              </Link>
 
-            <Link
-              href="#contact"
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
-            >
-              <Phone size={20} />
-              ติดต่อ
-            </Link>
+              <Link
+                href="#contact"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <Phone size={20} />
+                ติดต่อ
+              </Link>
 
-            {session && (
-              <>
-                <Link
-                  href="/bookings"
-                  className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
-                >
-                  <Calendar size={20} />
-                  การจองของฉัน
-                </Link>
-
-                {session.user.role === 'ADMIN' && (
+              {/* User Actions for Mobile */}
+              {session ? (
+                <>
+                  <div className="border-t border-gray-200 my-2"></div>
+                  
                   <Link
-                    href="/admin"
-                    className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
+                    href="/bookings"
+                    className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    <Settings size={20} />
-                    จัดการระบบ
+                    <Calendar size={20} />
+                    การจองของฉัน
                   </Link>
-                )}
-              </>
-            )}
+
+                  {session.user.role === 'ADMIN' && (
+                    <Link
+                      href="/admin"
+                      className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <Settings size={20} />
+                      จัดการระบบ
+                    </Link>
+                  )}
+
+                  <div className="border-t border-gray-200 my-2"></div>
+                  
+                  <div className="flex items-center gap-3 px-4 py-3 text-gray-700">
+                    <User size={20} />
+                    <span className="text-sm">
+                      {session.user.name || session.user.email}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      signOut({ callbackUrl: '/', redirect:true })
+                      setIsMobileMenuOpen(false)
+                    }}
+                    className="flex items-center gap-3 px-4 py-3 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <LogOut size={20} />
+                    ออกจากระบบ
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="border-t border-gray-200 my-2"></div>
+                  <Link
+                    href="/auth/signin"
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-semibold"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    เข้าสู่ระบบ
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>

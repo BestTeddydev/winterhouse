@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import connectDB from '@/lib/mongodb'
 import Booking from '@/models/Booking'
 import Payment from '@/models/Payment'
-import { createCharge } from '@/lib/omise'
+import { createCheckoutSession, createQRCodePayment } from '@/lib/stripe'
 import mongoose from 'mongoose'
 
 export async function POST(request: NextRequest) {
@@ -12,79 +12,161 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions)
     
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
     }
 
     const body = await request.json()
     const { bookingId, source, paymentMethod } = body
 
     await connectDB()
+    
+    // Set strictPopulate to false to avoid schema validation errors
+    mongoose.set('strictPopulate', false)
+    
+    // Ensure models are registered
+    if (!mongoose.models.Booking) {
+      require('@/models/Booking')
+    }
+    if (!mongoose.models.Payment) {
+      require('@/models/Payment')
+    }
+    if (!mongoose.models.Room) {
+      require('@/models/Room')
+    }
 
     // Get booking
     const booking = await Booking.findById(bookingId)
-      .populate('payment')
-      .populate('room')
+      .populate({
+        path: 'paymentId',
+        model: 'Payment',
+        select: 'status amount omiseChargeId'
+      })
+      .populate({
+        path: 'roomId',
+        model: 'Room',
+        select: 'name description price'
+      })
 
     if (!booking) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      return NextResponse.json({ error: 'ไม่พบข้อมูลการจอง' }, { status: 404 })
     }
+
+    // Debug logging
+    console.log('Booking found:', {
+      id: booking._id,
+      userId: booking.userId,
+      roomId: booking.roomId,
+      paymentId: booking.paymentId,
+      totalPrice: booking.totalPrice
+    })
 
     if (booking.userId.toString() !== session.user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
     }
 
-    if (booking.payment.status === 'COMPLETED') {
-      return NextResponse.json({ error: 'Payment already completed' }, { status: 400 })
+    if (!booking.paymentId) {
+      return NextResponse.json({ error: 'ไม่พบข้อมูลการชำระเงิน' }, { status: 404 })
+    }
+
+    if (booking.paymentId.status === 'COMPLETED') {
+      return NextResponse.json({ error: 'การชำระเงินเสร็จสิ้นแล้ว' }, { status: 400 })
     }
 
     // Update payment status to processing
-    await Payment.findByIdAndUpdate(booking.payment._id, {
+    await Payment.findByIdAndUpdate(booking.paymentId._id, {
       status: 'PROCESSING',
       paymentMethod,
     })
 
     try {
-      // Create charge with Omise
-      const charge = await createCharge({
-        amount: Math.round(parseFloat(booking.totalPrice.toString()) * 100), // Convert to satang
-        currency: 'thb',
-        description: `Booking for ${booking.room.name} (${booking.id})`,
-        source,
-        return_uri: `${process.env.NEXT_PUBLIC_APP_URL}/bookings/${bookingId}/payment-result`,
-      })
+      if (paymentMethod === 'qr_code') {
+        // Create Stripe QR Code Payment
+        const qrPayment = await createQRCodePayment({
+          amount: Math.round(parseFloat(booking.totalPrice.toString()) * 100), // Convert to satang
+          currency: 'thb',
+          description: `Booking for ${booking.roomId?.name || 'Room'} (${booking.id})`,
+          metadata: {
+            bookingId: bookingId,
+            userId: session.user.id,
+          },
+        })
 
-      // Update payment with charge ID
-      const payment = await Payment.findByIdAndUpdate(
-        booking.payment._id,
-        {
-          omiseChargeId: charge.id,
-          status: charge.status === 'successful' ? 'COMPLETED' : 'PENDING',
-        },
-        { new: true }
-      )
+        // Update payment with QR payment info
+        const payment = await Payment.findByIdAndUpdate(
+          booking.paymentId._id,
+          {
+            stripePaymentIntentId: qrPayment.paymentIntent.id,
+            stripeSessionId: qrPayment.paymentLink.id,
+            status: 'PENDING',
+          },
+          { new: true }
+        )
 
-      // Update booking status if payment successful
-      if (charge.status === 'successful') {
-        await Booking.findByIdAndUpdate(bookingId, { status: 'CONFIRMED' })
+        return NextResponse.json({
+          payment,
+          qrCodeUrl: qrPayment.qrCodeUrl,
+          paymentIntentId: qrPayment.paymentIntent.id,
+        })
+      } else {
+        // Create Stripe Checkout Session
+        const checkoutSession = await createCheckoutSession({
+          amount: Math.round(parseFloat(booking.totalPrice.toString()) * 100), // Convert to satang
+          currency: 'thb',
+          description: `Booking for ${booking.roomId?.name || 'Room'} (${booking.id})`,
+          metadata: {
+            bookingId: bookingId,
+            userId: session.user.id,
+          },
+          success_url: `${process.env.NEXT_PUBLIC_APP_URL}/bookings?payment=success&booking=${bookingId}`,
+          cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/bookings/${bookingId}/payment-result?canceled=true`,
+        })
+
+        // Update payment with session ID
+        const payment = await Payment.findByIdAndUpdate(
+          booking.paymentId._id,
+          {
+            stripeSessionId: checkoutSession.id,
+            status: 'PENDING',
+          },
+          { new: true }
+        )
+
+        return NextResponse.json({
+          payment,
+          checkoutUrl: checkoutSession.url,
+        })
       }
-
-      return NextResponse.json({
-        payment,
-        charge,
-        authorizeUri: charge.authorize_uri,
-      })
     } catch (error: any) {
       // Update payment status to failed
-      await Payment.findByIdAndUpdate(booking.payment._id, {
+      await Payment.findByIdAndUpdate(booking.paymentId._id, {
         status: 'FAILED',
       })
 
       throw error
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error processing payment:', error)
+    
+    // More detailed error logging
+    if (error.response) {
+      console.error('Omise API Error Response:', error.response.data)
+      console.error('Status:', error.response.status)
+    } else if (error.request) {
+      console.error('Network Error:', error.request)
+    } else {
+      console.error('Error Message:', error.message)
+    }
+    
+    // Return more specific error message
+    let errorMessage = 'ไม่สามารถดำเนินการชำระเงินได้'
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message
+    } else if (error.message) {
+      errorMessage = error.message
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to process payment' },
+      { error: errorMessage, details: error.response?.data || error.message },
       { status: 500 }
     )
   }

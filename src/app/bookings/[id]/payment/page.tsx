@@ -7,13 +7,7 @@ import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { formatCurrency } from '@/lib/utils'
-import Script from 'next/script'
-
-declare global {
-  interface Window {
-    Omise: any
-  }
-}
+import { loadStripe } from '@stripe/stripe-js'
 
 export default function Payment() {
   const params = useParams()
@@ -23,7 +17,6 @@ export default function Payment() {
   const [booking, setBooking] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
-  const [omiseLoaded, setOmiseLoaded] = useState(false)
 
   useEffect(() => {
     if (!session) {
@@ -41,46 +34,78 @@ export default function Payment() {
       const response = await axios.get(`/api/bookings/${params.id}`)
       setBooking(response.data)
 
-      if (response.data.payment.status === 'COMPLETED') {
+      if (response.data.paymentId?.status === 'COMPLETED') {
         toast.success('ชำระเงินสำเร็จแล้ว')
         router.push(`/bookings/${params.id}`)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching booking:', error)
-      toast.error('ไม่สามารถโหลดข้อมูลการจองได้')
+      console.error('Error details:', error.response?.data)
+      toast.error(error.response?.data?.error || 'ไม่สามารถโหลดข้อมูลการจองได้')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleCreditCardPayment = () => {
-    if (!omiseLoaded) {
-      toast.error('กำลังโหลด Omise...')
+  const handleStripeQRPayment = async () => {
+    if (!booking) {
+      toast.error('ไม่พบข้อมูลการจอง')
       return
     }
 
     setProcessing(true)
 
-    window.Omise.createToken('card', {
-      name: booking.guestName,
-      number: '', // Will be filled by Omise.js form
-      expiration_month: '',
-      expiration_year: '',
-      security_code: '',
-    }, async (statusCode: number, response: any) => {
-      if (statusCode === 200) {
-        try {
-          await processPayment(response.id, 'credit_card')
-        } catch (error) {
-          setProcessing(false)
-        }
+    try {
+      // Create QR Code payment
+      const response = await axios.post('/api/payments', {
+        bookingId: params.id,
+        paymentMethod: 'qr_code',
+      })
+
+      if (response.data.qrCodeUrl) {
+        // Open QR Code page directly
+        window.open(response.data.qrCodeUrl, '_blank')
+        toast.success('เปิดหน้า QR Code แล้ว')
       } else {
-        console.error('Error creating token:', response)
-        toast.error('ไม่สามารถสร้าง token ได้')
+        toast.error('ไม่สามารถสร้าง QR Code ได้')
+      }
+    } catch (error: any) {
+      console.error('Error creating QR payment:', error)
+      toast.error(error.response?.data?.error || 'ไม่สามารถสร้าง QR Code ได้')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const handleCreditCardPayment = async () => {
+    if (!booking) {
+      toast.error('ไม่พบข้อมูลการจอง')
+      return
+    }
+
+    setProcessing(true)
+
+    try {
+      // Create Stripe Checkout Session
+      const response = await axios.post('/api/payments', {
+        bookingId: params.id,
+        paymentMethod: 'credit_card',
+      })
+
+      if (response.data.checkoutUrl) {
+        // Redirect to Stripe Checkout
+        window.location.href = response.data.checkoutUrl
+      } else {
+        toast.error('ไม่สามารถสร้าง session ชำระเงินได้')
         setProcessing(false)
       }
-    })
+    } catch (error: any) {
+      console.error('Error processing credit card payment:', error)
+      toast.error(error.response?.data?.error || 'ไม่สามารถชำระเงินผ่านบัตรเครดิตได้')
+      setProcessing(false)
+    }
   }
+
 
   const handlePromptPayPayment = async () => {
     setProcessing(true)
@@ -101,32 +126,13 @@ export default function Payment() {
         router.push(`/bookings/${params.id}`)
       }
     } catch (error: any) {
-      console.error('Error processing payment:', error)
-      toast.error(error.response?.data?.error || 'ไม่สามารถชำระเงินได้')
+      console.error('Error processing PromptPay payment:', error)
+      console.error('Error details:', error.response?.data)
+      toast.error(error.response?.data?.error || 'ไม่สามารถชำระเงินผ่าน PromptPay ได้')
       setProcessing(false)
     }
   }
 
-  const processPayment = async (source: string, method: string) => {
-    try {
-      const response = await axios.post('/api/payments', {
-        bookingId: params.id,
-        source,
-        paymentMethod: method,
-      })
-
-      if (response.data.authorizeUri) {
-        window.location.href = response.data.authorizeUri
-      } else {
-        toast.success('ชำระเงินสำเร็จ')
-        router.push(`/bookings/${params.id}`)
-      }
-    } catch (error: any) {
-      console.error('Error processing payment:', error)
-      toast.error(error.response?.data?.error || 'ไม่สามารถชำระเงินได้')
-      throw error
-    }
-  }
 
   if (loading) {
     return (
@@ -151,18 +157,7 @@ export default function Payment() {
   }
 
   return (
-    <>
-      <Script
-        src="https://cdn.omise.co/omise.js"
-        onLoad={() => {
-          if (window.Omise) {
-            window.Omise.setPublicKey(process.env.NEXT_PUBLIC_OMISE_PUBLIC_KEY)
-            setOmiseLoaded(true)
-          }
-        }}
-      />
-
-      <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
         <Navbar />
 
         <main className="container mx-auto px-4 py-8">
@@ -194,10 +189,39 @@ export default function Payment() {
                     </div>
                   </button>
 
+                  {/* Stripe QR Code */}
+                  <button
+                    onClick={handleStripeQRPayment}
+                    disabled={processing}
+                    className="w-full p-6 border-2 border-gray-200 rounded-lg hover:border-primary-500 transition-colors text-left disabled:opacity-50"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <svg className="w-10 h-10 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <rect x="3" y="3" width="5" height="5" strokeWidth="2"/>
+                          <rect x="16" y="3" width="5" height="5" strokeWidth="2"/>
+                          <rect x="3" y="16" width="5" height="5" strokeWidth="2"/>
+                          <rect x="16" y="16" width="5" height="5" strokeWidth="2"/>
+                          <rect x="10" y="10" width="4" height="4" strokeWidth="2"/>
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg">QR Code (Stripe)</h3>
+                        <p className="text-gray-600 text-sm">สแกน QR Code เพื่อชำระเงินผ่าน Stripe</p>
+                        <p className="text-purple-600 text-xs mt-1">จะเปิดหน้า QR Code ในแท็บใหม่ทันที</p>
+                      </div>
+                      <div className="text-gray-400">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </div>
+                    </div>
+                  </button>
+
                   {/* Credit Card */}
                   <button
                     onClick={handleCreditCardPayment}
-                    disabled={processing || !omiseLoaded}
+                    disabled={processing}
                     className="w-full p-6 border-2 border-gray-200 rounded-lg hover:border-primary-500 transition-colors text-left disabled:opacity-50"
                   >
                     <div className="flex items-center gap-4">
@@ -207,12 +231,19 @@ export default function Payment() {
                           <line x1="2" y1="10" x2="22" y2="10" strokeWidth="2"/>
                         </svg>
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h3 className="font-semibold text-lg">บัตรเครดิต/เดบิต</h3>
-                        <p className="text-gray-600 text-sm">Visa, Mastercard, JCB</p>
+                        <p className="text-gray-600 text-sm">Visa, Mastercard, JCB, American Express</p>
+                        <p className="text-blue-600 text-xs mt-1">จะเปิดหน้า Stripe Checkout สำหรับชำระเงิน</p>
+                      </div>
+                      <div className="text-gray-400">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
                       </div>
                     </div>
                   </button>
+
                 </div>
 
                 {processing && (
@@ -220,6 +251,7 @@ export default function Payment() {
                     <p className="text-blue-800 text-center">กำลังดำเนินการชำระเงิน...</p>
                   </div>
                 )}
+
               </div>
             </div>
 
@@ -229,8 +261,8 @@ export default function Payment() {
                 <h2 className="text-xl font-bold mb-4">สรุปการจอง</h2>
 
                 <div className="mb-4">
-                  <h3 className="font-semibold">{booking.room.name}</h3>
-                  <p className="text-gray-600 text-sm mt-1">ผู้เข้าพัก: {booking.guestName}</p>
+                  <h3 className="font-semibold">{booking.room?.name || 'ไม่ระบุชื่อห้อง'}</h3>
+                  <p className="text-gray-600 text-sm mt-1">ผู้เข้าพัก: {booking.guestName || 'ไม่ระบุชื่อผู้เข้าพัก'}</p>
                 </div>
 
                 <div className="border-t border-b py-4 mb-4 space-y-2">
@@ -257,7 +289,7 @@ export default function Payment() {
                   </div>
 
                   <div className="text-sm text-gray-600">
-                    <p>สถานะการชำระเงิน: {booking.payment.status === 'PENDING' ? 'รอชำระ' : booking.payment.status}</p>
+                    <p>สถานะการชำระเงิน: {booking.paymentId?.status === 'PENDING' ? 'รอชำระ' : booking.paymentId?.status === 'COMPLETED' ? 'ชำระแล้ว' : booking.paymentId?.status === 'FAILED' ? 'ชำระไม่สำเร็จ' : 'ไม่ระบุ'}</p>
                   </div>
                 </div>
               </div>
@@ -265,7 +297,6 @@ export default function Payment() {
           </div>
         </main>
       </div>
-    </>
   )
 }
 

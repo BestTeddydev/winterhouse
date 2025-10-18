@@ -88,7 +88,7 @@ export default function NewBooking() {
       })
 
       toast.success('สร้างการจองสำเร็จ')
-      router.push(`/bookings/${response.data.id}/payment`)
+      router.push(`/bookings/${response.data._id || response.data.id}/payment`)
     } catch (error: any) {
       console.error('Error creating booking:', error)
       toast.error(error.response?.data?.error || 'ไม่สามารถสร้างการจองได้')

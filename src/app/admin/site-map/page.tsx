@@ -62,11 +62,12 @@ export default function AdminSiteMapPage() {
 
   const fetchData = async () => {
     try {
-      // Fetch rooms
+      // Fetch rooms that are not linked to any building
       const roomsResponse = await axios.get('/api/rooms')
+      const unlinkedRooms = roomsResponse.data.filter((room: any) => !room.buildingId)
       setAvailableRooms(
-        roomsResponse.data.map((room: any) => ({
-          id: room.id,
+        unlinkedRooms.map((room: any) => ({
+          id: room._id || room.id,
           name: room.name,
         }))
       )
@@ -162,6 +163,11 @@ export default function AdminSiteMapPage() {
               <p className="text-gray-700 text-lg font-medium">
                 อัปโหลดแผนผังที่ดินและระบุตำแหน่งอาคาร/ห้องพักต่างๆ
               </p>
+              {availableRooms.length > 0 && (
+                <p className="text-sm text-blue-600 mt-2 font-medium">
+                  💡 มีห้องพัก {availableRooms.length} ห้องที่ยังไม่ได้ผูกกับอาคาร
+                </p>
+              )}
             </div>
             <button
               onClick={handleSave}
@@ -208,6 +214,8 @@ export default function AdminSiteMapPage() {
             <li>ตั้งชื่ออาคารให้เข้าใจง่าย เช่น "อาคาร A", "คาเฟ่ชั้น 1"</li>
             <li>เชื่อมโยงห้องพักกับอาคารที่ถูกต้องเพื่อให้ลูกค้าค้นหาได้ง่าย</li>
             <li>กำหนดประเภทอาคารให้ถูกต้องเพื่อแสดง icon ที่เหมาะสม</li>
+            <li>ห้องพักที่ยังไม่ได้ผูกกับอาคารจะแสดงในรายการห้องพักที่ใช้ได้</li>
+            <li>สามารถผูกห้องพักกับอาคารได้โดยการเลือก checkbox ในรายการห้องพัก</li>
           </ul>
         </div>
       </main>

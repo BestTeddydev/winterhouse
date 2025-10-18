@@ -5,6 +5,7 @@ export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
 export interface IBooking extends Document {
   roomId: mongoose.Types.ObjectId
   userId: mongoose.Types.ObjectId
+  paymentId?: mongoose.Types.ObjectId
   checkIn: Date
   checkOut: Date
   totalPrice: number
@@ -20,6 +21,7 @@ export interface IBooking extends Document {
 const BookingSchema = new Schema<IBooking>({
   roomId: { type: Schema.Types.ObjectId, ref: 'Room', required: true },
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  paymentId: { type: Schema.Types.ObjectId, ref: 'Payment' },
   checkIn: { type: Date, required: true },
   checkOut: { type: Date, required: true },
   totalPrice: { type: Number, required: true },

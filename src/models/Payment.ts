@@ -9,6 +9,8 @@ export interface IPayment extends Document {
   status: PaymentStatus
   paymentMethod?: string
   omiseChargeId?: string
+  stripeSessionId?: string
+  stripePaymentIntentId?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -24,6 +26,8 @@ const PaymentSchema = new Schema<IPayment>({
   },
   paymentMethod: { type: String },
   omiseChargeId: { type: String, unique: true, sparse: true },
+  stripeSessionId: { type: String, unique: true, sparse: true },
+  stripePaymentIntentId: { type: String, unique: true, sparse: true },
 }, {
   timestamps: true,
 })

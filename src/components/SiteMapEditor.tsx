@@ -3,6 +3,8 @@
 import { useState, useRef } from 'react'
 import Image from 'next/image'
 import { X, Plus, Edit, Trash2, Upload, Building2, MapPin } from 'lucide-react'
+import axios from 'axios'
+import toast from 'react-hot-toast'
 
 interface BuildingHotspot {
   id: string
@@ -36,40 +38,89 @@ export default function SiteMapEditor({
   const imageRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleImageClick = async (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isAddingHotspot) return
 
     const rect = e.currentTarget.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
 
-    const newHotspot: BuildingHotspot = {
-      id: `building-${Date.now()}`,
-      x,
-      y,
-      buildingName: 'อาคารใหม่',
-      buildingType: 'accommodation',
-      rooms: [],
-      description: 'คลิกเพื่อแก้ไข',
-      facilities: [],
+    try {
+      // สร้าง Building จริงในฐานข้อมูล
+      const buildingResponse = await axios.post('/api/buildings', {
+        name: 'อาคารใหม่',
+        description: 'คลิกเพื่อแก้ไข',
+        buildingType: 'accommodation',
+        facilities: [],
+        x,
+        y,
+      })
+
+      const newBuilding = buildingResponse.data
+
+      const newHotspot: BuildingHotspot = {
+        id: newBuilding._id, // ใช้ ObjectId จริง
+        x,
+        y,
+        buildingName: newBuilding.name,
+        buildingType: newBuilding.buildingType,
+        rooms: [],
+        description: newBuilding.description,
+        facilities: newBuilding.facilities,
+      }
+
+      onChange([...hotspots, newHotspot])
+      setSelectedIndex(hotspots.length)
+      setIsAddingHotspot(false)
+      
+      toast.success('สร้างอาคารใหม่สำเร็จ')
+    } catch (error) {
+      console.error('Error creating building:', error)
+      toast.error('ไม่สามารถสร้างอาคารใหม่ได้')
     }
-
-    onChange([...hotspots, newHotspot])
-    setSelectedIndex(hotspots.length)
-    setIsAddingHotspot(false)
   }
 
-  const handleHotspotUpdate = (index: number, updates: Partial<BuildingHotspot>) => {
+  const handleHotspotUpdate = async (index: number, updates: Partial<BuildingHotspot>) => {
+    const hotspot = hotspots[index]
     const newHotspots = [...hotspots]
-    newHotspots[index] = { ...newHotspots[index], ...updates }
+    newHotspots[index] = { ...hotspot, ...updates }
     onChange(newHotspots)
+
+    // อัปเดต Building ในฐานข้อมูล
+    try {
+      await axios.put(`/api/buildings/${hotspot.id}`, {
+        name: updates.buildingName || hotspot.buildingName,
+        description: updates.description || hotspot.description,
+        buildingType: updates.buildingType || hotspot.buildingType,
+        facilities: updates.facilities || hotspot.facilities,
+        x: updates.x !== undefined ? updates.x : hotspot.x,
+        y: updates.y !== undefined ? updates.y : hotspot.y,
+      })
+    } catch (error) {
+      console.error('Error updating building:', error)
+      toast.error('ไม่สามารถอัปเดตอาคารได้')
+    }
   }
 
-  const handleDeleteHotspot = (index: number) => {
+  const handleDeleteHotspot = async (index: number) => {
     if (!confirm('ต้องการลบจุดนี้ใช่หรือไม่?')) return
-    const newHotspots = hotspots.filter((_, i) => i !== index)
-    onChange(newHotspots)
-    setSelectedIndex(null)
+    
+    const hotspot = hotspots[index]
+    
+    try {
+      // ลบ Building ในฐานข้อมูล
+      await axios.delete(`/api/buildings/${hotspot.id}`)
+      
+      // อัปเดต UI
+      const newHotspots = hotspots.filter((_, i) => i !== index)
+      onChange(newHotspots)
+      setSelectedIndex(null)
+      
+      toast.success('ลบอาคารสำเร็จ')
+    } catch (error) {
+      console.error('Error deleting building:', error)
+      toast.error('ไม่สามารถลบอาคารได้')
+    }
   }
 
   const handleImageUploadClick = () => {
@@ -92,13 +143,49 @@ export default function SiteMapEditor({
     }
   }
 
-  const handleRoomToggle = (hotspotIndex: number, roomId: string) => {
+  const handleRoomToggle = async (hotspotIndex: number, roomId: string) => {
     const hotspot = hotspots[hotspotIndex]
-    const newRooms = hotspot.rooms.includes(roomId)
-      ? hotspot.rooms.filter((id) => id !== roomId)
-      : [...hotspot.rooms, roomId]
+    const isCurrentlyLinked = hotspot.rooms.includes(roomId)
     
-    handleHotspotUpdate(hotspotIndex, { rooms: newRooms })
+    try {
+      if (isCurrentlyLinked) {
+        // Unlink room from building
+        const response = await axios.delete('/api/rooms/link-building', {
+          data: { roomId }
+        })
+        
+        if (response.data.success) {
+          toast.success('ยกเลิกการผูกห้องพักกับอาคารสำเร็จ')
+        } else {
+          toast.error(response.data.error || 'ไม่สามารถยกเลิกการผูกห้องพักกับอาคารได้')
+          return
+        }
+      } else {
+        // Link room to building
+        const response = await axios.post('/api/rooms/link-building', {
+          roomId,
+          buildingId: hotspot.id
+        })
+        
+        if (response.data.success) {
+          toast.success('ผูกห้องพักกับอาคารสำเร็จ')
+        } else {
+          toast.error(response.data.error || 'ไม่สามารถผูกห้องพักกับอาคารได้')
+          return
+        }
+      }
+      
+      // Update local state
+      const newRooms = isCurrentlyLinked
+        ? hotspot.rooms.filter((id) => id !== roomId)
+        : [...hotspot.rooms, roomId]
+      
+      handleHotspotUpdate(hotspotIndex, { rooms: newRooms })
+      
+    } catch (error) {
+      console.error('Error toggling room link:', error)
+      toast.error('ไม่สามารถอัปเดตการผูกห้องพักได้')
+    }
   }
 
   const buildingTypes = [

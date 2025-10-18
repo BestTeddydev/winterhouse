@@ -14,28 +14,73 @@ export async function GET(
     const session = await getServerSession(authOptions)
     
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
     }
 
     await connectDB()
+    
+    // Set strictPopulate to false to avoid schema validation errors
+    mongoose.set('strictPopulate', false)
+    
+    // Ensure models are registered
+    if (!mongoose.models.Room) {
+      require('@/models/Room')
+    }
+    if (!mongoose.models.Booking) {
+      require('@/models/Booking')
+    }
+    if (!mongoose.models.User) {
+      require('@/models/User')
+    }
+    if (!mongoose.models.Payment) {
+      require('@/models/Payment')
+    }
+
     const booking = await Booking.findById(params.id)
-      .populate('room')
-      .populate('payment')
-      .populate('user', 'name email lineUserId')
+      .populate({
+        path: 'room',
+        model: 'Room',
+        select: 'name description price capacity imageUrls'
+      })
+      .populate({
+        path: 'paymentId',
+        model: 'Payment',
+        select: 'status amount'
+      })
+      .populate({
+        path: 'user',
+        model: 'User',
+        select: 'name email lineUserId'
+      })
 
     if (!booking) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      return NextResponse.json({ error: 'ไม่พบข้อมูลการจอง' }, { status: 404 })
     }
 
     // Check authorization
     if (session.user.role !== 'ADMIN' && booking.userId.toString() !== session.user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
     }
 
     return NextResponse.json(booking)
   } catch (error) {
     console.error('Error fetching booking:', error)
-    return NextResponse.json({ error: 'Failed to fetch booking' }, { status: 500 })
+    
+    // Handle specific error types
+    if (error instanceof mongoose.Error.CastError) {
+      return NextResponse.json({ 
+        error: `รูปแบบ ID ไม่ถูกต้อง: ${error.path}` 
+      }, { status: 400 })
+    }
+    
+    if (error instanceof mongoose.Error.ValidationError) {
+      return NextResponse.json({ 
+        error: 'ข้อมูลไม่ถูกต้อง', 
+        details: Object.values(error.errors).map(err => err.message)
+      }, { status: 400 })
+    }
+    
+    return NextResponse.json({ error: 'ไม่สามารถดึงข้อมูลการจองได้' }, { status: 500 })
   }
 }
 
@@ -47,7 +92,7 @@ export async function PUT(
     const session = await getServerSession(authOptions)
     
     if (!session || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
     }
 
     const body = await request.json()
@@ -61,7 +106,7 @@ export async function PUT(
       .populate('user', 'lineUserId')
 
     if (!currentBooking) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      return NextResponse.json({ error: 'ไม่พบข้อมูลการจอง' }, { status: 404 })
     }
 
     const oldStatus = currentBooking.status
@@ -88,7 +133,22 @@ export async function PUT(
     return NextResponse.json(booking)
   } catch (error) {
     console.error('Error updating booking:', error)
-    return NextResponse.json({ error: 'Failed to update booking' }, { status: 500 })
+    
+    // Handle specific error types
+    if (error instanceof mongoose.Error.CastError) {
+      return NextResponse.json({ 
+        error: `รูปแบบ ID ไม่ถูกต้อง: ${error.path}` 
+      }, { status: 400 })
+    }
+    
+    if (error instanceof mongoose.Error.ValidationError) {
+      return NextResponse.json({ 
+        error: 'ข้อมูลไม่ถูกต้อง', 
+        details: Object.values(error.errors).map(err => err.message)
+      }, { status: 400 })
+    }
+    
+    return NextResponse.json({ error: 'ไม่สามารถอัปเดตการจองได้' }, { status: 500 })
   }
 }
 
@@ -100,26 +160,41 @@ export async function DELETE(
     const session = await getServerSession(authOptions)
     
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
     }
 
     await connectDB()
     const booking = await Booking.findById(params.id)
 
     if (!booking) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      return NextResponse.json({ error: 'ไม่พบข้อมูลการจอง' }, { status: 404 })
     }
 
     // Check authorization
     if (session.user.role !== 'ADMIN' && booking.userId.toString() !== session.user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
     }
 
     await Booking.findByIdAndDelete(params.id)
 
-    return NextResponse.json({ message: 'Booking deleted successfully' })
+    return NextResponse.json({ message: 'ลบการจองสำเร็จ' })
   } catch (error) {
     console.error('Error deleting booking:', error)
-    return NextResponse.json({ error: 'Failed to delete booking' }, { status: 500 })
+    
+    // Handle specific error types
+    if (error instanceof mongoose.Error.CastError) {
+      return NextResponse.json({ 
+        error: `รูปแบบ ID ไม่ถูกต้อง: ${error.path}` 
+      }, { status: 400 })
+    }
+    
+    if (error instanceof mongoose.Error.ValidationError) {
+      return NextResponse.json({ 
+        error: 'ข้อมูลไม่ถูกต้อง', 
+        details: Object.values(error.errors).map(err => err.message)
+      }, { status: 400 })
+    }
+    
+    return NextResponse.json({ error: 'ไม่สามารถลบการจองได้' }, { status: 500 })
   }
 }

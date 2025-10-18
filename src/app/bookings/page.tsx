@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -12,6 +12,7 @@ import { Calendar, CreditCard, CheckCircle, XCircle, Clock } from 'lucide-react'
 export default function MyBookings() {
   const { data: session } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [bookings, setBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -21,13 +22,44 @@ export default function MyBookings() {
       return
     }
 
+    // Check for payment success
+    const payment = searchParams.get('payment')
+    const bookingId = searchParams.get('booking')
+    
+    if (payment === 'success' && bookingId) {
+      toast.success('ชำระเงินสำเร็จ! การจองได้รับการยืนยันแล้ว', {
+        duration: 5000,
+      })
+      
+      // Clean up URL parameters
+      const url = new URL(window.location.href)
+      url.searchParams.delete('payment')
+      url.searchParams.delete('booking')
+      window.history.replaceState({}, '', url.toString())
+    }
+
     fetchBookings()
-  }, [session])
+  }, [session, searchParams])
 
   const fetchBookings = async () => {
     try {
       const response = await axios.get('/api/bookings')
-      setBookings(response.data)
+      const bookingsData = response.data
+      
+      console.log('Raw bookings data:', bookingsData)
+      console.log('Bookings count:', bookingsData.length)
+      
+      // Filter out bookings with missing room or payment data
+      const validBookings = bookingsData.filter((booking: any) => {
+        const isValid = booking && booking.room
+        if (!isValid) {
+          console.log('Invalid booking (missing room):', booking)
+        }
+        return isValid
+      })
+      
+      console.log('Valid bookings count:', validBookings.length)
+      setBookings(validBookings)
     } catch (error) {
       console.error('Error fetching bookings:', error)
       toast.error('ไม่สามารถโหลดข้อมูลการจองได้')
@@ -98,6 +130,21 @@ export default function MyBookings() {
       <main className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8">การจองของฉัน</h1>
 
+        {/* Payment Success Message */}
+        {searchParams.get('payment') === 'success' && (
+          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="text-green-600 flex-shrink-0" size={24} />
+              <div>
+                <h3 className="font-semibold text-green-800">ชำระเงินสำเร็จ!</h3>
+                <p className="text-green-700 text-sm">
+                  การจองของคุณได้รับการยืนยันแล้ว คุณจะได้รับอีเมลยืนยันในไม่ช้า
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {bookings.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-12 text-center">
             <Calendar className="mx-auto mb-4 text-gray-400" size={64} />
@@ -111,16 +158,23 @@ export default function MyBookings() {
           </div>
         ) : (
           <div className="space-y-4">
-            {bookings.map((booking) => (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                พบการจอง {bookings.length} รายการ
+              </p>
+            </div>
+            {bookings.map((booking) => {
+              console.log('Rendering booking:', booking)
+              return (
               <div
-                key={booking.id}
+                key={booking.id || booking._id || Math.random()}
                 className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => router.push(`/bookings/${booking.id}`)}
+                onClick={() => router.push(`/bookings/${booking.id || booking._id}`)}
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-bold">{booking.room.name}</h3>
+                      <h3 className="text-xl font-bold">{booking.room?.name || 'ไม่ระบุชื่อห้อง'}</h3>
                       <span
                         className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
                           booking.status
@@ -128,6 +182,16 @@ export default function MyBookings() {
                       >
                         {getStatusText(booking.status)}
                       </span>
+                      {booking.paymentId && (
+                        <div className="flex items-center gap-1">
+                          {getPaymentStatusIcon(booking.paymentId.status)}
+                          <span className="text-sm text-gray-600">
+                            {booking.paymentId.status === 'COMPLETED' ? 'ชำระแล้ว' : 
+                             booking.paymentId.status === 'FAILED' ? 'ชำระไม่สำเร็จ' :
+                             booking.paymentId.status === 'PENDING' ? 'รอชำระ' : 'กำลังดำเนินการ'}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-600">
@@ -138,28 +202,30 @@ export default function MyBookings() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        {getPaymentStatusIcon(booking.payment.status)}
+                        {getPaymentStatusIcon(booking.payment?.status || 'PENDING')}
                         <span>
-                          {booking.payment.status === 'COMPLETED'
+                          {booking.payment?.status === 'COMPLETED'
                             ? 'ชำระเงินแล้ว'
+                            : booking.payment?.status === 'FAILED'
+                            ? 'ชำระเงินไม่สำเร็จ'
                             : 'รอชำระเงิน'}
                         </span>
                       </div>
                     </div>
 
-                    <p className="text-gray-600 mt-2">ผู้เข้าพัก: {booking.guestName}</p>
+                    <p className="text-gray-600 mt-2">ผู้เข้าพัก: {booking.guestName || 'ไม่ระบุ'}</p>
                   </div>
 
                   <div className="flex flex-col items-end gap-2">
                     <div className="text-2xl font-bold text-primary-600">
-                      {formatCurrency(booking.totalPrice)}
+                      {formatCurrency(booking.totalPrice || 0)}
                     </div>
 
-                    {booking.payment.status === 'PENDING' && booking.status === 'PENDING' && (
+                    {(booking.paymentId?.status === 'PENDING' || booking.paymentId?.status === 'FAILED') && booking.status === 'PENDING' && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          router.push(`/bookings/${booking.id}/payment`)
+                          router.push(`/bookings/${booking.id || booking._id}/payment`)
                         }}
                         className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
                       >
@@ -170,7 +236,8 @@ export default function MyBookings() {
                   </div>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </main>

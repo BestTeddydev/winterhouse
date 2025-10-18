@@ -9,8 +9,12 @@ export default withAuth(
     const isAdminPage = req.nextUrl.pathname.startsWith('/admin')
     const isBookingPage = req.nextUrl.pathname.startsWith('/bookings')
 
-    // If user is on auth page and already authenticated, redirect to home
+    // If user is on auth page and already authenticated, redirect to callbackUrl or home
     if (isAuthPage && isAuth) {
+      const callbackUrl = req.nextUrl.searchParams.get('callbackUrl')
+      if (callbackUrl && callbackUrl.startsWith('/')) {
+        return NextResponse.redirect(new URL(callbackUrl, req.url))
+      }
       return NextResponse.redirect(new URL('/', req.url))
     }
     

@@ -17,7 +17,7 @@ export default function SignIn() {
         </p>
 
         <button
-          onClick={() => signIn('line', { callbackUrl })}
+          onClick={() => signIn('line', { callbackUrl, redirect: true })}
           className="w-full bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
         >
           <svg

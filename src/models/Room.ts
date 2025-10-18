@@ -1,41 +1,63 @@
 import mongoose, { Document, Schema } from 'mongoose'
 
-export interface IHotspot {
-  x: number
-  y: number
-  title: string
-  description: string
-}
-
 export interface IRoom extends Document {
   name: string
   description: string
-  imageUrl: string
+  imageUrls: string[]
   price: number
   capacity: number
   amenities: string[]
+  buildingId?: mongoose.Types.ObjectId
   isActive: boolean
-  hotspots?: IHotspot[]
   createdAt: Date
   updatedAt: Date
 }
 
 const RoomSchema = new Schema<IRoom>({
-  name: { type: String, required: true },
-  description: { type: String, required: true },
-  imageUrl: { type: String, required: true },
-  price: { type: Number, required: true },
-  capacity: { type: Number, required: true },
-  amenities: [{ type: String }],
-  isActive: { type: Boolean, default: true },
-  hotspots: [{
-    x: { type: Number, required: true },
-    y: { type: Number, required: true },
-    title: { type: String, required: true },
-    description: { type: String, required: true },
+  name: { 
+    type: String, 
+    required: true,
+    trim: true 
+  },
+  description: { 
+    type: String, 
+    required: true,
+    trim: true 
+  },
+  imageUrls: [{ 
+    type: String, 
+    required: true 
   }],
+  price: { 
+    type: Number, 
+    required: true,
+    min: 0 
+  },
+  capacity: { 
+    type: Number, 
+    required: true,
+    min: 1 
+  },
+  amenities: [{
+    type: String,
+    trim: true
+  }],
+  buildingId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Building',
+    required: false
+  },
+  isActive: { 
+    type: Boolean, 
+    default: true 
+  },
 }, {
   timestamps: true,
 })
+
+// Index for efficient queries
+RoomSchema.index({ buildingId: 1 })
+RoomSchema.index({ isActive: 1 })
+RoomSchema.index({ price: 1 })
 
 export default mongoose.models.Room || mongoose.model<IRoom>('Room', RoomSchema)
