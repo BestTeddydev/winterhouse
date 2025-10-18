@@ -11,6 +11,7 @@ export interface IPayment extends Document {
   omiseChargeId?: string
   stripeSessionId?: string
   stripePaymentIntentId?: string
+  stripeChargeId?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -28,6 +29,7 @@ const PaymentSchema = new Schema<IPayment>({
   omiseChargeId: { type: String, unique: true, sparse: true },
   stripeSessionId: { type: String, unique: true, sparse: true },
   stripePaymentIntentId: { type: String, unique: true, sparse: true },
+  stripeChargeId: { type: String, unique: true, sparse: true },
 }, {
   timestamps: true,
 })

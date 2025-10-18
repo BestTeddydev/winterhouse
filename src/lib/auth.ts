@@ -38,9 +38,6 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async session({ session, token }) {      
       try {
-        console.log('session', session);
-        console.log('token', token);
-        
         if (session.user && token) {
           session.user.id = token.id as string
           session.user.role = token.role as string || 'CUSTOMER'
@@ -52,9 +49,7 @@ export const authOptions: NextAuthOptions = {
         return session
       }
     },
-    async jwt({ token, user, account }) {
-      console.log('jwt', token, user, account);
-      
+    async jwt({ token, user, account }) {      
       // Initial sign in
       if (account && user) {
         token.accessToken = account.access_token
@@ -73,9 +68,7 @@ export const authOptions: NextAuthOptions = {
       return await refreshAccessToken(token)
     },
     async signIn({ user, account, profile }) {
-      if (account?.provider === 'line') {
-        console.log('LINE sign in:', user)
-        
+      if (account?.provider === 'line') {        
         try {
           await connectDB()
           const { default: User } = await import('@/models/User')

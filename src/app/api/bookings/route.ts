@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import connectDB from '@/lib/mongodb'
 import Booking from '@/models/Booking'
 import Room from '@/models/Room'
+import Payment from '@/models/Payment'
 import { sendLineNotification, formatBookingNotification } from '@/lib/line'
 import mongoose from 'mongoose'
 
@@ -33,6 +34,9 @@ export async function GET(request: NextRequest) {
     if (!mongoose.models.User) {
       require('@/models/User')
     }
+    if (!mongoose.models.Payment) {
+      require('@/models/Payment')
+    }
 
     let query: any = {}
 
@@ -59,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     const bookings = await Booking.find(query)
       .populate({
-        path: 'room',
+        path: 'roomId',
         model: 'Room',
         select: 'name description price capacity imageUrls'
       })
@@ -69,7 +73,7 @@ export async function GET(request: NextRequest) {
         select: 'status amount'
       })
       .populate({
-        path: 'user',
+        path: 'userId',
         model: 'User',
         select: 'name email lineUserId'
       })
@@ -78,9 +82,9 @@ export async function GET(request: NextRequest) {
     console.log('Bookings found:', bookings.length)
     console.log('Sample booking:', bookings[0] ? {
       id: bookings[0]._id,
-      room: bookings[0].room,
+      roomId: bookings[0].roomId,
       paymentId: bookings[0].paymentId,
-      user: bookings[0].user
+      userId: bookings[0].userId
     } : 'No bookings')
 
     return NextResponse.json(bookings)
@@ -182,22 +186,22 @@ export async function POST(request: NextRequest) {
     if (!mongoose.models.User) {
       require('@/models/User')
     }
+    if (!mongoose.models.Payment) {
+      require('@/models/Payment')
+    }
 
     // Check availability
+    // Allow check-in on the same day as previous guest's check-out
+    // But prevent check-in on the same day as previous guest's check-in
     const existingBookings = await Booking.find({
       roomId: new mongoose.Types.ObjectId(roomId),
       status: { $in: ['PENDING', 'CONFIRMED'] },
       $or: [
         {
-          checkIn: { $gte: checkInDate, $lte: checkOutDate }
-        },
-        {
-          checkOut: { $gte: checkInDate, $lte: checkOutDate }
-        },
-        {
+          // Prevent if new check-in overlaps with existing booking period
           $and: [
-            { checkIn: { $lte: checkInDate } },
-            { checkOut: { $gte: checkOutDate } }
+            { checkIn: { $lt: checkOutDate } }, // Existing check-in is before new check-out
+            { checkOut: { $gt: checkInDate } }  // Existing check-out is after new check-in
           ]
         }
       ]

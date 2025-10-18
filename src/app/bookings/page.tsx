@@ -10,14 +10,19 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { Calendar, CreditCard, CheckCircle, XCircle, Clock } from 'lucide-react'
 
 export default function MyBookings() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [bookings, setBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!session) {
+    // Wait for session to load before checking authentication
+    if (status === 'loading') {
+      return
+    }
+
+    if (status === 'unauthenticated') {
       router.push('/auth/signin')
       return
     }
@@ -39,7 +44,7 @@ export default function MyBookings() {
     }
 
     fetchBookings()
-  }, [session, searchParams])
+  }, [session, status, searchParams])
 
   const fetchBookings = async () => {
     try {
@@ -51,9 +56,9 @@ export default function MyBookings() {
       
       // Filter out bookings with missing room or payment data
       const validBookings = bookingsData.filter((booking: any) => {
-        const isValid = booking && booking.room
+        const isValid = booking && booking.roomId
         if (!isValid) {
-          console.log('Invalid booking (missing room):', booking)
+          console.log('Invalid booking (missing roomId):', booking)
         }
         return isValid
       })
@@ -112,7 +117,7 @@ export default function MyBookings() {
     }
   }
 
-  if (loading) {
+  if (loading || status === 'loading') {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
@@ -174,7 +179,7 @@ export default function MyBookings() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-bold">{booking.room?.name || 'ไม่ระบุชื่อห้อง'}</h3>
+                      <h3 className="text-xl font-bold">{booking.roomId?.name || 'ไม่ระบุชื่อห้อง'}</h3>
                       <span
                         className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
                           booking.status

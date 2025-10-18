@@ -22,15 +22,10 @@ export async function GET(
       status: { $in: ['PENDING', 'CONFIRMED'] },
       $or: [
         {
-          checkIn: { $gte: startDate, $lte: endDate }
-        },
-        {
-          checkOut: { $gte: startDate, $lte: endDate }
-        },
-        {
+          // Find bookings that overlap with the date range
           $and: [
-            { checkIn: { $lte: startDate } },
-            { checkOut: { $gte: endDate } }
+            { checkIn: { $lt: endDate } }, // Existing check-in is before end date
+            { checkOut: { $gt: startDate } }  // Existing check-out is after start date
           ]
         }
       ]
@@ -47,10 +42,13 @@ export async function GET(
     }
     
     // Mark booked dates
+    // Allow check-in on the same day as previous guest's check-out
     bookings.forEach(booking => {
       const checkIn = new Date(booking.checkIn)
       const checkOut = new Date(booking.checkOut)
       
+      // Mark dates as booked from check-in day to check-out day (exclusive)
+      // This allows new guests to check-in on the same day as previous guest's check-out
       const current = new Date(checkIn)
       while (current < checkOut) {
         const dateStr = current.toISOString().split('T')[0]
