@@ -79,13 +79,6 @@ export async function GET(request: NextRequest) {
       })
       .sort({ createdAt: -1 })
 
-    console.log('Bookings found:', bookings.length)
-    console.log('Sample booking:', bookings[0] ? {
-      id: bookings[0]._id,
-      roomId: bookings[0].roomId,
-      paymentId: bookings[0].paymentId,
-      userId: bookings[0].userId
-    } : 'No bookings')
 
     return NextResponse.json(bookings)
   } catch (error) {
@@ -127,6 +120,7 @@ export async function POST(request: NextRequest) {
       guestEmail,
       guestPhone,
       specialRequests,
+      paymentType = 'FULL', // Default to full payment
     } = body
 
     // Validate required fields
@@ -144,6 +138,11 @@ export async function POST(request: NextRequest) {
     
     if (!totalPrice || totalPrice <= 0) {
       return NextResponse.json({ error: 'ต้องระบุราคารวมที่ถูกต้อง' }, { status: 400 })
+    }
+
+    // Validate payment type
+    if (!['FULL', 'PARTIAL'].includes(paymentType)) {
+      return NextResponse.json({ error: 'ประเภทการชำระเงินไม่ถูกต้อง' }, { status: 400 })
     }
 
     // Validate ObjectId formats
@@ -235,9 +234,29 @@ export async function POST(request: NextRequest) {
 
     // Create payment record
     const { default: Payment } = await import('@/models/Payment')
+    
+    // Calculate payment amounts based on payment type
+    let paymentAmount: number
+    let paidAmount: number
+    let remainingAmount: number
+    
+    if (paymentType === 'FULL') {
+      paymentAmount = totalPrice
+      paidAmount = totalPrice
+      remainingAmount = 0
+    } else { // PARTIAL
+      paymentAmount = Math.round(totalPrice * 0.5) // 50% down payment
+      paidAmount = paymentAmount
+      remainingAmount = totalPrice - paymentAmount
+    }
+    
     const payment = new Payment({
       bookingId: booking._id,
-      amount: totalPrice,
+      amount: paymentAmount,
+      totalAmount: totalPrice,
+      paidAmount: paidAmount,
+      remainingAmount: remainingAmount,
+      paymentType: paymentType,
     })
     await payment.save()
 

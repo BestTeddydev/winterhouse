@@ -38,7 +38,7 @@ export function formatBookingNotification(booking: any) {
   return `
 🏠 การจองห้องพักใหม่
 
-ห้อง: ${booking.room.name}
+ห้อง: ${booking.roomId?.name || 'Room'}
 ผู้จอง: ${booking.guestName}
 เช็คอิน: ${new Date(booking.checkIn).toLocaleDateString('th-TH')}
 เช็คเอาท์: ${new Date(booking.checkOut).toLocaleDateString('th-TH')}
@@ -47,16 +47,50 @@ export function formatBookingNotification(booking: any) {
   `.trim()
 }
 
-export function formatBookingStatusUpdate(booking: any, oldStatus: string) {
+export function formatPaymentThankYouMessage(booking: any, payment: any) {
+  const checkInDate = new Date(booking.checkIn).toLocaleDateString('th-TH')
+  const checkOutDate = new Date(booking.checkOut).toLocaleDateString('th-TH')
+  
   return `
-🔔 อัพเดทสถานะการจอง
+🎉 ขอบคุณสำหรับการจอง บ้านลมหนาวคาเฟ่ แอนด์ แคมป์ปิ้ง!
 
-ห้อง: ${booking.room.name}
-เลขที่การจอง: ${booking.id.slice(0, 8)}
-สถานะเดิม: ${oldStatus}
-สถานะใหม่: ${booking.status}
-เช็คอิน: ${new Date(booking.checkIn).toLocaleDateString('th-TH')}
-เช็คเอาท์: ${new Date(booking.checkOut).toLocaleDateString('th-TH')}
+✅ การชำระเงินเสร็จสิ้นแล้ว
+การจองของคุณได้รับการยืนยันแล้ว
+
+🏠 รายละเอียดการจอง:
+ห้อง: ${booking.roomId?.name || 'Room'}
+เช็คอิน: ${checkInDate}
+เช็คเอาท์: ${checkOutDate}
+จำนวนคืน: ${Math.ceil((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / (1000 * 60 * 60 * 24))} คืน
+เลขที่การจอง: ${booking._id}
+
+💳 ข้อมูลการชำระเงิน:
+จำนวนเงิน: ฿${payment.totalAmount.toLocaleString()}
+สถานะ: ชำระเงินแล้ว ✅
+
+📞 หากมีคำถาม กรุณาติดต่อเราได้ที่:
+📧 ${process.env.ADMIN_EMAIL || 'admin@winterhouse.com'}
+📱 ${process.env.ADMIN_PHONE || '02-xxx-xxxx'}
+
+เราหวังว่าจะได้ต้อนรับคุณในเร็วๆ นี้! 🏡✨
+  `.trim()
+}
+
+export function formatAdminPaymentNotification(booking: any, payment: any) {
+  const checkInDate = new Date(booking.checkIn).toLocaleDateString('th-TH')
+  const checkOutDate = new Date(booking.checkOut).toLocaleDateString('th-TH')
+  
+  return `
+💰 การชำระเงินใหม่
+
+ห้อง: ${booking.roomId?.name || 'Room'}
+ผู้จอง: ${booking.guestName}
+เช็คอิน: ${checkInDate}
+เช็คเอาท์: ${checkOutDate}
+จำนวนเงิน: ฿${payment.totalAmount.toLocaleString()}
+สถานะ: ชำระเงินแล้ว ✅
+
+กรุณาตรวจสอบในระบบแอดมิน
   `.trim()
 }
 

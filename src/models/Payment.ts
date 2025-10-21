@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose'
 
 export type PaymentStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'REFUNDED'
+export type PaymentType = 'FULL' | 'PARTIAL' | 'REMAINING'
 
 export interface IPayment extends Document {
   bookingId: mongoose.Types.ObjectId
@@ -8,6 +9,10 @@ export interface IPayment extends Document {
   currency: string
   status: PaymentStatus
   paymentMethod?: string
+  paymentType: PaymentType
+  totalAmount: number // Total amount for the booking
+  paidAmount: number // Amount already paid
+  remainingAmount: number // Amount remaining to be paid
   omiseChargeId?: string
   stripeSessionId?: string
   stripePaymentIntentId?: string
@@ -26,6 +31,14 @@ const PaymentSchema = new Schema<IPayment>({
     default: 'PENDING' 
   },
   paymentMethod: { type: String },
+  paymentType: { 
+    type: String, 
+    enum: ['FULL', 'PARTIAL', 'REMAINING'], 
+    default: 'FULL' 
+  },
+  totalAmount: { type: Number, required: true },
+  paidAmount: { type: Number, default: 0 },
+  remainingAmount: { type: Number, default: 0 },
   omiseChargeId: { type: String, unique: true, sparse: true },
   stripeSessionId: { type: String, unique: true, sparse: true },
   stripePaymentIntentId: { type: String, unique: true, sparse: true },

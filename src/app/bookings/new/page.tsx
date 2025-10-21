@@ -20,6 +20,7 @@ export default function NewBooking() {
   const [room, setRoom] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [sessionLoading, setSessionLoading] = useState(true)
 
   const [guestName, setGuestName] = useState('')
   const [guestEmail, setGuestEmail] = useState('')
@@ -27,14 +28,21 @@ export default function NewBooking() {
   const [specialRequests, setSpecialRequests] = useState('')
 
   useEffect(() => {
+    // Wait for session to load
+    if (session === undefined) {
+      return
+    }
+    
+    setSessionLoading(false)
+    
     if (!session) {
       router.push('/auth/signin')
       return
     }
 
     if (!roomId || !checkIn || !checkOut) {
-      toast.error('ข้อมูลการจองไม่ครบถ้วน')
-      router.push('/')
+      toast.error('ข้อมูลการจองไม่ครบถ้วน กรุณาเลือกห้องพักใหม่')
+      router.push('/rooms')
       return
     }
 
@@ -97,23 +105,38 @@ export default function NewBooking() {
     }
   }
 
-  if (loading) {
+  if (sessionLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <div className="flex flex-col items-center space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+            <p className="text-gray-600">กำลังโหลดข้อมูล...</p>
+          </div>
         </div>
       </div>
     )
   }
 
-  if (!room) {
+  if (!room && !loading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
         <div className="container mx-auto px-4 py-8">
-          <p className="text-center text-gray-500">ไม่พบห้องพักที่ต้องการ</p>
+          <div className="max-w-md mx-auto text-center">
+            <div className="bg-white rounded-lg shadow-md p-8">
+              <div className="text-red-500 text-6xl mb-4">⚠️</div>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">ไม่พบข้อมูลการจอง</h2>
+              <p className="text-gray-700 mb-6">กรุณาเลือกห้องพักและวันที่เข้าพักใหม่</p>
+              <button
+                onClick={() => router.push('/rooms')}
+                className="w-full bg-primary-600 text-white py-3 rounded-lg font-semibold hover:bg-primary-700 transition-colors"
+              >
+                เลือกห้องพักใหม่
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -128,55 +151,58 @@ export default function NewBooking() {
       <Navbar />
 
       <main className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">ยืนยันการจอง</h1>
+        <h1 className="text-3xl font-bold mb-8 text-gray-900">ยืนยันการจอง</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Booking Form */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-6">ข้อมูลผู้เข้าพัก</h2>
+              <h2 className="text-xl font-bold mb-6 text-gray-900">ข้อมูลผู้เข้าพัก</h2>
 
               <form onSubmit={handleSubmit}>
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">ชื่อ-นามสกุล *</label>
+                  <label className="block text-gray-900 font-semibold mb-2">ชื่อ-นามสกุล *</label>
                   <input
                     type="text"
                     value={guestName}
                     onChange={(e) => setGuestName(e.target.value)}
                     required
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-base placeholder-gray-500"
+                    placeholder="กรุณากรอกชื่อ-นามสกุล"
                   />
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">อีเมล *</label>
+                  <label className="block text-gray-900 font-semibold mb-2">อีเมล *</label>
                   <input
                     type="email"
                     value={guestEmail}
                     onChange={(e) => setGuestEmail(e.target.value)}
                     required
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-base placeholder-gray-500"
+                    placeholder="กรุณากรอกอีเมล"
                   />
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">เบอร์โทรศัพท์ *</label>
+                  <label className="block text-gray-900 font-semibold mb-2">เบอร์โทรศัพท์ *</label>
                   <input
                     type="tel"
                     value={guestPhone}
                     onChange={(e) => setGuestPhone(e.target.value)}
                     required
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-base placeholder-gray-500"
+                    placeholder="กรุณากรอกเบอร์โทรศัพท์"
                   />
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-gray-700 mb-2">ความต้องการพิเศษ</label>
+                  <label className="block text-gray-900 font-semibold mb-2">ความต้องการพิเศษ</label>
                   <textarea
                     value={specialRequests}
                     onChange={(e) => setSpecialRequests(e.target.value)}
                     rows={4}
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-base placeholder-gray-500 resize-none"
                     placeholder="เช่น ต้องการเตียงเสริม, ต้องการห้องปลอดบุหรี่"
                   />
                 </div>
@@ -195,38 +221,38 @@ export default function NewBooking() {
           {/* Booking Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-4">
-              <h2 className="text-xl font-bold mb-4">สรุปการจอง</h2>
+              <h2 className="text-xl font-bold mb-4 text-gray-900">สรุปการจอง</h2>
 
               <div className="mb-4">
-                <h3 className="font-semibold">{room.name}</h3>
-                <p className="text-gray-600 text-sm">{room.description}</p>
+                <h3 className="font-semibold text-gray-900">{room.name}</h3>
+                <p className="text-gray-800 text-sm">{room.description}</p>
               </div>
 
               <div className="border-t border-b py-4 mb-4 space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">เช็คอิน</span>
-                  <span className="font-medium">
+                  <span className="text-gray-800 font-medium">เช็คอิน</span>
+                  <span className="font-semibold text-gray-900">
                     {new Date(checkIn!).toLocaleDateString('th-TH')}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">เช็คเอาท์</span>
-                  <span className="font-medium">
+                  <span className="text-gray-800 font-medium">เช็คเอาท์</span>
+                  <span className="font-semibold text-gray-900">
                     {new Date(checkOut!).toLocaleDateString('th-TH')}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">จำนวนคืน</span>
-                  <span className="font-medium">{nights} คืน</span>
+                  <span className="text-gray-800 font-medium">จำนวนคืน</span>
+                  <span className="font-semibold text-gray-900">{nights} คืน</span>
                 </div>
               </div>
 
               <div className="space-y-2 mb-4">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">
+                  <span className="text-gray-800 font-medium">
                     {formatCurrency(room.price)} x {nights} คืน
                   </span>
-                  <span className="font-medium">
+                  <span className="font-semibold text-gray-900">
                     {formatCurrency(parseFloat(room.price) * nights)}
                   </span>
                 </div>
@@ -234,8 +260,8 @@ export default function NewBooking() {
 
               <div className="border-t pt-4">
                 <div className="flex justify-between text-xl font-bold">
-                  <span>ยอดรวม</span>
-                  <span className="text-primary-600">
+                  <span className="text-gray-900">ยอดรวม</span>
+                  <span className="text-primary-700">
                     {formatCurrency(calculateTotalPrice())}
                   </span>
                 </div>

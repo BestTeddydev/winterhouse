@@ -17,6 +17,7 @@ export default function NewRoom() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [imageUrls, setImageUrls] = useState<string[]>([])
+  const [coverImageIndex, setCoverImageIndex] = useState(0)
   const [price, setPrice] = useState('')
   const [capacity, setCapacity] = useState('')
   const [amenities, setAmenities] = useState<string[]>([])
@@ -115,8 +116,22 @@ export default function NewRoom() {
     }
     
     // Remove from arrays
-    setImageUrls(imageUrls.filter((_, i) => i !== index))
-    setSelectedFiles(selectedFiles.filter((_, i) => i !== index))
+    const newImageUrls = imageUrls.filter((_, i) => i !== index)
+    const newSelectedFiles = selectedFiles.filter((_, i) => i !== index)
+    
+    setImageUrls(newImageUrls)
+    setSelectedFiles(newSelectedFiles)
+    
+    // Adjust cover image index if needed
+    if (coverImageIndex >= newImageUrls.length) {
+      setCoverImageIndex(Math.max(0, newImageUrls.length - 1))
+    } else if (coverImageIndex > index) {
+      setCoverImageIndex(coverImageIndex - 1)
+    }
+  }
+
+  const handleSetCoverImage = (index: number) => {
+    setCoverImageIndex(index)
   }
 
   const handleRemoveAllImages = () => {
@@ -164,7 +179,8 @@ export default function NewRoom() {
       await axios.post('/api/rooms', {
         name,
         description,
-        imageUrls,
+        imageUrl: imageUrls[coverImageIndex], // รูปปก
+        imageUrls, // รูปทั้งหมด
         price: parseFloat(price),
         capacity: parseInt(capacity),
         amenities,
@@ -234,6 +250,9 @@ export default function NewRoom() {
             <label className="block text-gray-700 font-medium mb-2">
               รูปภาพห้องพัก * (สามารถอัปโหลดหลายรูป)
             </label>
+            <p className="text-sm text-gray-600 mb-4">
+              รูปแรกจะเป็นรูปปก (Cover Image) ที่แสดงในรายการห้องพัก
+            </p>
             
             {/* File Upload Area */}
             {imageUrls.length === 0 ? (
@@ -259,7 +278,9 @@ export default function NewRoom() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {imageUrls.map((imageUrl, index) => (
                     <div key={index} className="relative group">
-                      <div className="relative h-48 w-full rounded-lg overflow-hidden border">
+                      <div className={`relative h-48 w-full rounded-lg overflow-hidden border-2 ${
+                        coverImageIndex === index ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200'
+                      }`}>
                         <Image
                           src={imageUrl}
                           alt={`Preview ${index + 1}`}
@@ -279,10 +300,23 @@ export default function NewRoom() {
                           <X size={16} />
                         </button>
                         
-                        {/* Image Number */}
-                        <div className="absolute top-2 left-2 px-2 py-1 bg-black bg-opacity-50 text-white text-xs rounded">
-                          รูปที่ {index + 1}
-                        </div>
+                        {/* Cover Image Badge */}
+                        {coverImageIndex === index && (
+                          <div className="absolute top-2 left-2 px-2 py-1 bg-primary-500 text-white text-xs rounded font-medium">
+                            รูปปก
+                          </div>
+                        )}
+                        
+                        {/* Set Cover Button */}
+                        {coverImageIndex !== index && (
+                          <button
+                            type="button"
+                            onClick={() => handleSetCoverImage(index)}
+                            className="absolute bottom-2 left-2 px-3 py-1 bg-white bg-opacity-90 text-gray-700 text-xs rounded hover:bg-opacity-100 transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            เลือกเป็นรูปปก
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -406,12 +440,38 @@ export default function NewRoom() {
             </div>
           </div>
 
+          {/* Cover Image Preview */}
+          {imageUrls.length > 0 && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h3 className="font-semibold text-gray-900 mb-3">รูปปกที่เลือก</h3>
+              <div className="flex items-center gap-4">
+                <div className="relative w-24 h-16 rounded-lg overflow-hidden border-2 border-primary-500">
+                  <Image
+                    src={imageUrls[coverImageIndex]}
+                    alt="Cover Image"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-700">
+                    รูปที่ {coverImageIndex + 1} จาก {imageUrls.length} รูป
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    รูปนี้จะแสดงในรายการห้องพัก
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h3 className="font-semibold text-blue-900 mb-2">💡 หมายเหตุ</h3>
             <ul className="text-sm text-blue-800 space-y-1">
               <li>• ห้องพักจะถูกสร้างโดยไม่ผูกกับอาคาร</li>
               <li>• สามารถผูกห้องพักกับอาคารได้ในหน้า "จัดการแผนผัง"</li>
               <li>• สามารถอัปโหลดรูปภาพหลายรูปสำหรับห้องพักเดียว</li>
+              <li>• รูปปกจะแสดงในรายการห้องพักและเป็นรูปหลักของห้องพัก</li>
             </ul>
           </div>
 

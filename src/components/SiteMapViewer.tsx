@@ -20,6 +20,8 @@ interface SiteMapViewerProps {
   hotspots: BuildingHotspot[]
   selectedBuilding: BuildingHotspot | null
   onBuildingSelect: (building: BuildingHotspot | null) => void
+  hoveredRoom?: any
+  rooms?: any[]
 }
 
 export default function SiteMapViewer({
@@ -27,6 +29,8 @@ export default function SiteMapViewer({
   hotspots,
   selectedBuilding,
   onBuildingSelect,
+  hoveredRoom,
+  rooms = [],
 }: SiteMapViewerProps) {
   const [imageError, setImageError] = useState(false)
 
@@ -47,6 +51,13 @@ export default function SiteMapViewer({
     parking: '🚗',
     garden: '🌳'
   }
+
+  // Find hotspot for hovered room
+  const getHotspotForRoom = (roomId: string) => {
+    return hotspots.find(hotspot => hotspot.rooms.includes(roomId))
+  }
+
+  const hoveredHotspot = hoveredRoom ? getHotspotForRoom(hoveredRoom.id) : null
 
   return (
     <div className="space-y-6">
@@ -90,6 +101,8 @@ export default function SiteMapViewer({
                     className={`absolute w-12 h-12 -ml-6 -mt-6 rounded-full border-4 border-white shadow-lg hover:scale-110 transition-all duration-300 cursor-pointer flex items-center justify-center text-xl z-10 ${
                       selectedBuilding?.id === hotspot.id
                         ? 'bg-red-500 scale-125 animate-pulse'
+                        : hoveredHotspot?.id === hotspot.id
+                        ? 'bg-green-500 scale-110 animate-pulse'
                         : 'bg-primary-500 hover:bg-primary-600'
                     }`}
                     style={{
@@ -115,10 +128,21 @@ export default function SiteMapViewer({
                       transform: 'translateX(-50%)',
                     }}
                   >
-                    <div className="bg-white px-3 py-1 rounded-lg shadow-md border border-gray-200">
-                      <p className="text-xs font-semibold text-gray-900">{hotspot.buildingName}</p>
+                    <div className={`px-3 py-1 rounded-lg shadow-md border transition-all ${
+                      hoveredHotspot?.id === hotspot.id 
+                        ? 'bg-green-100 border-green-300' 
+                        : 'bg-white border-gray-200'
+                    }`}>
+                      <p className={`text-xs font-semibold ${
+                        hoveredHotspot?.id === hotspot.id ? 'text-green-900' : 'text-gray-900'
+                      }`}>{hotspot.buildingName}</p>
                       {roomCount > 0 && (
-                        <p className="text-xs text-gray-600">{roomCount} ห้อง</p>
+                        <p className={`text-xs ${
+                          hoveredHotspot?.id === hotspot.id ? 'text-green-700' : 'text-gray-600'
+                        }`}>{roomCount} ห้อง</p>
+                      )}
+                      {hoveredHotspot?.id === hotspot.id && hoveredRoom && (
+                        <p className="text-xs text-green-800 font-medium">← {hoveredRoom.name}</p>
                       )}
                     </div>
                   </div>

@@ -18,8 +18,6 @@ import {
   ArrowRight,
   Search,
   Filter,
-  Grid,
-  List,
   Bed,
   Eye,
   EyeOff,
@@ -84,7 +82,6 @@ export default function RoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [siteMap, setSiteMap] = useState<SiteMapData>({ imageUrl: '', hotspots: [] })
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<'map' | 'list'>('map')
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingHotspot | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [priceFilter, setPriceFilter] = useState('all')
@@ -98,6 +95,7 @@ export default function RoomsPage() {
   const [selectedBookingConflicts, setSelectedBookingConflicts] = useState<any[]>([])
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDateRange, setSelectedDateRange] = useState<{start: Date | null, end: Date | null}>({start: null, end: null})
+  const [hoveredRoom, setHoveredRoom] = useState<Room | null>(null)
 
   useEffect(() => {
     fetchData()
@@ -1086,32 +1084,6 @@ export default function RoomsPage() {
                 เลือกห้องพักที่เหมาะกับคุณจากแผนผังอาคารของเรา พร้อมสิ่งอำนวยความสะดวกครบครัน
               </p>
             </div>
-            
-            {/* View Mode Toggle */}
-            <div className="bg-white rounded-lg p-1 shadow-sm border">
-              <button
-                onClick={() => setViewMode('map')}
-                className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
-                  viewMode === 'map' 
-                    ? 'bg-primary-600 text-white' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <MapPin size={16} />
-                แผนผังอาคาร
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
-                  viewMode === 'list' 
-                    ? 'bg-primary-600 text-white' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <List size={16} />
-                รายการห้องพัก
-              </button>
-            </div>
           </div>
         </div>
 
@@ -1176,6 +1148,8 @@ export default function RoomsPage() {
               hotspots={siteMap.hotspots}
               selectedBuilding={selectedBuilding}
               onBuildingSelect={handleBuildingSelect}
+              hoveredRoom={hoveredRoom}
+              rooms={rooms}
             />
           </div>
 
@@ -1192,215 +1166,213 @@ export default function RoomsPage() {
                 onClose={() => setSelectedBuilding(null)}
               />
             ) : (
-              <div className="flex items-center justify-center h-full min-h-[400px] lg:min-h-[600px]">
-                <div className="text-center text-gray-500">
-                  <MapPin className="mx-auto h-12 w-12 lg:h-16 lg:w-16 text-gray-400 mb-4" />
-                  <h3 className="text-lg lg:text-xl font-semibold text-gray-900 mb-2">เลือกอาคาร</h3>
-                  <p className="text-sm lg:text-base text-gray-600">คลิกที่จุดบนแผนผังเพื่อดูห้องพักในอาคารนั้น</p>
+              <div className="h-full">
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">รายการห้องพักทั้งหมด</h3>
+                  <p className="text-sm text-gray-600">คลิกที่จุดบนแผนผังเพื่อดูห้องพักในอาคารนั้น หรือเลือกห้องพักจากรายการด้านล่าง</p>
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* List View Toggle */}
-        <div className="mt-6 flex justify-center">
-          <div className="bg-white rounded-lg p-1 shadow-sm border">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
-                viewMode === 'list' 
-                  ? 'bg-primary-600 text-white' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <List size={16} />
-              ดูรายการห้องพักทั้งหมด
-            </button>
-          </div>
-        </div>
-
-        {viewMode === 'list' && (
-          /* List View */
-          <div className="space-y-6">
-            {/* Filters */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Filter size={20} />
-                กรองห้องพัก
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Search */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">ค้นหา</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                    <input
-                      type="text"
-                      placeholder="ค้นหาห้องพัก..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Price Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">ราคา</label>
-                  <select
-                    value={priceFilter}
-                    onChange={(e) => setPriceFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value="all">ราคาทั้งหมด</option>
-                    <option value="low">ต่ำกว่า ฿2,000</option>
-                    <option value="medium">฿2,000 - ฿5,000</option>
-                    <option value="high">มากกว่า ฿5,000</option>
-                  </select>
-                </div>
-
-                {/* Capacity Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">ความจุ</label>
-                  <select
-                    value={capacityFilter}
-                    onChange={(e) => setCapacityFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value="all">ความจุทั้งหมด</option>
-                    <option value="1-2">1-2 คน</option>
-                    <option value="3-4">3-4 คน</option>
-                    <option value="5+">5+ คน</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Results Summary */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">ผลการค้นหา</h3>
-                  <p className="text-gray-600">
-                    พบ <span className="font-bold text-primary-600">{filteredRooms.length}</span> ห้องพัก
-                    {filteredRooms.length !== rooms.filter(room => room.isActive).length && 
-                      ` จาก ${rooms.filter(room => room.isActive).length} ห้องทั้งหมด`
-                    }
-                  </p>
-                </div>
-                {filteredRooms.length > 0 && (
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <Users size={16} />
-                      <span>เฉลี่ย {Math.round(filteredRooms.reduce((sum, room) => sum + room.capacity, 0) / filteredRooms.length)} คน/ห้อง</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span>฿</span>
-                      <span>เฉลี่ย {Math.round(filteredRooms.reduce((sum, room) => sum + room.price, 0) / filteredRooms.length).toLocaleString()}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Results */}
-            <div className="space-y-4">
-
-              {filteredRooms.length === 0 ? (
-                <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-                  <Calendar className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">ไม่พบห้องพัก</h3>
-                  <p className="text-gray-600">ลองเปลี่ยนเงื่อนไขการค้นหาดู</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {filteredRooms.map((room) => (
-                    <div key={room.id} id={`room-${room.id}`} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
-                      <div className="aspect-video bg-gray-200 relative">
-                        <Image
-                          src={room.imageUrl}
-                          alt={room.name}
-                          fill
-                          className="object-cover"
-                        />
+                
+                <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                  {filteredRooms.length === 0 ? (
+                    <div className="flex items-center justify-center h-32">
+                      <div className="text-center text-gray-500">
+                        <Calendar className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                        <p className="text-sm">ไม่พบห้องพักที่ตรงกับเงื่อนไข</p>
                       </div>
-                      
-                      <div className="p-6">
-                        <div className="flex justify-between items-start mb-4">
-                          <div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-1">{room.name}</h3>
-                            <div className="flex items-center gap-4 text-sm text-gray-600">
-                              <div className="flex items-center gap-1">
-                                <Users size={16} />
+                    </div>
+                  ) : (
+                    filteredRooms.map((room) => (
+                      <div 
+                        key={room.id} 
+                        className={`border rounded-lg p-4 transition-all cursor-pointer ${
+                          hoveredRoom?.id === room.id 
+                            ? 'border-primary-500 shadow-lg bg-primary-50' 
+                            : 'border-gray-200 hover:shadow-md'
+                        }`}
+                        onMouseEnter={() => setHoveredRoom(room)}
+                        onMouseLeave={() => setHoveredRoom(null)}
+                        onClick={() => handleRoomSelect(room)}
+                      >
+                        <div className="flex gap-4">
+                          <div className="w-20 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                            <Image
+                              src={room.imageUrl}
+                              alt={room.name}
+                              width={80}
+                              height={64}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start mb-2">
+                              <h5 className="font-bold text-gray-900 text-sm">{room.name}</h5>
+                              <span className="font-bold text-primary-600 text-sm">฿{room.price.toLocaleString()}</span>
+                            </div>
+                            <p className="text-xs text-gray-600 mb-2 line-clamp-2">{room.description}</p>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1 text-xs text-gray-600">
+                                <Users size={12} />
                                 {room.capacity} คน
                               </div>
-                              <div className="flex items-center gap-1">
-                                <Star size={16} />
-                                {room.amenities.length} สิ่งอำนวยความสะดวก
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleRoomSelect(room)
+                                  }}
+                                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                    selectedRoom?.id === room.id
+                                      ? 'bg-primary-600 text-white'
+                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  }`}
+                                >
+                                  {selectedRoom?.id === room.id ? 'กำลังดู' : 'ดูรายละเอียด'}
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleRoomBook(room.id)
+                                  }}
+                                  className="px-2 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-xs font-medium flex items-center gap-1"
+                                >
+                                  <Calendar size={10} />
+                                  จอง
+                                </button>
                               </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-primary-600">฿{room.price.toLocaleString()}</p>
-                            <p className="text-sm text-gray-600">ต่อคืน</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                
+                {/* Room Details Section */}
+                {selectedRoom && (
+                  <div className="mt-6 border-t pt-6">
+                    <div className="mb-4">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-2">รายละเอียดห้องพัก</h4>
+                      <div className="flex items-center gap-2 mb-3">
+                        <button
+                          onClick={() => setSelectedRoom(null)}
+                          className="text-gray-500 hover:text-gray-700 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                        <span className="text-sm text-gray-600">กดปิดเพื่อดูรายการห้องพักทั้งหมด</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      {/* Room Header */}
+                      <div className="flex gap-4 mb-4">
+                        <div className="w-32 h-24 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                          <Image
+                            src={selectedRoom.imageUrl}
+                            alt={selectedRoom.name}
+                            width={128}
+                            height={96}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-bold text-gray-900 mb-1 text-lg">{selectedRoom.name}</h5>
+                          <p className="text-sm text-gray-600 mb-3">{selectedRoom.description}</p>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-1 text-sm text-gray-600">
+                              <Users size={16} />
+                              {selectedRoom.capacity} คน
+                            </div>
+                            <span className="font-bold text-primary-600 text-xl">฿{selectedRoom.price.toLocaleString()}</span>
                           </div>
                         </div>
-                        
-                        <p className="text-gray-700 mb-4 line-clamp-3">{room.description}</p>
-                        
-                        {/* Amenities */}
-                        <div className="mb-6">
-                          <h4 className="font-semibold text-gray-900 mb-2">สิ่งอำนวยความสะดวก</h4>
+                      </div>
+
+                      {/* Image Gallery */}
+                      <div className="mb-4">
+                        <h6 className="text-sm font-semibold text-gray-900 mb-2">รูปภาพห้องพัก</h6>
+                        <div className="flex gap-2 overflow-x-auto">
+                          {[selectedRoom.imageUrl, ...(selectedRoom.imageUrls || [])].slice(0, 5).map((image, index) => (
+                            <div
+                              key={index}
+                              className="w-16 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => {
+                                setCurrentImageIndex(index)
+                                setShowImageModal(true)
+                              }}
+                            >
+                              <Image
+                                src={image}
+                                alt={`${selectedRoom.name} ${index + 1}`}
+                                width={64}
+                                height={48}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ))}
+                          {[selectedRoom.imageUrl, ...(selectedRoom.imageUrls || [])].length > 5 && (
+                            <div className="w-16 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-600 flex-shrink-0">
+                              +{([selectedRoom.imageUrl, ...(selectedRoom.imageUrls || [])].length - 5)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Amenities */}
+                      {selectedRoom.amenities.length > 0 && (
+                        <div className="mb-4">
+                          <h6 className="text-sm font-semibold text-gray-900 mb-2">สิ่งอำนวยความสะดวก</h6>
                           <div className="flex flex-wrap gap-2">
-                            {room.amenities.slice(0, 4).map((amenity, index) => (
+                            {selectedRoom.amenities.map((amenity, index) => (
                               <div
                                 key={index}
-                                className="flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
+                                className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs"
                               >
                                 {getAmenityIcon(amenity)}
                                 {amenity}
                               </div>
                             ))}
-                            {room.amenities.length > 4 && (
-                              <div className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
-                                +{room.amenities.length - 4} อื่นๆ
-                              </div>
-                            )}
                           </div>
                         </div>
-                        
+                      )}
+
+                      {/* Booking Info */}
+                      {checkInDate && (
+                        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <h6 className="text-sm font-semibold text-blue-900 mb-2">ข้อมูลการจองที่เลือก</h6>
+                          <div className="text-xs text-blue-800">
+                            <div>เช็คอิน: {new Date(checkInDate).toLocaleDateString('th-TH')}</div>
+                            <div>เช็คเอาท์: {new Date(calculateCheckOutDate()).toLocaleDateString('th-TH')}</div>
+                            <div>จำนวนคืน: {nights} คืน</div>
+                            <div>ราคารวม: ฿{(selectedRoom.price * nights).toLocaleString()}</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-2">
                         <button
-                          onClick={() => handleBooking(room.id)}
-                          className="w-full py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center gap-2 font-semibold"
+                          onClick={() => handleRoomBook(selectedRoom.id)}
+                          className="flex-1 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium flex items-center justify-center gap-1"
                         >
+                          <Calendar size={14} />
                           จองห้องพัก
-                          <ArrowRight size={16} />
                         </button>
                       </div>
+
+                      {/* Interactive Calendar */}
+                      <InteractiveCalendar roomAvailability={roomAvailability} />
                     </div>
-                  )                  )}
-                  
-                  {/* Tips */}
-                  <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-6">
-                    <h3 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
-                      <span>💡</span>
-                      เคล็ดลับการใช้งาน
-                    </h3>
-                    <ul className="list-disc list-inside space-y-2 text-blue-800">
-                      <li>ใช้โหมด "แผนผังอาคาร" เพื่อดูตำแหน่งห้องพักและสิ่งอำนวยความสะดวก</li>
-                      <li>คลิกที่จุดบนแผนผังเพื่อดูรายละเอียดห้องพักในอาคารนั้น</li>
-                      <li>ใช้โหมด "รายการห้องพัก" เพื่อค้นหาและกรองห้องพักตามความต้องการ</li>
-                      <li>กรุณาเข้าสู่ระบบก่อนจองห้องพัก</li>
-                    </ul>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+
+               
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </main>
-      
+
       {/* Image Gallery Modal */}
       <ImageGalleryModalComponent />
     </div>
