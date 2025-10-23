@@ -217,7 +217,7 @@ export default function AdminBuildings() {
                     <div className="mb-4">
                       <p className="text-sm font-medium text-gray-900 mb-2">สิ่งอำนวยความสะดวก:</p>
                       <div className="flex flex-wrap gap-1">
-                        {building.facilities.slice(0, 3).map((facility: string, index: number) => (
+                        {(building.facilities || []).slice(0, 3).map((facility: string, index: number) => (
                           <span
                             key={index}
                             className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs"
@@ -225,9 +225,9 @@ export default function AdminBuildings() {
                             {facility}
                           </span>
                         ))}
-                        {building.facilities.length > 3 && (
+                        {(building.facilities || []).length > 3 && (
                           <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
-                            +{building.facilities.length - 3}
+                            +{(building.facilities || []).length - 3}
                           </span>
                         )}
                       </div>

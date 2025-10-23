@@ -222,10 +222,31 @@ export default function MyBookings() {
                   </div>
 
                   <div className="flex flex-col items-end gap-2">
-                    <div className="text-2xl font-bold text-primary-600">
-                      {formatCurrency(booking.totalPrice || 0)}
-                    </div>
+                    {/* Price Display */}
+                    {booking.paymentType === 'PARTIAL' ? (
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-primary-600">
+                          {formatCurrency(booking.payment?.paidAmount || booking.payment?.amount || 0)}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          มัดจำ 50%
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          รวม: {formatCurrency(booking.totalPrice || 0)}
+                        </div>
+                        {booking.payment?.remainingAmount > 0 && (
+                          <div className="text-xs text-orange-600">
+                            เหลือ: {formatCurrency(booking.payment?.remainingAmount || 0)}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-2xl font-bold text-primary-600">
+                        {formatCurrency(booking.totalPrice || 0)}
+                      </div>
+                    )}
 
+                    {/* Payment Buttons */}
                     {(booking.paymentId?.status === 'PENDING' || booking.paymentId?.status === 'FAILED') && booking.status === 'PENDING' && (
                       <button
                         onClick={(e) => {
@@ -235,7 +256,41 @@ export default function MyBookings() {
                         className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
                       >
                         <CreditCard size={16} />
-                        ชำระเงิน
+                        {booking.paymentType === 'PARTIAL' ? 'ชำระมัดจำ' : 'ชำระเงิน'}
+                      </button>
+                    )}
+
+                    {/* Remaining Payment Button for Partial Payments */}
+                    {booking.paymentType === 'PARTIAL' && 
+                     booking.paymentId?.status === 'COMPLETED' && 
+                     booking.payment?.remainingAmount > 0 && 
+                     booking.status !== 'CANCELLED' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          router.push(`/bookings/${booking.id || booking._id}/payment-remaining`)
+                        }}
+                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
+                      >
+                        <CreditCard size={16} />
+                        ชำระส่วนที่เหลือ ({formatCurrency(booking.payment?.remainingAmount || 0)})
+                      </button>
+                    )}
+
+                    {/* Retry Remaining Payment Button for Failed Payments */}
+                    {booking.paymentType === 'PARTIAL' && 
+                     booking.paymentId?.status === 'FAILED' && 
+                     booking.payment?.remainingAmount > 0 && 
+                     booking.status !== 'CANCELLED' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          router.push(`/bookings/${booking.id || booking._id}/payment-remaining`)
+                        }}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                      >
+                        <CreditCard size={16} />
+                        ชำระใหม่ ({formatCurrency(booking.payment?.remainingAmount || 0)})
                       </button>
                     )}
                   </div>

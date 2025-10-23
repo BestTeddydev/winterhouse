@@ -124,7 +124,6 @@ export async function createCheckoutSession(params: {
   cancel_url: string
 }) {
   try {
-    console.log('Creating Stripe Checkout Session with params:', params)
     
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],

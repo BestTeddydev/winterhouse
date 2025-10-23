@@ -319,15 +319,15 @@ export default function AdminRooms() {
                   </div>
 
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {room.amenities.slice(0, 3).map((amenity: string, index: number) => (
+                    {(room.amenities || []).slice(0, 3).map((amenity: string, index: number) => (
                       <div key={index} className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
                         {getAmenityIcon(amenity)}
                         <span>{amenity}</span>
                       </div>
                     ))}
-                    {room.amenities.length > 3 && (
+                    {(room.amenities || []).length > 3 && (
                       <div className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                        +{room.amenities.length - 3}
+                        +{(room.amenities || []).length - 3}
                       </div>
                     )}
                   </div>

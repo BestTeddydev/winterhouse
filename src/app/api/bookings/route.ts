@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
       .populate({
         path: 'paymentId',
         model: 'Payment',
-        select: 'status amount'
+        select: 'status amount totalAmount paidAmount remainingAmount'
       })
       .populate({
         path: 'userId',
@@ -79,8 +79,19 @@ export async function GET(request: NextRequest) {
       })
       .sort({ createdAt: -1 })
 
+    // Transform the data to match frontend expectations
+    const transformedBookings = bookings.map(booking => {
+      const bookingObj = booking.toObject()
+      return {
+        ...bookingObj,
+        id: bookingObj._id, // Ensure id is properly set
+        room: booking.roomId,
+        payment: booking.paymentId || { status: 'PENDING', amount: 0 }
+      }
+    })
 
-    return NextResponse.json(bookings)
+
+    return NextResponse.json(transformedBookings)
   } catch (error) {
     console.error('Error fetching bookings:', error)
     
@@ -224,13 +235,14 @@ export async function POST(request: NextRequest) {
       guestEmail,
       guestPhone,
       specialRequests,
+      paymentType,
     })
 
     await booking.save()
 
     // Populate for response
-    await booking.populate('room')
-    await booking.populate('user', 'lineUserId')
+    await booking.populate('roomId', 'name description price capacity imageUrls')
+    await booking.populate('userId', 'lineUserId')
 
     // Create payment record
     const { default: Payment } = await import('@/models/Payment')
@@ -264,6 +276,9 @@ export async function POST(request: NextRequest) {
     booking.paymentId = payment._id
     await booking.save()
 
+    // Populate payment for response
+    await booking.populate('paymentId', 'status amount totalAmount paidAmount remainingAmount')
+
     // Send notification to admin
     if (process.env.LINE_ADMIN_USER_ID) {
       try {
@@ -276,7 +291,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(booking, { status: 201 })
+    // Transform the data to match frontend expectations
+    const bookingObj = booking.toObject()
+    const transformedBooking = {
+      ...bookingObj,
+      id: bookingObj._id, // Ensure id is properly set
+      room: booking.roomId,
+      payment: booking.paymentId || { status: 'PENDING', amount: 0 }
+    }
+
+    return NextResponse.json(transformedBooking, { status: 201 })
   } catch (error) {
     console.error('Error creating booking:', error)
     

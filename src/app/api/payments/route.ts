@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { bookingId, source, paymentMethod } = body
+    const { bookingId, source, paymentMethod, amount, paymentType } = body
 
     await connectDB()
     
@@ -51,14 +51,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ไม่พบข้อมูลการจอง' }, { status: 404 })
     }
 
-    // Debug logging
-    console.log('Booking found:', {
-      id: booking._id,
-      userId: booking.userId,
-      roomId: booking.roomId,
-      paymentId: booking.paymentId,
-      totalPrice: booking.totalPrice
-    })
+    // Calculate payment amount based on payment type
+    const paymentAmount = amount || (paymentType === 'PARTIAL' 
+      ? Math.round(booking.totalPrice * 0.5) 
+      : booking.totalPrice)
+
+   
 
     if (booking.userId.toString() !== session.user.id) {
       return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
@@ -82,12 +80,13 @@ export async function POST(request: NextRequest) {
       if (paymentMethod === 'qr_code') {
         // Create Stripe QR Code Payment
         const qrPayment = await createQRCodePayment({
-          amount: Math.round(parseFloat(booking.totalPrice.toString()) * 100), // Convert to satang
+          amount: Math.round(parseFloat(paymentAmount.toString()) * 100), // Convert to satang
           currency: 'thb',
-          description: `Booking for ${booking.roomId?.name || 'Room'} (${booking.id})`,
+          description: `Booking for ${booking.roomId?.name || 'Room'} (${booking.id}) - ${paymentType === 'PARTIAL' ? '50% Deposit' : 'Full Payment'}`,
           metadata: {
-            bookingId: bookingId,
+            bookingId: bookingId.toString(),
             userId: session.user.id,
+            paymentType: paymentType || 'FULL',
           },
         })
 
@@ -110,12 +109,13 @@ export async function POST(request: NextRequest) {
       } else {
         // Create Stripe Checkout Session
         const checkoutSession = await createCheckoutSession({
-          amount: Math.round(parseFloat(booking.totalPrice.toString()) * 100), // Convert to satang
+          amount: Math.round(parseFloat(paymentAmount.toString()) * 100), // Convert to satang
           currency: 'thb',
-          description: `Booking for ${booking.roomId?.name || 'Room'} (${booking.id})`,
+          description: `Booking for ${booking.roomId?.name || 'Room'} (${booking.id}) - ${paymentType === 'PARTIAL' ? '50% Deposit' : 'Full Payment'}`,
           metadata: {
-            bookingId: bookingId,
+            bookingId: bookingId.toString(),
             userId: session.user.id,
+            paymentType: paymentType || 'FULL',
           },
           success_url: `${process.env.NEXT_PUBLIC_APP_URL}/bookings?payment=success&booking=${bookingId}`,
           cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/bookings/${bookingId}/payment-result?canceled=true`,

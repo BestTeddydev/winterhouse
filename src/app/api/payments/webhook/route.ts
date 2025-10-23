@@ -76,20 +76,12 @@ export async function POST(request: NextRequest) {
 
       // Handle remaining payment logic
       if (payment.paymentType === 'REMAINING') {
-        // Find the original payment record
-        const originalPayment = await Payment.findOne({ 
-          bookingId: payment.bookingId,
-          paymentType: { $in: ['FULL', 'PARTIAL'] }
+        // Update the current payment record (which is the same as the original for remaining payments)
+        await Payment.findByIdAndUpdate(payment._id, {
+          paidAmount: payment.totalAmount,
+          remainingAmount: 0,
+          status: 'COMPLETED',
         })
-        
-        if (originalPayment) {
-          // Update original payment with remaining amount paid
-          await Payment.findByIdAndUpdate(originalPayment._id, {
-            paidAmount: originalPayment.totalAmount,
-            remainingAmount: 0,
-            status: 'COMPLETED',
-          })
-        }
       }
 
       // Update booking status

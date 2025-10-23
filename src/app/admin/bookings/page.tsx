@@ -25,7 +25,10 @@ import {
   Eye,
   MoreVertical,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Plus,
+  Edit,
+  Settings
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -204,6 +207,13 @@ export default function AdminBookings() {
               <p className="text-sm text-gray-500">การจองทั้งหมด</p>
               <p className="text-2xl font-bold text-primary-600">{bookings.length}</p>
             </div>
+            <button
+              onClick={() => router.push('/admin/bookings/new')}
+              className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 font-medium"
+            >
+              <Plus size={20} />
+              เพิ่มการจองใหม่
+            </button>
           </div>
         </div>
 
@@ -303,7 +313,7 @@ export default function AdminBookings() {
                       <div className="flex-shrink-0">
                         <div className="w-16 h-16 relative rounded-lg overflow-hidden">
                           <Image
-                            src={booking.room.imageUrl}
+                            src={booking.room.imageUrls?.[0] || '/placeholder-room.jpg'}
                             alt={booking.room.name}
                             fill
                             className="object-cover"
@@ -313,7 +323,7 @@ export default function AdminBookings() {
                       <div>
                         <h3 className="text-xl font-bold text-gray-900 mb-1">{booking.room.name}</h3>
                         <p className="text-sm text-gray-500 mb-2">
-                          รหัสการจอง: <span className="font-mono">{booking.id.slice(0, 8)}</span>
+                          รหัสการจอง: <span className="font-mono">{booking.id?.slice(0, 8) || 'N/A'}</span>
                         </p>
                         <div className="flex items-center gap-2">
                           <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(booking.status)}`}>
@@ -324,6 +334,12 @@ export default function AdminBookings() {
                             {getPaymentIcon(booking.payment.status)}
                             {booking.payment.status}
                           </span>
+                          {booking.isManualBooking && (
+                            <span className="px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 bg-purple-100 text-purple-800">
+                              <Settings size={12} />
+                              จองด้วยตนเอง
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -380,11 +396,30 @@ export default function AdminBookings() {
 
                     {/* Actions */}
                     <div>
-                      <h4 className="font-semibold text-gray-900 mb-3">จัดการสถานะ</h4>
+                      <h4 className="font-semibold text-gray-900 mb-3">จัดการการจอง</h4>
                       <div className="space-y-2">
+                        <button
+                          onClick={() => {
+                            if (booking.id) {
+                              router.push(`/admin/bookings/${booking.id}/edit`)
+                            } else {
+                              toast.error('ไม่พบรหัสการจอง')
+                            }
+                          }}
+                          className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Edit size={16} />
+                          แก้ไขการจอง
+                        </button>
                         {booking.status === 'PENDING' && (
                           <button
-                            onClick={() => handleStatusUpdate(booking.id, 'CONFIRMED')}
+                            onClick={() => {
+                              if (booking.id) {
+                                handleStatusUpdate(booking.id, 'CONFIRMED')
+                              } else {
+                                toast.error('ไม่พบรหัสการจอง')
+                              }
+                            }}
                             className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors flex items-center justify-center gap-2"
                           >
                             <CheckCircle size={16} />
@@ -393,7 +428,13 @@ export default function AdminBookings() {
                         )}
                         {booking.status === 'CONFIRMED' && (
                           <button
-                            onClick={() => handleStatusUpdate(booking.id, 'COMPLETED')}
+                            onClick={() => {
+                              if (booking.id) {
+                                handleStatusUpdate(booking.id, 'COMPLETED')
+                              } else {
+                                toast.error('ไม่พบรหัสการจอง')
+                              }
+                            }}
                             className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors flex items-center justify-center gap-2"
                           >
                             <CheckCircle size={16} />
@@ -402,7 +443,13 @@ export default function AdminBookings() {
                         )}
                         {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
                           <button
-                            onClick={() => handleStatusUpdate(booking.id, 'CANCELLED')}
+                            onClick={() => {
+                              if (booking.id) {
+                                handleStatusUpdate(booking.id, 'CANCELLED')
+                              } else {
+                                toast.error('ไม่พบรหัสการจอง')
+                              }
+                            }}
                             className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium transition-colors flex items-center justify-center gap-2"
                           >
                             <XCircle size={16} />
@@ -413,13 +460,26 @@ export default function AdminBookings() {
                     </div>
                   </div>
 
-                  {booking.specialRequests && (
-                    <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                      <h5 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <MessageSquare size={16} />
-                        ความต้องการพิเศษ
-                      </h5>
-                      <p className="text-sm text-gray-700">{booking.specialRequests}</p>
+                  {(booking.specialRequests || booking.manualBookingNotes) && (
+                    <div className="mt-6 space-y-4">
+                      {booking.specialRequests && (
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <h5 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                            <MessageSquare size={16} />
+                            ความต้องการพิเศษ
+                          </h5>
+                          <p className="text-sm text-gray-700">{booking.specialRequests}</p>
+                        </div>
+                      )}
+                      {booking.manualBookingNotes && (
+                        <div className="p-4 bg-purple-50 rounded-lg">
+                          <h5 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                            <Settings size={16} />
+                            หมายเหตุการจองด้วยตนเอง
+                          </h5>
+                          <p className="text-sm text-gray-700">{booking.manualBookingNotes}</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -432,7 +492,7 @@ export default function AdminBookings() {
               <div key={booking.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
                 <div className="relative h-48">
                   <Image
-                    src={booking.room.imageUrl}
+                    src={booking.room.imageUrls?.[0] || '/placeholder-room.jpg'}
                     alt={booking.room.name}
                     fill
                     className="object-cover"
@@ -446,7 +506,7 @@ export default function AdminBookings() {
 
                 <div className="p-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-2">{booking.room.name}</h3>
-                  <p className="text-sm text-gray-500 mb-4 font-mono">{booking.id.slice(0, 8)}</p>
+                  <p className="text-sm text-gray-500 mb-4 font-mono">{booking.id?.slice(0, 8) || 'N/A'}</p>
 
                   <div className="space-y-3 mb-4">
                     <div className="flex items-center gap-2 text-sm text-gray-700">
@@ -474,9 +534,27 @@ export default function AdminBookings() {
                   </div>
 
                   <div className="space-y-2">
+                    <button
+                      onClick={() => {
+                        if (booking.id) {
+                          router.push(`/admin/bookings/${booking.id}/edit`)
+                        } else {
+                          toast.error('ไม่พบรหัสการจอง')
+                        }
+                      }}
+                      className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium transition-colors"
+                    >
+                      แก้ไขการจอง
+                    </button>
                     {booking.status === 'PENDING' && (
                       <button
-                        onClick={() => handleStatusUpdate(booking.id, 'CONFIRMED')}
+                        onClick={() => {
+                          if (booking.id) {
+                            handleStatusUpdate(booking.id, 'CONFIRMED')
+                          } else {
+                            toast.error('ไม่พบรหัสการจอง')
+                          }
+                        }}
                         className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors"
                       >
                         ยืนยันการจอง
@@ -484,7 +562,13 @@ export default function AdminBookings() {
                     )}
                     {booking.status === 'CONFIRMED' && (
                       <button
-                        onClick={() => handleStatusUpdate(booking.id, 'COMPLETED')}
+                        onClick={() => {
+                          if (booking.id) {
+                            handleStatusUpdate(booking.id, 'COMPLETED')
+                          } else {
+                            toast.error('ไม่พบรหัสการจอง')
+                          }
+                        }}
                         className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
                       >
                         เสร็จสิ้น
@@ -492,7 +576,13 @@ export default function AdminBookings() {
                     )}
                     {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
                       <button
-                        onClick={() => handleStatusUpdate(booking.id, 'CANCELLED')}
+                        onClick={() => {
+                          if (booking.id) {
+                            handleStatusUpdate(booking.id, 'CANCELLED')
+                          } else {
+                            toast.error('ไม่พบรหัสการจอง')
+                          }
+                        }}
                         className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium transition-colors"
                       >
                         ยกเลิกการจอง

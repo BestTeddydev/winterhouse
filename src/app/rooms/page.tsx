@@ -344,17 +344,23 @@ export default function RoomsPage() {
 
   const handleDateClick = (date: Date) => {
     if (!selectedDateRange.start || selectedDateRange.end) {
-      // Start new selection
       setSelectedDateRange({ start: date, end: null })
-      setCheckInDate(date.toISOString().split('T')[0])
+      // Use local date format to avoid timezone issues
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      setCheckInDate(`${year}-${month}-${day}`)
       setNights(1)
     } else {
-      // Complete selection
       const start = selectedDateRange.start
       const end = date
       if (end < start) {
         setSelectedDateRange({ start: end, end: start })
-        setCheckInDate(end.toISOString().split('T')[0])
+        // Use local date format to avoid timezone issues
+        const year = end.getFullYear()
+        const month = String(end.getMonth() + 1).padStart(2, '0')
+        const day = String(end.getDate()).padStart(2, '0')
+        setCheckInDate(`${year}-${month}-${day}`)
         const calculatedNights = Math.ceil((start.getTime() - end.getTime()) / (1000 * 60 * 60 * 24)) + 1
         setNights(calculatedNights)
       } else {
@@ -411,8 +417,11 @@ export default function RoomsPage() {
     if (!roomAvailability) return 'available'
     
     // Check if date is in the availability data
-    const status = roomAvailability.availability[date]
-    if (status) return status
+    const status = roomAvailability.availability[date]    
+    if (status) {
+      console.log('Found in availability data:', date, 'status:', status);
+      return status
+    }
     
     // If not in current month data, check bookings
     const dateObj = new Date(date)
@@ -421,10 +430,24 @@ export default function RoomsPage() {
       const bookingCheckOut = new Date(booking.checkOut)
       bookingCheckOut.setDate(bookingCheckOut.getDate() - 1) // Booked until day before checkout
       
-      return dateObj >= bookingCheckIn && dateObj <= bookingCheckOut
+      const isBooked = dateObj >= bookingCheckIn && dateObj <= bookingCheckOut
+      
+      // Debug specific dates
+      if (date.includes('2025-10-25') || date.includes('2025-10-26')) {
+        console.log('Booking check:', {
+          date: date,
+          bookingCheckIn: bookingCheckIn.toISOString().split('T')[0],
+          bookingCheckOut: bookingCheckOut.toISOString().split('T')[0],
+          isBooked: isBooked
+        });
+      }
+      
+      return isBooked
     })
     
-    return hasBooking ? 'booked' : 'available'
+    const result = hasBooking ? 'booked' : 'available'
+    console.log('Final status for', date, ':', result);
+    return result
   }
 
   // Get filtered rooms based on availability
@@ -678,9 +701,12 @@ export default function RoomsPage() {
             {/* Days of the month */}
             {Array.from({ length: daysInMonth }, (_, i) => {
               const day = i + 1
-              const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
-              const dateStr = date.toISOString().split('T')[0]
-              const status = getCalendarAvailabilityStatus(dateStr)
+              const year = currentMonth.getFullYear()
+              const month = currentMonth.getMonth() + 1 // getMonth() returns 0-11, we need 1-12
+              const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+              const date = new Date(year, currentMonth.getMonth(), day)
+              const status = getCalendarAvailabilityStatus(dateStr)              
+    
               const isToday = date.toDateString() === today.toDateString()
               const isSelected = isDateSelected(date)
               const isInRange = selectedDateRange.start && selectedDateRange.end && 

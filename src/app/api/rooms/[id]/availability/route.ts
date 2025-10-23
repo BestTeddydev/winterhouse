@@ -42,13 +42,14 @@ export async function GET(
     }
     
     // Mark booked dates
-    // Allow check-in on the same day as previous guest's check-out
+    // Mark dates as booked from check-in day to check-out day (exclusive)
+    // This allows new guests to check-in on the same day as previous guest's check-out
     bookings.forEach(booking => {
       const checkIn = new Date(booking.checkIn)
       const checkOut = new Date(booking.checkOut)
       
       // Mark dates as booked from check-in day to check-out day (exclusive)
-      // This allows new guests to check-in on the same day as previous guest's check-out
+      // Check-out day should be available for new check-ins
       const current = new Date(checkIn)
       while (current < checkOut) {
         const dateStr = current.toISOString().split('T')[0]

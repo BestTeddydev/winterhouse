@@ -51,10 +51,35 @@ export function formatPaymentThankYouMessage(booking: any, payment: any) {
   const checkInDate = new Date(booking.checkIn).toLocaleDateString('th-TH')
   const checkOutDate = new Date(booking.checkOut).toLocaleDateString('th-TH')
   
+  // Check if this is a partial payment booking
+  const isPartialPayment = booking.paymentType === 'PARTIAL'
+  const isRemainingPayment = payment.paymentType === 'REMAINING'
+  
+  let paymentInfo = ''
+  let paymentStatus = ''
+  
+  if (isPartialPayment && !isRemainingPayment) {
+    // Initial deposit payment
+    paymentInfo = `มัดจำ: ฿${payment.amount.toLocaleString()}
+ราคารวม: ฿${payment.totalAmount.toLocaleString()}
+ส่วนที่เหลือ: ฿${payment.remainingAmount.toLocaleString()}`
+    paymentStatus = 'ชำระมัดจำแล้ว ✅'
+  } else if (isPartialPayment && isRemainingPayment) {
+    // Remaining payment
+    paymentInfo = `มัดจำ: ฿${(payment.totalAmount - payment.amount).toLocaleString()}
+ส่วนที่เหลือ: ฿${payment.amount.toLocaleString()}
+ราคารวม: ฿${payment.totalAmount.toLocaleString()}`
+    paymentStatus = 'ชำระเงินครบแล้ว ✅'
+  } else {
+    // Full payment
+    paymentInfo = `จำนวนเงิน: ฿${payment.totalAmount.toLocaleString()}`
+    paymentStatus = 'ชำระเงินแล้ว ✅'
+  }
+  
   return `
 🎉 ขอบคุณสำหรับการจอง บ้านลมหนาวคาเฟ่ แอนด์ แคมป์ปิ้ง!
 
-✅ การชำระเงินเสร็จสิ้นแล้ว
+✅ ${paymentStatus}
 การจองของคุณได้รับการยืนยันแล้ว
 
 🏠 รายละเอียดการจอง:
@@ -65,8 +90,10 @@ export function formatPaymentThankYouMessage(booking: any, payment: any) {
 เลขที่การจอง: ${booking._id}
 
 💳 ข้อมูลการชำระเงิน:
-จำนวนเงิน: ฿${payment.totalAmount.toLocaleString()}
-สถานะ: ชำระเงินแล้ว ✅
+${paymentInfo}
+สถานะ: ${paymentStatus}
+
+${isPartialPayment && !isRemainingPayment ? '📝 หมายเหตุ: กรุณาชำระส่วนที่เหลือก่อนเช็คเอาท์' : ''}
 
 📞 หากมีคำถาม กรุณาติดต่อเราได้ที่:
 📧 ${process.env.ADMIN_EMAIL || 'admin@winterhouse.com'}
@@ -80,6 +107,31 @@ export function formatAdminPaymentNotification(booking: any, payment: any) {
   const checkInDate = new Date(booking.checkIn).toLocaleDateString('th-TH')
   const checkOutDate = new Date(booking.checkOut).toLocaleDateString('th-TH')
   
+  // Check if this is a partial payment booking
+  const isPartialPayment = booking.paymentType === 'PARTIAL'
+  const isRemainingPayment = payment.paymentType === 'REMAINING'
+  
+  let paymentInfo = ''
+  let paymentStatus = ''
+  
+  if (isPartialPayment && !isRemainingPayment) {
+    // Initial deposit payment
+    paymentInfo = `มัดจำ: ฿${payment.amount.toLocaleString()}
+ราคารวม: ฿${payment.totalAmount.toLocaleString()}
+ส่วนที่เหลือ: ฿${payment.remainingAmount.toLocaleString()}`
+    paymentStatus = 'ชำระมัดจำแล้ว ✅'
+  } else if (isPartialPayment && isRemainingPayment) {
+    // Remaining payment
+    paymentInfo = `มัดจำ: ฿${(payment.totalAmount - payment.amount).toLocaleString()}
+ส่วนที่เหลือ: ฿${payment.amount.toLocaleString()}
+ราคารวม: ฿${payment.totalAmount.toLocaleString()}`
+    paymentStatus = 'ชำระเงินครบแล้ว ✅'
+  } else {
+    // Full payment
+    paymentInfo = `จำนวนเงิน: ฿${payment.totalAmount.toLocaleString()}`
+    paymentStatus = 'ชำระเงินแล้ว ✅'
+  }
+  
   return `
 💰 การชำระเงินใหม่
 
@@ -87,8 +139,10 @@ export function formatAdminPaymentNotification(booking: any, payment: any) {
 ผู้จอง: ${booking.guestName}
 เช็คอิน: ${checkInDate}
 เช็คเอาท์: ${checkOutDate}
-จำนวนเงิน: ฿${payment.totalAmount.toLocaleString()}
-สถานะ: ชำระเงินแล้ว ✅
+
+💳 ข้อมูลการชำระเงิน:
+${paymentInfo}
+สถานะ: ${paymentStatus}
 
 กรุณาตรวจสอบในระบบแอดมิน
   `.trim()

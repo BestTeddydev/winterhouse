@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 import { formatCurrency } from '@/lib/utils'
 import { loadStripe } from '@stripe/stripe-js'
 
-export default function Payment() {
+export default function RemainingPayment() {
   const params = useParams()
   const router = useRouter()
   const { data: session } = useSession()
@@ -18,15 +18,10 @@ export default function Payment() {
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
 
-  // Calculate payment amount based on payment type
-  const calculatePaymentAmount = () => {
+  // Calculate remaining payment amount
+  const calculateRemainingAmount = () => {
     if (!booking) return 0
-    
-    // Check if this is a partial payment booking
-    if (booking.paymentType === 'PARTIAL') {
-      return Math.round(booking.totalPrice * 0.5) // 50% down payment
-    }
-    return booking.totalPrice
+    return booking.payment?.remainingAmount || 0
   }
 
   useEffect(() => {
@@ -45,10 +40,25 @@ export default function Payment() {
       const response = await axios.get(`/api/bookings/${params.id}`)
       setBooking(response.data)
 
-      if (response.data.paymentId?.status === 'COMPLETED') {
-        toast.success('ชำระเงินสำเร็จแล้ว')
+      // Check if this booking is eligible for remaining payment
+      if (response.data.paymentType !== 'PARTIAL') {
+        toast.error('การจองนี้ไม่ใช่การชำระมัดจำ')
         router.push(`/bookings/${params.id}`)
+        return
       }
+
+      if (response.data.payment?.remainingAmount <= 0) {
+        toast.error('ไม่มีการชำระเงินที่ค้างอยู่')
+        router.push(`/bookings/${params.id}`)
+        return
+      }
+
+      if (response.data.paymentId?.status !== 'COMPLETED' && response.data.paymentId?.status !== 'FAILED') {
+        toast.error('ยังไม่ได้ชำระมัดจำ')
+        router.push(`/bookings/${params.id}/payment`)
+        return
+      }
+
     } catch (error: any) {
       console.error('Error fetching booking:', error)
       console.error('Error details:', error.response?.data)
@@ -67,17 +77,17 @@ export default function Payment() {
     setProcessing(true)
 
     try {
-      // Create QR Code payment
-      const response = await axios.post('/api/payments', {
+      // Create QR Code payment for remaining amount
+      const response = await axios.post('/api/payments/remaining', {
         bookingId: params.id,
         paymentMethod: 'qr_code',
-        amount: calculatePaymentAmount(),
-        paymentType: booking.paymentType,
+        amount: calculateRemainingAmount(),
+        paymentType: 'REMAINING',
       })
 
       if (response.data.qrCodeUrl) {
         // Open QR Code page directly
-        window.location.href = response.data.qrCodeUrl
+        window.open(response.data.qrCodeUrl, '_blank')
         toast.success('เปิดหน้า QR Code แล้ว')
       } else {
         toast.error('ไม่สามารถสร้าง QR Code ได้')
@@ -99,12 +109,12 @@ export default function Payment() {
     setProcessing(true)
 
     try {
-      // Create Stripe Checkout Session
-      const response = await axios.post('/api/payments', {
+      // Create Stripe Checkout Session for remaining amount
+      const response = await axios.post('/api/payments/remaining', {
         bookingId: params.id,
         paymentMethod: 'credit_card',
-        amount: calculatePaymentAmount(),
-        paymentType: booking.paymentType,
+        amount: calculateRemainingAmount(),
+        paymentType: 'REMAINING',
       })
 
       if (response.data.checkoutUrl) {
@@ -121,19 +131,18 @@ export default function Payment() {
     }
   }
 
-
   const handlePromptPayPayment = async () => {
     setProcessing(true)
 
     try {
-      const response = await axios.post('/api/payments', {
+      const response = await axios.post('/api/payments/remaining', {
         bookingId: params.id,
         source: {
           type: 'promptpay',
         },
         paymentMethod: 'promptpay',
-        amount: calculatePaymentAmount(),
-        paymentType: booking.paymentType,
+        amount: calculateRemainingAmount(),
+        paymentType: 'REMAINING',
       })
 
       if (response.data.authorizeUri) {
@@ -149,7 +158,6 @@ export default function Payment() {
       setProcessing(false)
     }
   }
-
 
   if (loading) {
     return (
@@ -178,15 +186,33 @@ export default function Payment() {
         <Navbar />
 
         <main className="container mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold mb-8">ชำระเงิน</h1>
+          <h1 className="text-3xl font-bold mb-8">ชำระเงินส่วนที่เหลือ</h1>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Payment Methods */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-bold mb-6">เลือกวิธีชำระเงิน</h2>
+                <h2 className="text-xl font-bold mb-6">เลือกวิธีชำระเงินส่วนที่เหลือ</h2>
 
                 <div className="space-y-4">
+                  {/* PromptPay */}
+                  <button
+                    onClick={handlePromptPayPayment}
+                    disabled={processing}
+                    className="w-full p-6 border-2 border-gray-200 rounded-lg hover:border-primary-500 transition-colors text-left disabled:opacity-50"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <svg className="w-10 h-10 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">พร้อมเพย์ (PromptPay)</h3>
+                        <p className="text-gray-600 text-sm">สแกน QR Code เพื่อชำระเงินส่วนที่เหลือ</p>
+                      </div>
+                    </div>
+                  </button>
 
                   {/* Stripe QR Code */}
                   <button
@@ -206,7 +232,7 @@ export default function Payment() {
                       </div>
                       <div className="flex-1">
                         <h3 className="font-semibold text-lg">QR Code (Stripe)</h3>
-                        <p className="text-gray-600 text-sm">สแกน QR Code เพื่อชำระเงินผ่าน Stripe</p>
+                        <p className="text-gray-600 text-sm">สแกน QR Code เพื่อชำระเงินส่วนที่เหลือผ่าน Stripe</p>
                         <p className="text-purple-600 text-xs mt-1">จะเปิดหน้า QR Code ในแท็บใหม่ทันที</p>
                       </div>
                       <div className="text-gray-400">
@@ -233,7 +259,7 @@ export default function Payment() {
                       <div className="flex-1">
                         <h3 className="font-semibold text-lg">บัตรเครดิต/เดบิต</h3>
                         <p className="text-gray-600 text-sm">Visa, Mastercard, JCB, American Express</p>
-                        <p className="text-blue-600 text-xs mt-1">จะเปิดหน้า Stripe Checkout สำหรับชำระเงิน</p>
+                        <p className="text-blue-600 text-xs mt-1">จะเปิดหน้า Stripe Checkout สำหรับชำระเงินส่วนที่เหลือ</p>
                       </div>
                       <div className="text-gray-400">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -280,37 +306,30 @@ export default function Payment() {
                 </div>
 
                 <div className="border-t pt-4">
+                  <div className="mb-4 text-sm text-gray-600">
+                    <div className="flex justify-between mb-1">
+                      <span>ราคารวม:</span>
+                      <span>{formatCurrency(booking.totalPrice)}</span>
+                    </div>
+                    <div className="flex justify-between mb-1">
+                      <span>มัดจำที่ชำระแล้ว:</span>
+                      <span className="text-green-600">{formatCurrency(booking.payment?.paidAmount || 0)}</span>
+                    </div>
+                    <div className="flex justify-between font-medium text-gray-800">
+                      <span>ส่วนที่เหลือ:</span>
+                      <span className="text-orange-600">{formatCurrency(booking.payment?.remainingAmount || 0)}</span>
+                    </div>
+                  </div>
+
                   <div className="flex justify-between text-xl font-bold mb-4">
-                    <span>
-                      {booking.paymentType === 'PARTIAL' ? 'ยอดมัดจำ (50%)' : 'ยอดชำระทั้งหมด'}
-                    </span>
-                    <span className="text-primary-600">
-                      {formatCurrency(calculatePaymentAmount())}
+                    <span>ยอดที่ต้องชำระ</span>
+                    <span className="text-orange-600">
+                      {formatCurrency(calculateRemainingAmount())}
                     </span>
                   </div>
 
-                  {booking.paymentType === 'PARTIAL' && (
-                    <div className="mb-4 text-sm text-gray-600">
-                      <div className="flex justify-between mb-1">
-                        <span>ราคารวม:</span>
-                        <span>{formatCurrency(booking.totalPrice)}</span>
-                      </div>
-                      <div className="flex justify-between mb-1">
-                        <span>มัดจำ 50%:</span>
-                        <span>{formatCurrency(calculatePaymentAmount())}</span>
-                      </div>
-                      <div className="flex justify-between font-medium text-gray-800">
-                        <span>ส่วนที่เหลือ:</span>
-                        <span>{formatCurrency(booking.totalPrice - calculatePaymentAmount())}</span>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-2">
-                        * ส่วนที่เหลือจะชำระเมื่อเช็คอิน
-                      </p>
-                    </div>
-                  )}
-
                   <div className="text-sm text-gray-600">
-                    <p>สถานะการชำระเงิน: {booking.paymentId?.status === 'PENDING' ? 'รอชำระ' : booking.paymentId?.status === 'COMPLETED' ? 'ชำระแล้ว' : booking.paymentId?.status === 'FAILED' ? 'ชำระไม่สำเร็จ' : 'ไม่ระบุ'}</p>
+                    <p>สถานะการชำระเงิน: มัดจำชำระแล้ว</p>
                   </div>
                 </div>
               </div>
@@ -320,4 +339,3 @@ export default function Payment() {
       </div>
   )
 }
-

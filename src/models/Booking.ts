@@ -11,9 +11,14 @@ export interface IBooking extends Document {
   totalPrice: number
   status: BookingStatus
   guestName: string
-  guestEmail: string
-  guestPhone: string
+  guestEmail?: string
+  guestPhone?: string
+  guestCount?: number
   specialRequests?: string
+  isManualBooking?: boolean
+  manualBookingNotes?: string
+  createdBy?: mongoose.Types.ObjectId
+  paymentType?: 'FULL' | 'PARTIAL'
   createdAt: Date
   updatedAt: Date
 }
@@ -31,9 +36,14 @@ const BookingSchema = new Schema<IBooking>({
     default: 'PENDING' 
   },
   guestName: { type: String, required: true },
-  guestEmail: { type: String, required: true },
-  guestPhone: { type: String, required: true },
+  guestEmail: { type: String },
+  guestPhone: { type: String },
+  guestCount: { type: Number, default: 1 },
   specialRequests: { type: String },
+  isManualBooking: { type: Boolean, default: false },
+  manualBookingNotes: { type: String },
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  paymentType: { type: String, enum: ['FULL', 'PARTIAL'], default: 'FULL' }
 }, {
   timestamps: true,
 })

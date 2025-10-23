@@ -38,17 +38,17 @@ export async function GET(
 
     const booking = await Booking.findById(params.id)
       .populate({
-        path: 'room',
+        path: 'roomId',
         model: 'Room',
         select: 'name description price capacity imageUrls'
       })
       .populate({
         path: 'paymentId',
         model: 'Payment',
-        select: 'status amount'
+        select: 'status amount totalAmount paidAmount remainingAmount'
       })
       .populate({
-        path: 'user',
+        path: 'userId',
         model: 'User',
         select: 'name email lineUserId'
       })
@@ -62,7 +62,16 @@ export async function GET(
       return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
     }
 
-    return NextResponse.json(booking)
+    // Transform the data to match frontend expectations
+    const bookingObj = booking.toObject()
+    const transformedBooking = {
+      ...bookingObj,
+      id: bookingObj._id, // Ensure id is properly set
+      room: booking.roomId,
+      payment: booking.paymentId || { status: 'PENDING', amount: 0 }
+    }
+
+    return NextResponse.json(transformedBooking)
   } catch (error) {
     console.error('Error fetching booking:', error)
     
@@ -96,14 +105,46 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { status } = body
+    const { 
+      status, 
+      checkIn, 
+      checkOut, 
+      guestName, 
+      guestEmail, 
+      guestPhone, 
+      guestCount,
+      specialRequests,
+      manualBookingNotes,
+      totalPrice,
+      paymentStatus
+    } = body
+
+    console.log('Updating booking:', params.id, 'with data:', body)
 
     await connectDB()
+    
+    // Set strictPopulate to false to avoid schema validation errors
+    mongoose.set('strictPopulate', false)
+    
+    // Ensure models are registered
+    if (!mongoose.models.Room) {
+      require('@/models/Room')
+    }
+    if (!mongoose.models.Booking) {
+      require('@/models/Booking')
+    }
+    if (!mongoose.models.User) {
+      require('@/models/User')
+    }
+    if (!mongoose.models.Payment) {
+      require('@/models/Payment')
+    }
 
     // Get current booking
     const currentBooking = await Booking.findById(params.id)
-      .populate('room')
-      .populate('user', 'lineUserId')
+      .populate('roomId')
+      .populate('userId', 'lineUserId')
+      .populate('paymentId')
 
     if (!currentBooking) {
       return NextResponse.json({ error: 'ไม่พบข้อมูลการจอง' }, { status: 404 })
@@ -111,26 +152,69 @@ export async function PUT(
 
     const oldStatus = currentBooking.status
 
+    // Prepare update data
+    const updateData: any = {}
+    
+    if (status !== undefined) updateData.status = status
+    if (checkIn !== undefined) updateData.checkIn = new Date(checkIn)
+    if (checkOut !== undefined) updateData.checkOut = new Date(checkOut)
+    if (guestName !== undefined) updateData.guestName = guestName
+    if (guestEmail !== undefined) updateData.guestEmail = guestEmail
+    if (guestPhone !== undefined) updateData.guestPhone = guestPhone
+    if (guestCount !== undefined) updateData.guestCount = guestCount
+    if (specialRequests !== undefined) updateData.specialRequests = specialRequests
+    if (manualBookingNotes !== undefined) updateData.manualBookingNotes = manualBookingNotes
+    if (totalPrice !== undefined) updateData.totalPrice = totalPrice
+
+    console.log('Update data:', updateData)
+
     // Update booking
     const booking = await Booking.findByIdAndUpdate(
       params.id,
-      { status },
+      updateData,
       { new: true }
-    ).populate('room').populate('user', 'lineUserId')
+    ).populate('roomId', 'name description price capacity imageUrls').populate('userId', 'lineUserId').populate('paymentId', 'status amount totalAmount paidAmount remainingAmount')
+
+    if (!booking) {
+      return NextResponse.json({ error: 'ไม่พบข้อมูลการจอง' }, { status: 404 })
+    }
+
+    console.log('Updated booking:', booking)
+
+    // Update payment status if provided
+    if (paymentStatus !== undefined && booking.paymentId) {
+      const { default: Payment } = await import('@/models/Payment')
+      await Payment.findByIdAndUpdate(
+        booking.paymentId._id || booking.paymentId,
+        { status: paymentStatus },
+        { new: true }
+      )
+    }
 
     // Send notification to customer if status changed
-    if (oldStatus !== status && booking.user.lineUserId) {
+    if (oldStatus !== status && booking.userId?.lineUserId) {
       try {
         await sendLineNotification({
-          userId: booking.user.lineUserId,
+          userId: booking.userId.lineUserId,
           message: formatBookingStatusUpdate(booking, oldStatus),
         })
       } catch (error) {
         console.error('Failed to send customer notification:', error)
+        // Don't fail the request if notification fails
       }
     }
 
-    return NextResponse.json(booking)
+    // Transform the data to match frontend expectations
+    const bookingObj = booking.toObject()
+    const transformedBooking = {
+      ...bookingObj,
+      id: bookingObj._id, // Ensure id is properly set
+      room: booking.roomId,
+      payment: booking.paymentId || { status: 'PENDING', amount: 0 }
+    }
+
+    console.log('Returning transformed booking:', transformedBooking)
+    return NextResponse.json(transformedBooking)
   } catch (error) {
     console.error('Error updating booking:', error)
     

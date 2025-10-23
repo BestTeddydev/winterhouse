@@ -17,6 +17,8 @@ export interface IPayment extends Document {
   stripeSessionId?: string
   stripePaymentIntentId?: string
   stripeChargeId?: string
+  isManualPayment?: boolean
+  manualPaymentNotes?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -43,6 +45,8 @@ const PaymentSchema = new Schema<IPayment>({
   stripeSessionId: { type: String, unique: true, sparse: true },
   stripePaymentIntentId: { type: String, unique: true, sparse: true },
   stripeChargeId: { type: String, unique: true, sparse: true },
+  isManualPayment: { type: Boolean, default: false },
+  manualPaymentNotes: { type: String },
 }, {
   timestamps: true,
 })

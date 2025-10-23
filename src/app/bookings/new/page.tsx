@@ -26,6 +26,7 @@ export default function NewBooking() {
   const [guestEmail, setGuestEmail] = useState('')
   const [guestPhone, setGuestPhone] = useState('')
   const [specialRequests, setSpecialRequests] = useState('')
+  const [paymentType, setPaymentType] = useState<'FULL' | 'PARTIAL'>('FULL')
 
   useEffect(() => {
     // Wait for session to load
@@ -73,6 +74,14 @@ export default function NewBooking() {
     return parseFloat(room.price) * nights
   }
 
+  const calculatePaymentAmount = () => {
+    const totalPrice = calculateTotalPrice()
+    if (paymentType === 'PARTIAL') {
+      return Math.round(totalPrice * 0.5) // 50% down payment
+    }
+    return totalPrice
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -93,6 +102,7 @@ export default function NewBooking() {
         guestEmail,
         guestPhone,
         specialRequests,
+        paymentType,
       })
 
       toast.success('สร้างการจองสำเร็จ')
@@ -207,6 +217,42 @@ export default function NewBooking() {
                   />
                 </div>
 
+                <div className="mb-6">
+                  <label className="block text-gray-900 font-semibold mb-2">ประเภทการชำระเงิน</label>
+                  <div className="space-y-3">
+                    <div className="flex items-center">
+                      <input
+                        type="radio"
+                        id="full-payment"
+                        name="paymentType"
+                        value="FULL"
+                        checked={paymentType === 'FULL'}
+                        onChange={(e) => setPaymentType(e.target.value as 'FULL' | 'PARTIAL')}
+                        className="mr-3 text-primary-600 focus:ring-primary-500"
+                      />
+                      <label htmlFor="full-payment" className="text-gray-900 cursor-pointer">
+                        <div className="font-medium">ชำระเต็มจำนวน</div>
+                        <div className="text-sm text-gray-600">ชำระเงินทั้งหมดทันที</div>
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="radio"
+                        id="partial-payment"
+                        name="paymentType"
+                        value="PARTIAL"
+                        checked={paymentType === 'PARTIAL'}
+                        onChange={(e) => setPaymentType(e.target.value as 'FULL' | 'PARTIAL')}
+                        className="mr-3 text-primary-600 focus:ring-primary-500"
+                      />
+                      <label htmlFor="partial-payment" className="text-gray-900 cursor-pointer">
+                        <div className="font-medium">ชำระมัดจำ 50%</div>
+                        <div className="text-sm text-gray-600">ชำระมัดจำก่อนเข้าพัก และชำระส่วนที่เหลือเมื่อเช็คเอาท์</div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
                 <button
                   type="submit"
                   disabled={submitting}
@@ -256,15 +302,33 @@ export default function NewBooking() {
                     {formatCurrency(parseFloat(room.price) * nights)}
                   </span>
                 </div>
+                {paymentType === 'PARTIAL' && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">มัดจำ 50%</span>
+                    <span className="text-gray-600">
+                      {formatCurrency(Math.round(parseFloat(room.price) * nights * 0.5))}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="border-t pt-4">
                 <div className="flex justify-between text-xl font-bold">
-                  <span className="text-gray-900">ยอดรวม</span>
+                  <span className="text-gray-900">
+                    {paymentType === 'PARTIAL' ? 'ยอดที่ต้องชำระ' : 'ยอดรวม'}
+                  </span>
                   <span className="text-primary-700">
-                    {formatCurrency(calculateTotalPrice())}
+                    {formatCurrency(calculatePaymentAmount())}
                   </span>
                 </div>
+                {paymentType === 'PARTIAL' && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    <div className="flex justify-between">
+                      <span>ส่วนที่เหลือ (ชำระเมื่อเช็คอิน)</span>
+                      <span>{formatCurrency(calculateTotalPrice() - calculatePaymentAmount())}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
