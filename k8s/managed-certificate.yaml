@@ -1,0 +1,11 @@
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: baanlomnow-ssl-cert
+  namespace: baanlomnow
+spec:
+  domains:
+    - https://baanlomnow.com
+    - https://www.baanlomnow.com
+    - http://baanlomnow.com
+    - http://www.baanlomnow.com

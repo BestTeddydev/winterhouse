@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: baanlomnow-ingress
+  namespace: baanlomnow
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: "baanlomnow-ip"
+    networking.gke.io/managed-certificates: "baanlomnow-ssl-cert"
+    kubernetes.io/ingress.allow-http: "false"
+spec:
+  rules:
+  - host: baanlomnow.com
+    http:
+      paths:
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: baanlomnow-service
+            port:
+              number: 80

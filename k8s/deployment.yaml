@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: baanlomnow-app
+  namespace: baanlomnow
+  labels:
+    app: baanlomnow
+    component: app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: baanlomnow
+      component: app
+  template:
+    metadata:
+      labels:
+        app: baanlomnow
+        component: app
+    spec:
+      containers:
+      - name: baanlomnow-app
+        image: gcr.io/your-project-id/baanlomnow:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: baanlomnow-config
+              key: NODE_ENV
+        - name: NEXT_TELEMETRY_DISABLED
+          valueFrom:
+            configMapKeyRef:
+              name: baanlomnow-config
+              key: NEXT_TELEMETRY_DISABLED
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: baanlomnow-config
+              key: PORT
+        - name: HOSTNAME
+          valueFrom:
+            configMapKeyRef:
+              name: baanlomnow-config
+              key: HOSTNAME
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: MONGODB_URI
+        - name: NEXTAUTH_URL
+          valueFrom:
+            configMapKeyRef:
+              name: baanlomnow-config
+              key: NEXTAUTH_URL
+        - name: NEXTAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: NEXTAUTH_SECRET
+        - name: GOOGLE_CLOUD_PROJECT_ID
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: GOOGLE_CLOUD_PROJECT_ID
+        - name: GOOGLE_CLOUD_STORAGE_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: GOOGLE_CLOUD_STORAGE_BUCKET
+        - name: OMISE_PUBLIC_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: baanlomnow-config
+              key: OMISE_PUBLIC_KEY
+        - name: OMISE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: OMISE_SECRET_KEY
+        - name: STRIPE_PUBLIC_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: baanlomnow-config
+              key: STRIPE_PUBLIC_KEY
+        - name: STRIPE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: STRIPE_SECRET_KEY
+        - name: RESEND_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: RESEND_API_KEY
+        - name: LINE_CHANNEL_ID
+          valueFrom:
+            configMapKeyRef:
+              name: baanlomnow-config
+              key: LINE_CHANNEL_ID
+        - name: LINE_CHANNEL_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: LINE_CHANNEL_SECRET
+        - name: LINE_CHANNEL_ACCESS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: LINE_CHANNEL_ACCESS_TOKEN
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      imagePullSecrets:
+      - name: gcr-json-key

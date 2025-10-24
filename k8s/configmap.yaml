@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: baanlomnow-config
+  namespace: baanlomnow
+data:
+  NODE_ENV: "production"
+  NEXT_TELEMETRY_DISABLED: "1"
+  PORT: "3000"
+  HOSTNAME: "0.0.0.0"
+  # Add your MongoDB connection string
+  MONGODB_URI: "mongodb://mongodb-service:27017/baanlomnow"
+  # Add your NextAuth configuration
+  NEXTAUTH_URL: "https://your-domain.com"
+  NEXTAUTH_SECRET: "your-nextauth-secret"
+  # Add your Google Cloud Storage configuration
+  GOOGLE_CLOUD_PROJECT_ID: "your-project-id"
+  GOOGLE_CLOUD_STORAGE_BUCKET: "your-bucket-name"
+  # Add your payment configuration
+  OMISE_PUBLIC_KEY: "your-omise-public-key"
+  OMISE_SECRET_KEY: "your-omise-secret-key"
+  STRIPE_PUBLIC_KEY: "your-stripe-public-key"
+  STRIPE_SECRET_KEY: "your-stripe-secret-key"
+  # Add your email configuration
+  RESEND_API_KEY: "your-resend-api-key"
+  # Add your LINE configuration
+  LINE_CHANNEL_ID: "your-line-channel-id"
+  LINE_CHANNEL_SECRET: "your-line-channel-secret"
+  LINE_CHANNEL_ACCESS_TOKEN: "your-line-channel-access-token"

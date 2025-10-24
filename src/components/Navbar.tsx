@@ -49,8 +49,8 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16 sm:h-20">
           <Link href="/" className="flex items-center gap-2 text-xl sm:text-2xl font-bold text-primary-600">
             <Coffee size={24} className="sm:w-7 sm:h-7" />
-            <span className="hidden xs:inline">Winterhouse</span>
-            <span className="xs:hidden">WH</span>
+            <span className="hidden xs:inline">บ้านลมหนาว คาเฟ่ แอนด์ แคมป์ปิ้ง</span>
+            <span className="xs:hidden">บ้านลมหนาว</span>
           </Link>
 
           <div className="hidden lg:flex items-center gap-4 xl:gap-6">
@@ -67,24 +67,9 @@ export default function Navbar() {
               className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 transition-colors"
             >
               <Bed size={20} />
-              ห้องพัก
+              จองห้องพัก
             </Link>
 
-            <Link
-              href="#cafe"
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 transition-colors"
-            >
-              <Coffee size={20} />
-              คาเฟ่
-            </Link>
-
-            <Link
-              href="#contact"
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 transition-colors"
-            >
-              <Phone size={20} />
-              ติดต่อ
-            </Link>
           </div>
 
           <div className="flex items-center gap-4">
@@ -168,26 +153,10 @@ export default function Navbar() {
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <Bed size={20} />
-                ห้องพัก
+                จองห้องพัก
               </Link>
 
-              <Link
-                href="#cafe"
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <Coffee size={20} />
-                คาเฟ่
-              </Link>
-
-              <Link
-                href="#contact"
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <Phone size={20} />
-                ติดต่อ
-              </Link>
+            
 
               {/* User Actions for Mobile */}
               {session ? (

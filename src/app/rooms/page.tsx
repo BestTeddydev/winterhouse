@@ -1144,7 +1144,7 @@ export default function RoomsPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">วันเช็คเอาท์</label>
-              <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
+              <div className="w-full px-3 py-2 bg-gray-700 border border-gray-300 rounded-lg text-white">
                 {checkInDate ? new Date(calculateCheckOutDate()).toLocaleDateString('th-TH') : 'เลือกวันเช็คอินก่อน'}
               </div>
             </div>
