@@ -51,8 +51,8 @@ spec:
               key: MONGODB_URI
         - name: NEXTAUTH_URL
           valueFrom:
-            configMapKeyRef:
-              name: baanlomnow-config
+            secretKeyRef:
+              name: baanlomnow-secrets
               key: NEXTAUTH_URL
         - name: NEXTAUTH_SECRET
           valueFrom:
@@ -71,8 +71,8 @@ spec:
               key: GOOGLE_CLOUD_STORAGE_BUCKET
         - name: OMISE_PUBLIC_KEY
           valueFrom:
-            configMapKeyRef:
-              name: baanlomnow-config
+            secretKeyRef:
+              name: baanlomnow-secrets
               key: OMISE_PUBLIC_KEY
         - name: OMISE_SECRET_KEY
           valueFrom:
@@ -81,8 +81,8 @@ spec:
               key: OMISE_SECRET_KEY
         - name: STRIPE_PUBLIC_KEY
           valueFrom:
-            configMapKeyRef:
-              name: baanlomnow-config
+            secretKeyRef:
+              name: baanlomnow-secrets
               key: STRIPE_PUBLIC_KEY
         - name: STRIPE_SECRET_KEY
           valueFrom:
@@ -96,8 +96,8 @@ spec:
               key: RESEND_API_KEY
         - name: LINE_CHANNEL_ID
           valueFrom:
-            configMapKeyRef:
-              name: baanlomnow-config
+            secretKeyRef:
+              name: baanlomnow-secrets
               key: LINE_CHANNEL_ID
         - name: LINE_CHANNEL_SECRET
           valueFrom:
