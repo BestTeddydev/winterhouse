@@ -69,16 +69,6 @@ spec:
             secretKeyRef:
               name: baanlomnow-secrets
               key: GOOGLE_CLOUD_STORAGE_BUCKET
-        - name: OMISE_PUBLIC_KEY
-          valueFrom:
-            secretKeyRef:
-              name: baanlomnow-secrets
-              key: OMISE_PUBLIC_KEY
-        - name: OMISE_SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: baanlomnow-secrets
-              key: OMISE_SECRET_KEY
         - name: STRIPE_PUBLIC_KEY
           valueFrom:
             secretKeyRef:

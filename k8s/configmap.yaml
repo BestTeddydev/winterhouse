@@ -16,9 +16,6 @@ data:
   # Add your Google Cloud Storage configuration
   GOOGLE_CLOUD_PROJECT_ID: "your-project-id"
   GOOGLE_CLOUD_STORAGE_BUCKET: "your-bucket-name"
-  # Add your payment configuration
-  OMISE_PUBLIC_KEY: "your-omise-public-key"
-  OMISE_SECRET_KEY: "your-omise-secret-key"
   STRIPE_PUBLIC_KEY: "your-stripe-public-key"
   STRIPE_SECRET_KEY: "your-stripe-secret-key"
   # Add your email configuration

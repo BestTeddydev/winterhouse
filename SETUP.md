@@ -10,7 +10,6 @@
 
 ### 2. บัญชีที่ต้องสมัคร (ฟรี)
 - [LINE Developers Account](https://developers.line.biz/)
-- [Omise Account](https://dashboard.omise.co/)
 
 ## 🔧 ขั้นตอนการติดตั้ง
 
@@ -144,20 +143,6 @@ export async function POST(request) {
 }
 ```
 
-## 💳 การตั้งค่า Omise
-
-1. **สร้างบัญชี Omise**
-   - เข้า https://dashboard.omise.co/
-   - สมัครสมาชิก (ใช้ Test Mode ได้ฟรี)
-
-2. **รับ API Keys**
-   - Login เข้า Dashboard
-   - ไปที่ "Keys" ในเมนู
-   - คัดลอก:
-     - Public key (test) → ใส่ใน `OMISE_PUBLIC_KEY` และ `NEXT_PUBLIC_OMISE_PUBLIC_KEY`
-     - Secret key (test) → ใส่ใน `OMISE_SECRET_KEY`
-
-**หมายเหตุ**: ใช้ Test Keys ก่อน เมื่อพร้อม production จึงเปลี่ยนเป็น Live Keys
 
 ## 🗄️ การตั้งค่า Database Schema
 
@@ -243,19 +228,6 @@ npm run dev
 - กรอกข้อมูล
 - ทดสอบชำระเงิน (ใช้ Test Card)
 
-### 4. ทดสอบ Omise Payment (Test Mode)
-
-**Test Credit Card**
-```
-Card Number: 4242424242424242
-Expiry: 12/25
-CVV: 123
-Name: TEST USER
-```
-
-**Test PromptPay**
-- เมื่อเลือก PromptPay จะได้ QR Code
-- ใน Test Mode จะสามารถ simulate การจ่ายเงินได้
 
 ## 🔍 การตรวจสอบปัญหา
 
@@ -288,7 +260,6 @@ npx prisma migrate reset
 ```
 
 ### ปัญหา: Payment ไม่ทำงาน
-- ตรวจสอบ Omise Keys
 - ตรวจสอบ Console เบราว์เซอร์มี error หรือไม่
 - ตรวจสอบว่าใช้ Test Mode
 
@@ -319,7 +290,6 @@ npx prisma migrate reset
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Prisma Documentation](https://www.prisma.io/docs)
 - [LINE Developers Documentation](https://developers.line.biz/en/docs/)
-- [Omise Documentation](https://docs.opn.ooo/)
 
 ## 💡 Tips
 

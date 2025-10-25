@@ -182,59 +182,6 @@ LINE_ADMIN_USER_ID="U1234567890abcdefghijklmnopqrstuv"
 
 ---
 
-## 💳 Omise Payment Gateway Configuration
-
-### ขั้นตอนที่ 1: สร้างบัญชี Omise
-
-1. **สมัครสมาชิก**
-   - ไปที่ https://dashboard.omise.co/
-   - คลิก "Sign Up"
-   - กรอกข้อมูล (ใช้ Test Mode ได้ฟรี)
-
-2. **ยืนยันอีเมล**
-   - เช็คอีเมลและยืนยันบัญชี
-
-3. **Login เข้าสู่ Dashboard**
-
-### ขั้นตอนที่ 2: รับ API Keys
-
-1. **เข้าสู่ Test Mode** (มุมบนขวา ให้แน่ใจว่าเป็น "Test")
-2. ไปที่ **Settings → Keys**
-3. คัดลอก:
-   - **Public key (test)**: ขึ้นต้นด้วย `pkey_test_`
-   - **Secret key (test)**: ขึ้นต้นด้วย `skey_test_`
-
-### ตัวอย่าง:
-```env
-# Test Mode (สำหรับ Development)
-OMISE_PUBLIC_KEY="pkey_test_5f2e8h3j9k1m4n6p8q0r2s4t6u8v0w2"
-OMISE_SECRET_KEY="skey_test_5f2e8h3j9k1m4n6p8q0r2s4t6u8v0w2"
-NEXT_PUBLIC_OMISE_PUBLIC_KEY="pkey_test_5f2e8h3j9k1m4n6p8q0r2s4t6u8v0w2"
-```
-
-### Test Cards สำหรับทดสอบ:
-
-**บัตรที่ชำระสำเร็จ:**
-```
-Card Number: 4242 4242 4242 4242
-Expiry: 12/25 (อนาคต)
-CVV: 123
-Name: TEST USER
-```
-
-**บัตรที่ชำระไม่สำเร็จ:**
-```
-Card Number: 4000 0000 0000 0002
-```
-
-### สำหรับ Production:
-
-1. ทำการยืนยันตัวตน (KYC) ใน Omise Dashboard
-2. เปลี่ยนเป็น **Live Mode**
-3. รับ Live Keys (ขึ้นต้นด้วย `pkey_` และ `skey_`)
-4. อัพเดทใน `.env`
-
----
 
 ## 🌐 Application URLs
 
@@ -274,10 +221,7 @@ const required = [
   'LINE_CHANNEL_SECRET',
   'LINE_CHANNEL_ACCESS_TOKEN',
   'LINE_ADMIN_USER_ID',
-  'OMISE_PUBLIC_KEY',
-  'OMISE_SECRET_KEY',
   'NEXT_PUBLIC_APP_URL',
-  'NEXT_PUBLIC_OMISE_PUBLIC_KEY'
 ]
 
 console.log('🔍 ตรวจสอบ Environment Variables...\n')
@@ -330,8 +274,6 @@ node -r dotenv/config scripts/check-env.js
 ### Q: NEXTAUTH_SECRET ต้องยาวแค่ไหน?
 A: อย่างน้อย 32 characters แนะนำ 64 characters
 
-### Q: ใช้ Test Keys ของ Omise ได้นานแค่ไหน?
-A: ใช้ได้ตลอด ฟรี ไม่มีวันหมดอายุ
 
 ### Q: ต้องมี LINE Official Account ไหม?
 A: ใช่ ต้องสร้าง Messaging API Channel (จะได้ Official Account ฟรี)

@@ -23,6 +23,12 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
 
   # Next.js Application (Production)
   app:
@@ -51,16 +57,25 @@ services:
       - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
       - LINE_ADMIN_USER_ID=${LINE_ADMIN_USER_ID}
       
-      # Omise
-      - OMISE_PUBLIC_KEY=${OMISE_PUBLIC_KEY}
-      - OMISE_SECRET_KEY=${OMISE_SECRET_KEY}
+      # Stripe Payment Gateway
+      - STRIPE_PUBLIC_KEY=${STRIPE_PUBLIC_KEY}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      
+      # Google Cloud Storage
+      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
+      - GOOGLE_CLOUD_STORAGE_BUCKET=${GOOGLE_CLOUD_STORAGE_BUCKET}
+      
+      # Email Service
+      - RESEND_API_KEY=${RESEND_API_KEY}
       
       # App URLs
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
-      - NEXT_PUBLIC_OMISE_PUBLIC_KEY=${OMISE_PUBLIC_KEY}
+      - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${STRIPE_PUBLIC_KEY}
       
       # Node
       - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
     depends_on:
       db:
         condition: service_healthy
@@ -72,6 +87,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
 
   # Nginx Reverse Proxy
   nginx:
@@ -88,6 +109,17 @@ services:
       - app
     networks:
       - winterhouse-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
 
 volumes:
   mongodb_prod_data:

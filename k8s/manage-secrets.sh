@@ -42,8 +42,6 @@ create_secrets() {
     read -p "Enter Google Cloud Storage Bucket: " GOOGLE_CLOUD_STORAGE_BUCKET
     
     # Payment Gateways
-    read -s -p "Enter Omise Secret Key: " OMISE_SECRET_KEY
-    echo
     read -s -p "Enter Stripe Secret Key: " STRIPE_SECRET_KEY
     echo
     
@@ -71,7 +69,6 @@ data:
   NEXTAUTH_SECRET: $(encode_base64 "$NEXTAUTH_SECRET")
   GOOGLE_CLOUD_PROJECT_ID: $(encode_base64 "$GOOGLE_CLOUD_PROJECT_ID")
   GOOGLE_CLOUD_STORAGE_BUCKET: $(encode_base64 "$GOOGLE_CLOUD_STORAGE_BUCKET")
-  OMISE_SECRET_KEY: $(encode_base64 "$OMISE_SECRET_KEY")
   STRIPE_SECRET_KEY: $(encode_base64 "$STRIPE_SECRET_KEY")
   RESEND_API_KEY: $(encode_base64 "$RESEND_API_KEY")
   LINE_CHANNEL_SECRET: $(encode_base64 "$LINE_CHANNEL_SECRET")
@@ -86,7 +83,6 @@ update_configmap() {
     echo -e "${YELLOW}📝 Updating ConfigMap...${NC}"
     
     read -p "Enter your domain (e.g., baanlomnow.com): " DOMAIN
-    read -p "Enter Omise Public Key: " OMISE_PUBLIC_KEY
     read -p "Enter Stripe Public Key: " STRIPE_PUBLIC_KEY
     read -p "Enter LINE Channel ID: " LINE_CHANNEL_ID
     
@@ -107,8 +103,6 @@ data:
   NEXTAUTH_SECRET: "your-nextauth-secret"
   GOOGLE_CLOUD_PROJECT_ID: "your-project-id"
   GOOGLE_CLOUD_STORAGE_BUCKET: "your-bucket-name"
-  OMISE_PUBLIC_KEY: "${OMISE_PUBLIC_KEY}"
-  OMISE_SECRET_KEY: "your-omise-secret-key"
   STRIPE_PUBLIC_KEY: "${STRIPE_PUBLIC_KEY}"
   STRIPE_SECRET_KEY: "your-stripe-secret-key"
   RESEND_API_KEY: "your-resend-api-key"
@@ -185,7 +179,6 @@ validate_secrets() {
     echo -e "${BLUE}📊 Checking secret encoding...${NC}"
     
     # Extract and validate each secret
-    SECRETS=("MONGODB_URI" "NEXTAUTH_SECRET" "GOOGLE_CLOUD_PROJECT_ID" "OMISE_SECRET_KEY" "STRIPE_SECRET_KEY")
     
     for secret in "${SECRETS[@]}"; do
         VALUE=$(grep -A 1 "name: baanlomnow-secrets" k8s/secrets.yaml | grep -A 20 "data:" | grep "${secret}:" | cut -d' ' -f4)

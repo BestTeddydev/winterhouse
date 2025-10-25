@@ -36,7 +36,6 @@ DATABASE_URL="mongodb://admin:admin123@db:27017/winterhouse?authSource=admin&ret
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="your-secret-here"
 
-# LINE, Omise, etc.
 ...
 ```
 

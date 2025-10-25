@@ -25,7 +25,6 @@
   - [ ] NextAuth Secret
   - [ ] Google Cloud Project ID
   - [ ] Google Cloud Storage Bucket
-  - [ ] Payment Gateway Keys (Omise, Stripe)
   - [ ] Email Service Key (Resend)
   - [ ] LINE Integration Keys
 

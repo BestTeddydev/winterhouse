@@ -3,13 +3,31 @@ set -e
 
 echo "🚀 Starting Winterhouse Application..."
 
-# Generate Prisma Client
-echo "📦 Generating Prisma Client..."
-npx prisma generate
+# Wait for MongoDB to be ready
+echo "⏳ Waiting for MongoDB to be ready..."
+until curl -f http://db:27017/ > /dev/null 2>&1 || nc -z db 27017; do
+  echo "MongoDB is unavailable - sleeping"
+  sleep 2
+done
+echo "✅ MongoDB is ready!"
 
-# Push schema to MongoDB (MongoDB doesn't use migrations)
-echo "📦 Pushing schema to MongoDB..."
-npx prisma db push --skip-generate --accept-data-loss || echo "Schema already in sync"
+# Test MongoDB connection
+echo "🔍 Testing MongoDB connection..."
+node -e "
+const mongoose = require('mongoose');
+mongoose.connect(process.env.DATABASE_URL || 'mongodb://admin:admin123@db:27017/winterhouse?authSource=admin')
+  .then(() => {
+    console.log('✅ MongoDB connection successful');
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error('❌ MongoDB connection failed:', err.message);
+    process.exit(1);
+  });
+" || {
+  echo "❌ MongoDB connection test failed"
+  exit 1
+}
 
 echo "✅ Database setup complete!"
 

@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       .populate({
         path: 'paymentId',
         model: 'Payment',
-        select: 'status amount omiseChargeId'
+        select: 'status amount'
       })
       .populate({
         path: 'roomId',
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
     
     // More detailed error logging
     if (error.response) {
-      console.error('Omise API Error Response:', error.response.data)
+      console.error('Payment API Error Response:', error.response.data)
       console.error('Status:', error.response.status)
     } else if (error.request) {
       console.error('Network Error:', error.request)

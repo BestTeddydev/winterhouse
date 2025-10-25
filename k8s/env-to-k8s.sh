@@ -68,7 +68,6 @@ EOF
         "NEXTAUTH_SECRET"
         "GOOGLE_CLOUD_PROJECT_ID"
         "GOOGLE_CLOUD_STORAGE_BUCKET"
-        "OMISE_SECRET_KEY"
         "STRIPE_SECRET_KEY"
         "RESEND_API_KEY"
         "LINE_CHANNEL_SECRET"
@@ -126,8 +125,6 @@ data:
   NEXTAUTH_SECRET: "your-nextauth-secret"
   GOOGLE_CLOUD_PROJECT_ID: "your-project-id"
   GOOGLE_CLOUD_STORAGE_BUCKET: "your-bucket-name"
-  OMISE_PUBLIC_KEY: "${OMISE_PUBLIC_KEY:-your-omise-public-key}"
-  OMISE_SECRET_KEY: "your-omise-secret-key"
   STRIPE_PUBLIC_KEY: "${STRIPE_PUBLIC_KEY:-your-stripe-public-key}"
   STRIPE_SECRET_KEY: "your-stripe-secret-key"
   RESEND_API_KEY: "your-resend-api-key"
@@ -216,8 +213,6 @@ validate_env_file() {
     # Required variables
     required_vars=(
         "NEXTAUTH_SECRET"
-        "OMISE_PUBLIC_KEY"
-        "OMISE_SECRET_KEY"
         "LINE_CHANNEL_ID"
         "LINE_CHANNEL_SECRET"
         "LINE_CHANNEL_ACCESS_TOKEN"
@@ -269,8 +264,6 @@ show_help() {
     echo
     echo -e "${BLUE}Required .env variables:${NC}"
     echo -e "  NEXTAUTH_SECRET"
-    echo -e "  OMISE_PUBLIC_KEY"
-    echo -e "  OMISE_SECRET_KEY"
     echo -e "  LINE_CHANNEL_ID"
     echo -e "  LINE_CHANNEL_SECRET"
     echo -e "  LINE_CHANNEL_ACCESS_TOKEN"

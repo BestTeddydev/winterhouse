@@ -1,6 +1,6 @@
 # Winterhouse - ระบบจองห้องพักออนไลน์
 
-ระบบจองห้องพักที่ทันสมัย พร้อมฟีเจอร์ครบครัน รองรับการเข้าสู่ระบบด้วย LINE Login, การชำระเงินผ่าน Omise Payment Gateway, และระบบแจ้งเตือนผ่าน LINE Messaging API
+ระบบจองห้องพักที่ทันสมัย พร้อมฟีเจอร์ครบครัน รองรับการเข้าสู่ระบบด้วย LINE Login, การชำระเงินผ่าน Stripe Payment Gateway, และระบบแจ้งเตือนผ่าน LINE Messaging API
 
 ## ✨ คุณสมบัติหลัก
 
@@ -8,7 +8,7 @@
 - 🔐 **LINE Login SSO** - เข้าสู่ระบบง่ายด้วยบัญชี LINE
 - 🏠 **เลือกห้องพักพร้อม Hotspot** - คลิกดูรายละเอียดจุดสนใจต่างๆ บนรูปห้องพัก
 - 📅 **ตรวจสอบห้องว่าง** - เช็คความพร้อมของห้องตามวันที่ต้องการ
-- 💳 **ชำระเงินออนไลน์** - รองรับบัตรเครดิต/เดบิต และ PromptPay ผ่าน Omise
+- 💳 **ชำระเงินออนไลน์** - รองรับบัตรเครดิต/เดบิต และ PromptPay ผ่าน Stripe
 - 🔔 **แจ้งเตือนผ่าน LINE** - รับการอัพเดทสถานะการจองทันที
 - 📱 **Responsive Design** - ใช้งานได้ทุกอุปกรณ์
 
@@ -24,7 +24,7 @@
 - **Backend**: Next.js API Routes
 - **Database**: PostgreSQL with Prisma ORM
 - **Authentication**: NextAuth.js with LINE Provider
-- **Payment**: Omise Payment Gateway
+- **Payment**: Stripe Payment Gateway
 - **Notifications**: LINE Messaging API
 - **State Management**: React Query, Zustand
 - **UI Components**: Custom components with Tailwind CSS
@@ -34,7 +34,7 @@
 - Node.js 18+ 
 - PostgreSQL 14+
 - บัญชี LINE Developers (สำหรับ LINE Login และ Messaging API)
-- บัญชี Omise (สำหรับ Payment Gateway)
+- บัญชี Stripe (สำหรับ Payment Gateway)
 
 ## 🛠️ การติดตั้ง
 
@@ -71,13 +71,13 @@ LINE_CHANNEL_SECRET="your-line-channel-secret"
 LINE_CHANNEL_ACCESS_TOKEN="your-line-messaging-api-access-token"
 LINE_ADMIN_USER_ID="admin-line-user-id"
 
-# Omise
-OMISE_PUBLIC_KEY="your-omise-public-key"
-OMISE_SECRET_KEY="your-omise-secret-key"
+# Stripe
+STRIPE_PUBLIC_KEY="your-stripe-public-key"
+STRIPE_SECRET_KEY="your-stripe-secret-key"
 
 # App
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
-NEXT_PUBLIC_OMISE_PUBLIC_KEY="your-omise-public-key"
+NEXT_PUBLIC_STRIPE_PUBLIC_KEY="your-stripe-public-key"
 ```
 
 ### 4. ตั้งค่า Database
@@ -119,20 +119,20 @@ npm run dev
 4. คัดลอก Channel Access Token ไปใส่ใน `.env`
 5. เพิ่ม Webhook URL (ถ้าต้องการ): `https://your-domain.com/api/webhooks/line`
 
-## 💳 การตั้งค่า Omise Payment Gateway
+## 💳 การตั้งค่า Stripe Payment Gateway
 
-### 1. สร้างบัญชี Omise
+### 1. สร้างบัญชี Stripe
 
-1. ไปที่ [Omise Dashboard](https://dashboard.omise.co/)
+1. ไปที่ [Stripe Dashboard](https://dashboard.stripe.com/)
 2. สร้างบัญชีและทำการยืนยันตัวตน
 3. ไปที่ Keys เพื่อดู Public Key และ Secret Key
 4. คัดลอก Keys ทั้งสองไปใส่ใน `.env`
 
 ### 2. ตั้งค่า Webhook (Optional)
 
-1. ไปที่ Webhooks ใน Omise Dashboard
+1. ไปที่ Webhooks ใน Stripe Dashboard
 2. เพิ่ม Webhook URL: `https://your-domain.com/api/payments/webhook`
-3. เลือก Events: `charge.complete`
+3. เลือก Events: `payment_intent.succeeded`
 
 ## 🏗️ โครงสร้างโปรเจกต์
 
@@ -158,7 +158,7 @@ winterhouse/
 ├── lib/                    # Utilities & configurations
 │   ├── auth.ts            # NextAuth config
 │   ├── prisma.ts          # Prisma client
-│   ├── omise.ts           # Omise integration
+│   ├── stripe.ts          # Stripe integration
 │   ├── line.ts            # LINE messaging
 │   └── utils.ts           # Helper functions
 ├── prisma/
@@ -196,7 +196,7 @@ winterhouse/
 1. ลูกค้าเลือกห้องและวันที่ต้องการ
 2. กรอกข้อมูลผู้เข้าพัก
 3. เลือกวิธีชำระเงิน (บัตรเครดิต/PromptPay)
-4. ระบบสร้าง charge ผ่าน Omise
+4. ระบบสร้าง payment intent ผ่าน Stripe
 5. ลูกค้าชำระเงิน
 6. ระบบอัพเดทสถานะและแจ้งเตือนผ่าน LINE
 
@@ -251,7 +251,7 @@ vercel
 
 - อัพเดท `NEXTAUTH_URL` และ `NEXT_PUBLIC_APP_URL`
 - อัพเดท Callback URL ใน LINE Developers
-- อัพเดท Webhook URLs ใน Omise
+- อัพเดท Webhook URLs ใน Stripe
 
 ## 📝 License
 

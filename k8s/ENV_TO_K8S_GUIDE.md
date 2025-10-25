@@ -73,8 +73,6 @@ cat k8s/ingress.yaml
 
 ### Required Variables:
 - `NEXTAUTH_SECRET` - Secret key สำหรับ NextAuth
-- `OMISE_PUBLIC_KEY` - Omise public key
-- `OMISE_SECRET_KEY` - Omise secret key
 - `LINE_CHANNEL_ID` - LINE Channel ID
 - `LINE_CHANNEL_SECRET` - LINE Channel Secret
 - `LINE_CHANNEL_ACCESS_TOKEN` - LINE Channel Access Token
@@ -161,8 +159,6 @@ nano .env
 ### 2. ใส่ข้อมูลจริงใน .env
 ```env
 NEXTAUTH_SECRET=your-actual-secret-key
-OMISE_PUBLIC_KEY=pkey_test_actual-key
-OMISE_SECRET_KEY=skey_test_actual-key
 LINE_CHANNEL_ID=actual-channel-id
 LINE_CHANNEL_SECRET=actual-channel-secret
 LINE_CHANNEL_ACCESS_TOKEN=actual-access-token

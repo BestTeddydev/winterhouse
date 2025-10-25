@@ -99,8 +99,6 @@ NEXTAUTH_SECRET=your-nextauth-secret
 GOOGLE_CLOUD_PROJECT_ID=your-project-id
 GOOGLE_CLOUD_STORAGE_BUCKET=your-bucket-name
 
-# Payment Gateways
-OMISE_SECRET_KEY=your-omise-secret-key
 STRIPE_SECRET_KEY=your-stripe-secret-key
 
 # Email Service
@@ -115,7 +113,6 @@ LINE_CHANNEL_ACCESS_TOKEN=your-line-channel-access-token
 ```bash
 NODE_ENV=production
 NEXTAUTH_URL=https://your-domain.com
-OMISE_PUBLIC_KEY=your-omise-public-key
 STRIPE_PUBLIC_KEY=your-stripe-public-key
 LINE_CHANNEL_ID=your-line-channel-id
 ```

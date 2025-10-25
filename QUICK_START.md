@@ -54,10 +54,6 @@ LINE_CHANNEL_SECRET="dummy"
 LINE_CHANNEL_ACCESS_TOKEN="dummy"
 LINE_ADMIN_USER_ID="dummy"
 
-# Omise (ใส่ dummy ก่อนได้)
-OMISE_PUBLIC_KEY="pkey_test_dummy"
-OMISE_SECRET_KEY="skey_test_dummy"
-NEXT_PUBLIC_OMISE_PUBLIC_KEY="pkey_test_dummy"
 
 # App
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
@@ -326,10 +322,6 @@ docker-compose exec app sh
    - สร้าง LINE Login Channel
    - อัพเดท credentials ใน `.env`
 
-2. **Setup Omise Payment**
-   - สมัครที่ https://dashboard.omise.co
-   - รับ Test API Keys
-   - อัพเดทใน `.env`
 
 3. **Setup LINE Messaging API**
    - สร้าง Messaging API Channel
@@ -389,7 +381,6 @@ db.rooms.deleteOne({ name: "Old Room" })
 
 - [ ] เปลี่ยน MongoDB password ให้แข็งแรง
 - [ ] ตั้งค่า LINE Login credentials จริง
-- [ ] ตั้งค่า Omise Live Keys (ถ้าพร้อม production)
 - [ ] เปลี่ยน NEXTAUTH_SECRET ให้แข็งแรง
 - [ ] ตั้งค่า backup schedule
 - [ ] ทดสอบ payment flow

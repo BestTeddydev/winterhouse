@@ -5,7 +5,7 @@ services:
   db:
     image: mongo:7-jammy
     container_name: winterhouse-db
-    restart: always
+    restart: unless-stopped
     ports:
       - "27017:27017"
     environment:
@@ -41,7 +41,7 @@ services:
       
       # NextAuth
       - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-dev-secret-key}
       
       # LINE Login
       - LINE_CHANNEL_ID=${LINE_CHANNEL_ID}
@@ -51,13 +51,21 @@ services:
       - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
       - LINE_ADMIN_USER_ID=${LINE_ADMIN_USER_ID}
       
-      # Omise
-      - OMISE_PUBLIC_KEY=${OMISE_PUBLIC_KEY}
-      - OMISE_SECRET_KEY=${OMISE_SECRET_KEY}
+      # Stripe Payment Gateway
+      - STRIPE_PUBLIC_KEY=${STRIPE_PUBLIC_KEY}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      
+      # Google Cloud Storage
+      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
+      - GOOGLE_CLOUD_STORAGE_BUCKET=${GOOGLE_CLOUD_STORAGE_BUCKET}
+      
+      # Email Service
+      - RESEND_API_KEY=${RESEND_API_KEY}
       
       # App URLs
       - NEXT_PUBLIC_APP_URL=http://localhost:3000
-      - NEXT_PUBLIC_OMISE_PUBLIC_KEY=${OMISE_PUBLIC_KEY}
+      - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${STRIPE_PUBLIC_KEY}
       
       # Node
       - NODE_ENV=development
@@ -71,27 +79,12 @@ services:
     networks:
       - winterhouse-network
     command: sh -c "sleep 5 && npm run dev"
-
-  # Prisma Studio (Optional - Database GUI)
-  prisma-studio:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    container_name: winterhouse-prisma-studio
-    restart: unless-stopped
-    ports:
-      - "5555:5555"
-    environment:
-      - DATABASE_URL=mongodb://admin:admin123@db:27017/winterhouse?authSource=admin
-    volumes:
-      - .:/app
-      - /app/node_modules
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - winterhouse-network
-    command: npx prisma studio --port 5555 --browser none
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Mongo Express (Optional - Database GUI)
   mongo-express:

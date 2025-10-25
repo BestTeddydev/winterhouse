@@ -13,7 +13,6 @@ export interface IPayment extends Document {
   totalAmount: number // Total amount for the booking
   paidAmount: number // Amount already paid
   remainingAmount: number // Amount remaining to be paid
-  omiseChargeId?: string
   stripeSessionId?: string
   stripePaymentIntentId?: string
   stripeChargeId?: string
@@ -41,7 +40,6 @@ const PaymentSchema = new Schema<IPayment>({
   totalAmount: { type: Number, required: true },
   paidAmount: { type: Number, default: 0 },
   remainingAmount: { type: Number, default: 0 },
-  omiseChargeId: { type: String, unique: true, sparse: true },
   stripeSessionId: { type: String, unique: true, sparse: true },
   stripePaymentIntentId: { type: String, unique: true, sparse: true },
   stripeChargeId: { type: String, unique: true, sparse: true },
