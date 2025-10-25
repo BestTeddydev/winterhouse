@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: baanlomnow-app
-        image: gcr.io/your-project-id/baanlomnow:latest
+        image: gcr.io/project-14a6d9ab-7aaf-49a0-92d/baanlomnow:latest
         ports:
         - containerPort: 3000
         env:
@@ -99,6 +99,26 @@ spec:
             secretKeyRef:
               name: baanlomnow-secrets
               key: LINE_CHANNEL_ACCESS_TOKEN
+        - name: STRIPE_WEBHOOK_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: STRIPE_WEBHOOK_SECRET
+        - name: LINE_ADMIN_USER_ID
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: LINE_ADMIN_USER_ID
+        - name: NEXT_PUBLIC_APP_URL
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: NEXT_PUBLIC_APP_URL
+        - name: NEXT_PUBLIC_STRIPE_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: STRIPE_PUBLIC_KEY
         resources:
           requests:
             memory: "256Mi"

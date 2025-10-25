@@ -8,19 +8,25 @@ data:
   NEXT_TELEMETRY_DISABLED: "1"
   PORT: "3000"
   HOSTNAME: "0.0.0.0"
-  # Add your MongoDB connection string
+  # MongoDB connection string
   MONGODB_URI: "mongodb://mongodb-service:27017/baanlomnow"
-  # Add your NextAuth configuration
-  NEXTAUTH_URL: "https://your-domain.com"
+  # NextAuth configuration
+  NEXTAUTH_URL: "https://baanlomnow.com"
   NEXTAUTH_SECRET: "your-nextauth-secret"
-  # Add your Google Cloud Storage configuration
-  GOOGLE_CLOUD_PROJECT_ID: "your-project-id"
-  GOOGLE_CLOUD_STORAGE_BUCKET: "your-bucket-name"
-  STRIPE_PUBLIC_KEY: "your-stripe-public-key"
-  STRIPE_SECRET_KEY: "your-stripe-secret-key"
-  # Add your email configuration
-  RESEND_API_KEY: "your-resend-api-key"
-  # Add your LINE configuration
+  # Google Cloud Storage configuration
+  GOOGLE_CLOUD_PROJECT_ID: "baanlomnow-project"
+  GOOGLE_CLOUD_STORAGE_BUCKET: "baanlomnow-storage"
+  # Stripe Payment Gateway
+  STRIPE_PUBLIC_KEY: "pk_live_your-stripe-public-key"
+  STRIPE_SECRET_KEY: "sk_live_your-stripe-secret-key"
+  STRIPE_WEBHOOK_SECRET: "whsec_your-webhook-secret"
+  # Email service
+  RESEND_API_KEY: "re_your-resend-api-key"
+  # LINE configuration
   LINE_CHANNEL_ID: "your-line-channel-id"
   LINE_CHANNEL_SECRET: "your-line-channel-secret"
   LINE_CHANNEL_ACCESS_TOKEN: "your-line-channel-access-token"
+  LINE_ADMIN_USER_ID: "your-admin-user-id"
+  # App URLs
+  NEXT_PUBLIC_APP_URL: "https://baanlomnow.com"
+  NEXT_PUBLIC_STRIPE_PUBLIC_KEY: "pk_live_your-stripe-public-key"

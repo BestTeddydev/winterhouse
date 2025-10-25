@@ -10,7 +10,7 @@ metadata:
     kubernetes.io/ingress.allow-http: "false"
 spec:
   rules:
-  - host: https://baanlomnow.com
+  - host: baanlomnow.com
     http:
       paths:
       - path: /*
