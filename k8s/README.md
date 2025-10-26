@@ -1,10 +1,49 @@
 # Kubernetes Deployment Guide
 
+> 💡 **สำหรับผู้เริ่มต้น:** ดูคู่มือ [GKE_QUICK_START.md](./GKE_QUICK_START.md) สำหรับการ deploy บน Google Kubernetes Engine แบบละเอียด
+
 ## 📋 Prerequisites
 
 - Kubernetes cluster (Docker Desktop, GKE, etc.)
 - `kubectl` installed and configured
 - Docker image built and pushed to registry
+
+## 🏗️ Image Registry
+
+### For Local Development (Docker Desktop)
+
+The deployment uses local images. You can build and use the image locally:
+
+```bash
+# Build the image
+docker build -t baanlomnow:1.0 .
+
+# For local testing, use port-forward
+kubectl port-forward service/baanlomnow-service 3000:80 -n baanlomnow
+```
+
+### For Production (Google Artifact Registry)
+
+For production deployment on GKE, you need to:
+
+1. **Push image to Artifact Registry:**
+   ```bash
+   # Run the push script
+   ./k8s/push-to-artifact-registry.sh
+   ```
+
+2. **Set up image pull secret:**
+   See `ARTIFACT_REGISTRY_SETUP.md` for detailed instructions
+
+3. **Update deployment:**
+   ```bash
+   kubectl apply -f k8s/deployment.yaml
+   ```
+
+The deployment is configured to use:
+```
+asia-southeast1-docker.pkg.dev/project-14a6d9ab-7aaf-49a0-92d/baanlomnow-repository/baanlomnow:1.0
+```
 
 ## 🚀 Quick Start
 
@@ -66,13 +105,20 @@ Access your application at: **http://localhost**
 
 ## 📁 Files
 
+## 📚 Documentation Files
+
+- **[GKE_QUICK_START.md](./GKE_QUICK_START.md)** - คู่มือ deploy บน GKE แบบละเอียด (สำหรับผู้เริ่มต้น) ⭐
+- **[ARTIFACT_REGISTRY_SETUP.md](./ARTIFACT_REGISTRY_SETUP.md)** - คู่มือการตั้งค่า Artifact Registry
+- **[GKE_DEPLOYMENT_GUIDE.md](./GKE_DEPLOYMENT_GUIDE.md)** - คู่มือ deploy แบบ advanced
 - `secrets.yaml.template` - Template for secrets (copy to `secrets.yaml` and fill in your values)
-- `deployment.yaml` - Application deployment
+- `deployment.yaml` - Application deployment (local development - uses local image)
+- `deployment.prod.yaml` - Application deployment (production - uses Artifact Registry)
 - `service.yaml` - Service configuration
 - `mongodb-simple.yaml` - MongoDB deployment (without persistent storage)
 - `mongodb.yaml` - MongoDB deployment (with persistent storage)
 - `ingress-local.yaml` - Ingress configuration for local development
 - `ingress.yaml` - Ingress configuration for production (GKE)
+- `push-to-artifact-registry.sh` - Script to build and push Docker image to Artifact Registry
 
 ## 🔐 Secrets Configuration
 
@@ -132,3 +178,13 @@ kubectl get ingress -n baanlomnow
 - For production: Use `mongodb.yaml` with persistent storage
 - For development: Use `mongodb-simple.yaml` without persistent storage
 - Secrets are excluded from git (see `.gitignore`)
+
+## 🎯 Summary of Changes
+
+The Kubernetes deployment has been configured to use Google Artifact Registry:
+
+- **Image Path**: `asia-southeast1-docker.pkg.dev/project-14a6d9ab-7aaf-49a0-92d/baanlomnow-repository/baanlomnow:1.0`
+- **Script**: `push-to-artifact-registry.sh` for building and pushing images
+- **Setup Guide**: `ARTIFACT_REGISTRY_SETUP.md` for detailed configuration
+- **Local Development**: Works with Docker Desktop (no image pull secrets needed)
+- **Production**: Requires image pull secrets setup (see setup guide)

@@ -20,7 +20,8 @@ spec:
     spec:
       containers:
       - name: baanlomnow-app
-        image: baanlomnow:1.0
+        # Production: Use Artifact Registry image
+        image: asia-southeast1-docker.pkg.dev/project-14a6d9ab-7aaf-49a0-92d/baanlomnow-repository/baanlomnow:1.0
         ports:
         - containerPort: 3000
         env:
@@ -49,6 +50,11 @@ spec:
             secretKeyRef:
               name: baanlomnow-secrets
               key: MONGODB_URI
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: DATABASE_URL
         - name: NEXTAUTH_URL
           valueFrom:
             secretKeyRef:
@@ -138,5 +144,6 @@ spec:
             port: 3000
           initialDelaySeconds: 5
           periodSeconds: 5
-      # imagePullSecrets:
-      # - name: artifact-registry-json-key
+      # Production: Enable image pull secrets for Artifact Registry
+      imagePullSecrets:
+      - name: artifact-registry-json-key
