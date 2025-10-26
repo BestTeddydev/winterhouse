@@ -1,182 +1,134 @@
-# Winterhouse Kubernetes Deployment
+# Kubernetes Deployment Guide
 
-This directory contains Kubernetes configuration files for deploying the Winterhouse application to Google Kubernetes Engine (GKE).
+## 📋 Prerequisites
 
-## Prerequisites
+- Kubernetes cluster (Docker Desktop, GKE, etc.)
+- `kubectl` installed and configured
+- Docker image built and pushed to registry
 
-1. **Google Cloud SDK** - Install and configure gcloud CLI
-2. **kubectl** - Kubernetes command-line tool
-3. **Docker** - For building container images
-4. **Google Cloud Project** - With billing enabled
+## 🚀 Quick Start
 
-## Quick Start
+### 1. Create Namespace
 
-1. **Configure your project**:
-   ```bash
-   # Set your project ID
-   export PROJECT_ID="your-project-id"
-   
-   # Update the deploy script
-   sed -i "s/your-project-id/${PROJECT_ID}/g" k8s/deploy.sh
-   ```
-
-2. **Update configuration files**:
-   - Edit `k8s/configmap.yaml` with your actual configuration values
-   - Edit `k8s/secrets.yaml` with your base64-encoded secrets
-   - Update domain names in `k8s/ingress.yaml` and `k8s/managed-certificate.yaml`
-
-3. **Deploy to GKE**:
-   ```bash
-   ./k8s/deploy.sh
-   ```
-
-## Manual Deployment Steps
-
-If you prefer to deploy manually:
-
-1. **Create GKE cluster**:
-   ```bash
-   gcloud container clusters create baanlomnow-cluster \
-     --zone=asia-southeast1-a \
-     --num-nodes=3 \
-     --enable-autoscaling \
-     --min-nodes=1 \
-     --max-nodes=10 \
-     --machine-type=e2-medium
-   ```
-
-2. **Get cluster credentials**:
-   ```bash
-   gcloud container clusters get-credentials baanlomnow-cluster --zone=asia-southeast1-a
-   ```
-
-3. **Build and push Docker image**:
-   ```bash
-   docker build -t gcr.io/${PROJECT_ID}/baanlomnow:latest .
-   docker push gcr.io/${PROJECT_ID}/baanlomnow:latest
-   ```
-
-4. **Apply Kubernetes configurations**:
-   ```bash
-   kubectl apply -f k8s/namespace.yaml
-   kubectl apply -f k8s/mongodb.yaml
-   kubectl apply -f k8s/configmap.yaml
-   kubectl apply -f k8s/secrets.yaml
-   kubectl apply -f k8s/deployment.yaml
-   kubectl apply -f k8s/service.yaml
-   kubectl apply -f k8s/managed-certificate.yaml
-   kubectl apply -f k8s/ingress.yaml
-   ```
-
-## Configuration Files
-
-### Core Application Files
-- `namespace.yaml` - Creates the baanlomnow namespace
-- `deployment.yaml` - Deploys the Next.js application
-- `service.yaml` - Exposes the application within the cluster
-- `ingress.yaml` - Configures external access with load balancer
-- `managed-certificate.yaml` - SSL certificate management
-
-### Configuration Files
-- `configmap.yaml` - Non-sensitive configuration values
-- `secrets.yaml` - Sensitive data (base64 encoded)
-
-### Database Files
-- `mongodb.yaml` - MongoDB deployment with persistent storage
-
-## Environment Variables
-
-### Required Secrets (Base64 Encoded)
 ```bash
-# MongoDB
-MONGODB_URI=mongodb://mongodb-service:27017/baanlomnow
-MONGODB_ROOT_PASSWORD=your-mongodb-password
-
-# NextAuth
-NEXTAUTH_SECRET=your-nextauth-secret
-
-# Google Cloud
-GOOGLE_CLOUD_PROJECT_ID=your-project-id
-GOOGLE_CLOUD_STORAGE_BUCKET=your-bucket-name
-
-STRIPE_SECRET_KEY=your-stripe-secret-key
-
-# Email Service
-RESEND_API_KEY=your-resend-api-key
-
-# LINE Integration
-LINE_CHANNEL_SECRET=your-line-channel-secret
-LINE_CHANNEL_ACCESS_TOKEN=your-line-channel-access-token
+kubectl create namespace baanlomnow
 ```
 
-### Public Configuration (ConfigMap)
+### 2. Set Up Secrets
+
+**Important:** The `secrets.yaml` file contains sensitive information and should NOT be committed to git.
+
+Use the template to create your secrets:
+
 ```bash
-NODE_ENV=production
-NEXTAUTH_URL=https://your-domain.com
-STRIPE_PUBLIC_KEY=your-stripe-public-key
-LINE_CHANNEL_ID=your-line-channel-id
+# Copy the template
+cp k8s/secrets.yaml.template k8s/secrets.yaml
+
+# Edit with your actual values
+nano k8s/secrets.yaml
+
+# Apply the secrets
+kubectl apply -f k8s/secrets.yaml
 ```
 
-## Monitoring and Troubleshooting
+### 3. Deploy MongoDB
 
-### Check Deployment Status
+```bash
+kubectl apply -f k8s/mongodb-simple.yaml
+```
+
+Wait for MongoDB to be ready:
+
+```bash
+kubectl wait --for=condition=ready pod -l app=mongodb -n baanlomnow --timeout=120s
+```
+
+### 4. Deploy Application
+
+```bash
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+```
+
+### 5. Deploy Ingress (Optional)
+
+For local development with Docker Desktop:
+
+```bash
+# Install NGINX Ingress Controller (if not already installed)
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml
+
+# Apply ingress
+kubectl apply -f k8s/ingress-local.yaml
+```
+
+Access your application at: **http://localhost**
+
+## 📁 Files
+
+- `secrets.yaml.template` - Template for secrets (copy to `secrets.yaml` and fill in your values)
+- `deployment.yaml` - Application deployment
+- `service.yaml` - Service configuration
+- `mongodb-simple.yaml` - MongoDB deployment (without persistent storage)
+- `mongodb.yaml` - MongoDB deployment (with persistent storage)
+- `ingress-local.yaml` - Ingress configuration for local development
+- `ingress.yaml` - Ingress configuration for production (GKE)
+
+## 🔐 Secrets Configuration
+
+The secrets file should include:
+
+- **MongoDB**: Connection strings and root password
+- **NextAuth**: Secret and URL
+- **Stripe**: Payment gateway keys
+- **Google Cloud**: Project ID and storage bucket
+- **Resend**: Email API key
+- **LINE**: Channel credentials
+
+## 🌐 Access Methods
+
+### Port Forwarding
+
+```bash
+kubectl port-forward service/baanlomnow-service 3000:80 -n baanlomnow
+```
+
+Access at: http://localhost:3000
+
+### Ingress
+
+After deploying ingress:
+
+Access at: http://localhost
+
+## 🔍 Troubleshooting
+
+### Check Pod Status
+
 ```bash
 kubectl get pods -n baanlomnow
-kubectl get services -n baanlomnow
-kubectl get ingress -n baanlomnow
 ```
 
 ### View Logs
-```bash
-# Application logs
-kubectl logs -f deployment/baanlomnow-app -n baanlomnow
 
-# MongoDB logs
-kubectl logs -f deployment/mongodb -n baanlomnow
+```bash
+kubectl logs -l app=baanlomnow -n baanlomnow
 ```
 
-### Debug Pods
+### Describe Pod
+
 ```bash
-# Get pod details
 kubectl describe pod <pod-name> -n baanlomnow
-
-# Execute commands in pod
-kubectl exec -it <pod-name> -n baanlomnow -- /bin/sh
 ```
 
-### Scale Application
+### Check Ingress
+
 ```bash
-# Scale up/down replicas
-kubectl scale deployment baanlomnow-app --replicas=5 -n baanlomnow
+kubectl get ingress -n baanlomnow
 ```
 
-## Security Considerations
+## 📝 Notes
 
-1. **Secrets Management**: Use Google Secret Manager for production
-2. **Network Policies**: Implement network policies for pod-to-pod communication
-3. **RBAC**: Configure proper role-based access control
-4. **Image Security**: Use vulnerability scanning for container images
-5. **SSL/TLS**: Ensure all traffic is encrypted
-
-## Cost Optimization
-
-1. **Resource Limits**: Set appropriate CPU and memory limits
-2. **Autoscaling**: Configure horizontal pod autoscaling
-3. **Node Pool**: Use preemptible instances for non-critical workloads
-4. **Storage**: Choose appropriate storage classes based on needs
-
-## Backup and Recovery
-
-1. **MongoDB Backup**: Implement regular database backups
-2. **Persistent Volumes**: Backup persistent volume data
-3. **Configuration**: Version control all configuration files
-4. **Disaster Recovery**: Test recovery procedures regularly
-
-## Support
-
-For issues and questions:
-1. Check the application logs
-2. Verify configuration values
-3. Ensure all secrets are properly encoded
-4. Check GKE cluster health
-5. Verify network connectivity
+- For production: Use `mongodb.yaml` with persistent storage
+- For development: Use `mongodb-simple.yaml` without persistent storage
+- Secrets are excluded from git (see `.gitignore`)

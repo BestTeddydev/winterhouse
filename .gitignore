@@ -37,3 +37,9 @@ next-env.d.ts
 # prisma
 prisma/migrations
 
+# kubernetes secrets
+k8s/secrets.yaml
+k8s/mongodb.yaml
+*.secret.yaml
+**/*-secret.yaml
+
