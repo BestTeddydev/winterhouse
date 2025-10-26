@@ -7,7 +7,7 @@ metadata:
     app: baanlomnow
     component: app
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: baanlomnow
@@ -128,10 +128,10 @@ spec:
         resources:
           requests:
             memory: "256Mi"
-            cpu: "250m"
+            cpu: "100m"
           limits:
             memory: "512Mi"
-            cpu: "500m"
+            cpu: "300m"
         livenessProbe:
           httpGet:
             path: /api/health
