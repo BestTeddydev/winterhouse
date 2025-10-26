@@ -18,12 +18,10 @@ spec:
         app: baanlomnow
         component: app
     spec:
-      nodeSelector:
-        kubernetes.io/arch: arm64
       containers:
       - name: baanlomnow-app
         # Production: Use Artifact Registry image
-        image: asia-southeast1-docker.pkg.dev/project-14a6d9ab-7aaf-49a0-92d/baanlomnow-repository/baanlomnow:1.0
+        image: asia-southeast1-docker.pkg.dev/project-14a6d9ab-7aaf-49a0-92d/baanlomnow-repository/baanlomnow:1.0.0
         ports:
         - containerPort: 3000
         env:

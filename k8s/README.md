@@ -110,6 +110,9 @@ Access your application at: **http://localhost**
 - **[GKE_QUICK_START.md](./GKE_QUICK_START.md)** - คู่มือ deploy บน GKE แบบละเอียด (สำหรับผู้เริ่มต้น) ⭐
 - **[ARTIFACT_REGISTRY_SETUP.md](./ARTIFACT_REGISTRY_SETUP.md)** - คู่มือการตั้งค่า Artifact Registry
 - **[GKE_DEPLOYMENT_GUIDE.md](./GKE_DEPLOYMENT_GUIDE.md)** - คู่มือ deploy แบบ advanced
+- **[MULTI_ARCH_BUILD.md](./MULTI_ARCH_BUILD.md)** - คู่มือการ build Docker image สำหรับหลาย architecture 🏗️
+- **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** - คู่มือแก้ไขปัญหา Kubernetes 🔧
+- **[DEPLOY_FIX_SUMMARY.md](./DEPLOY_FIX_SUMMARY.md)** - สรุปปัญหา FailedScheduling และวิธีแก้ไข
 - `secrets.yaml.template` - Template for secrets (copy to `secrets.yaml` and fill in your values)
 - `deployment.yaml` - Application deployment (local development - uses local image)
 - `deployment.prod.yaml` - Application deployment (production - uses Artifact Registry)
