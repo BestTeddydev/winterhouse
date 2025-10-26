@@ -19,7 +19,7 @@ spec:
         component: app
     spec:
       nodeSelector:
-        kubernetes.io/arch: amd64
+        kubernetes.io/arch: arm64
       containers:
       - name: baanlomnow-app
         # Production: Use Artifact Registry image
