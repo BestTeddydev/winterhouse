@@ -68,7 +68,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: baanlomnow-secrets
-              key: GOOGLE_CLOUD_STORAGE_BUCKET
+              key: GOOGLE_CLOUD_BUCKET_NAME
         - name: STRIPE_PUBLIC_KEY
           valueFrom:
             secretKeyRef:

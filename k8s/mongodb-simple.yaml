@@ -45,9 +45,6 @@ spec:
             secretKeyRef:
               name: baanlomnow-secrets
               key: MONGODB_ROOT_PASSWORD
-        volumeMounts:
-        - name: mongodb-storage
-          mountPath: /data/db
         resources:
           requests:
             memory: "256Mi"
@@ -55,20 +52,3 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
-      volumes:
-      - name: mongodb-storage
-        persistentVolumeClaim:
-          claimName: mongodb-pvc
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: mongodb-pvc
-  namespace: baanlomnow
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 10Gi
-  storageClassName: hostpath

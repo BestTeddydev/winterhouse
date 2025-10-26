@@ -4,8 +4,15 @@ import LineProvider from 'next-auth/providers/line'
 import connectDB from './mongodb'
 import { MongoClient } from 'mongodb'
 
-const client = new MongoClient(process.env.DATABASE_URL!)
-const clientPromise = client.connect()
+// Only create MongoDB client if DATABASE_URL is available
+const DATABASE_URL = process.env.DATABASE_URL || process.env.MONGODB_URI
+let client: MongoClient | null = null
+let clientPromise: Promise<MongoClient> | null = null
+
+if (DATABASE_URL) {
+  client = new MongoClient(DATABASE_URL)
+  clientPromise = client.connect()
+}
 
 async function refreshAccessToken(token: any) {
   try {
@@ -22,7 +29,7 @@ async function refreshAccessToken(token: any) {
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: MongoDBAdapter(clientPromise),
+  adapter: clientPromise ? MongoDBAdapter(clientPromise) : undefined,
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
     LineProvider({

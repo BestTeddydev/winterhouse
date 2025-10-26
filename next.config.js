@@ -1,9 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ตั้งค่าให้ใช้ src folder
-  experimental: {
-    appDir: true,
-  },
   images: {
     remotePatterns: [
       {
@@ -14,6 +10,10 @@ const nextConfig = {
   },
   // For Docker standalone build
   output: 'standalone',
+  // Disable static generation for pages that use useSearchParams
+  experimental: {
+    missingSuspenseWithCSRBailout: false,
+  },
 }
 
 module.exports = nextConfig

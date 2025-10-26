@@ -4,17 +4,18 @@ import Payment from '@/models/Payment'
 import Booking from '@/models/Booking'
 import Room from '@/models/Room'
 import User from '@/models/User'
-import Stripe from 'stripe'
+import stripe from '@/lib/stripe'
+import { Stripe } from 'stripe'
 import { sendEmailNotification, formatPaymentNotificationEmail } from '@/lib/email'
 import { sendLineNotification, formatPaymentThankYouMessage } from '@/lib/line'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-09-30.clover',
-})
 
 export async function POST(request: NextRequest) {
   try {
     console.log('Webhook received, processing...')
+    
+    if (!stripe) {
+      return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
+    }
     
     // Get raw body as buffer to preserve exact formatting
     const body = await request.arrayBuffer()

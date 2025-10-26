@@ -3,13 +3,23 @@ import connectDB from '@/lib/mongodb'
 
 export async function GET() {
   try {
-    // Test database connection
-    await connectDB()
+    // Only test database connection if MONGODB_URI is available
+    let databaseStatus = 'not configured'
+    
+    if (process.env.MONGODB_URI) {
+      try {
+        await connectDB()
+        databaseStatus = 'connected'
+      } catch (error) {
+        databaseStatus = 'disconnected'
+        console.error('Database connection failed:', error)
+      }
+    }
     
     return NextResponse.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      database: 'connected',
+      database: databaseStatus,
       uptime: process.uptime(),
     })
   } catch (error) {
@@ -17,8 +27,8 @@ export async function GET() {
       {
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
-        database: 'disconnected',
-        error: 'Database connection failed',
+        database: 'error',
+        error: 'Health check failed',
       },
       { status: 503 }
     )

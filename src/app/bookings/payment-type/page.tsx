@@ -1,32 +1,60 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Navbar from '@/components/Navbar'
 import { CreditCard, Percent, CheckCircle, ArrowLeft } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 
-interface PaymentTypeSelectionProps {
-  bookingData: {
-    roomId: string
-    checkIn: string
-    checkOut: string
-    totalPrice: number
-    guestName: string
-    guestEmail: string
-    guestPhone: string
-    specialRequests?: string
-  }
+interface BookingData {
+  roomId: string
+  checkIn: string
+  checkOut: string
+  totalPrice: number
+  guestName: string
+  guestEmail: string
+  guestPhone: string
+  specialRequests?: string
 }
 
-export default function PaymentTypeSelection({ bookingData }: PaymentTypeSelectionProps) {
+export default function PaymentTypeSelection() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: session } = useSession()
   const [selectedType, setSelectedType] = useState<'FULL' | 'PARTIAL' | null>(null)
   const [loading, setLoading] = useState(false)
+  const [bookingData, setBookingData] = useState<BookingData | null>(null)
+
+  useEffect(() => {
+    // Get booking data from URL parameters or session storage
+    const data = searchParams.get('data')
+    if (data) {
+      try {
+        setBookingData(JSON.parse(decodeURIComponent(data)))
+      } catch (error) {
+        console.error('Error parsing booking data:', error)
+        router.push('/bookings/new')
+      }
+    } else {
+      // Try to get from session storage
+      const storedData = sessionStorage.getItem('bookingData')
+      if (storedData) {
+        try {
+          setBookingData(JSON.parse(storedData))
+        } catch (error) {
+          console.error('Error parsing stored booking data:', error)
+          router.push('/bookings/new')
+        }
+      } else {
+        router.push('/bookings/new')
+      }
+    }
+  }, [searchParams, router])
 
   const handlePaymentTypeSelect = async (paymentType: 'FULL' | 'PARTIAL') => {
+    if (!bookingData) return
+    
     setLoading(true)
     try {
       const response = await fetch('/api/bookings', {
@@ -47,6 +75,9 @@ export default function PaymentTypeSelection({ bookingData }: PaymentTypeSelecti
 
       const booking = await response.json()
       
+      // Clear stored data
+      sessionStorage.removeItem('bookingData')
+      
       // Redirect to payment page
       router.push(`/bookings/${booking._id}/payment`)
     } catch (error: any) {
@@ -55,6 +86,17 @@ export default function PaymentTypeSelection({ bookingData }: PaymentTypeSelecti
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!bookingData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">กำลังโหลดข้อมูล...</p>
+        </div>
+      </div>
+    )
   }
 
   const partialAmount = Math.round(bookingData.totalPrice * 0.5)

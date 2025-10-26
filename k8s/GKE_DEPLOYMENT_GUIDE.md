@@ -108,10 +108,10 @@ gcloud compute addresses describe baanlomnow-ip --global
 gcloud auth configure-docker
 
 # Build image
-docker build -t gcr.io/YOUR_PROJECT_ID/baanlomnow:latest .
-
+docker build -t asia-southeast1-docker.pkg.dev/project-14a6d9ab-7aaf-49a0-92d/baanlomnow-repository/baanlomnow:1.0 .
+ 
 # Push image
-docker push gcr.io/YOUR_PROJECT_ID/baanlomnow:latest
+docker push asia-southeast1-docker.pkg.dev/project-14a6d9ab-7aaf-49a0-92d/baanlomnow-repository/baanlomnow:1.0
 ```
 
 #### 5.2 หรือใช้ Cloud Build

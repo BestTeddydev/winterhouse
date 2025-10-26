@@ -1,7 +1,11 @@
 import { Resend } from 'resend'
 
-// Initialize Resend
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Only create Resend client if RESEND_API_KEY is available
+let resend: Resend | null = null
+
+if (process.env.RESEND_API_KEY) {
+  resend = new Resend(process.env.RESEND_API_KEY)
+}
 
 export interface EmailNotification {
   to: string
@@ -10,6 +14,10 @@ export interface EmailNotification {
 }
 
 export async function sendEmailNotification({ to, subject, html }: EmailNotification) {
+  if (!resend) {
+    throw new Error('Resend is not configured. Please set RESEND_API_KEY environment variable.')
+  }
+  
   try {
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'Winter House <noreply@winterhouse.com>',

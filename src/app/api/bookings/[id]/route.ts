@@ -196,7 +196,7 @@ export async function PUT(
       try {
         await sendLineNotification({
           userId: booking.userId.lineUserId,
-          message: formatBookingStatusUpdate(booking, oldStatus),
+          message: formatBookingStatusUpdate(booking, oldStatus, status),
         })
       } catch (error) {
         console.error('Failed to send customer notification:', error)

@@ -1,8 +1,13 @@
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-09-30.clover',
-})
+// Only create Stripe client if STRIPE_SECRET_KEY is available
+let stripe: Stripe | null = null
+
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2025-09-30.clover',
+  })
+}
 
 export interface CreatePaymentIntentParams {
   amount: number // in satang (1 THB = 100 satang)
@@ -13,6 +18,10 @@ export interface CreatePaymentIntentParams {
 }
 
 export async function createPaymentIntent(params: CreatePaymentIntentParams) {
+  if (!stripe) {
+    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
+  }
+  
   try {
     console.log('Creating Stripe PaymentIntent with params:', {
       amount: params.amount,
@@ -58,6 +67,10 @@ export async function createQRCodePayment(params: {
   description: string
   metadata?: Record<string, string>
 }) {
+  if (!stripe) {
+    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
+  }
+  
   try {
     console.log('Creating Stripe QR Code payment with params:', params)
     
@@ -106,6 +119,10 @@ export async function createQRCodePayment(params: {
 }
 
 export async function retrievePaymentIntent(paymentIntentId: string) {
+  if (!stripe) {
+    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
+  }
+  
   try {
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
     return paymentIntent
@@ -123,6 +140,10 @@ export async function createCheckoutSession(params: {
   success_url: string
   cancel_url: string
 }) {
+  if (!stripe) {
+    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
+  }
+  
   try {
     
     const session = await stripe.checkout.sessions.create({

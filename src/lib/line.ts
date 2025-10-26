@@ -148,3 +148,34 @@ ${paymentInfo}
   `.trim()
 }
 
+export function formatBookingStatusUpdate(booking: any, oldStatus: string, newStatus: string) {
+  const checkInDate = new Date(booking.checkIn).toLocaleDateString('th-TH')
+  const checkOutDate = new Date(booking.checkOut).toLocaleDateString('th-TH')
+  
+  const statusMessages: { [key: string]: string } = {
+    'PENDING': 'รอการยืนยัน',
+    'CONFIRMED': 'ยืนยันแล้ว',
+    'CANCELLED': 'ยกเลิก',
+    'COMPLETED': 'เสร็จสิ้น',
+    'CHECKED_IN': 'เช็คอินแล้ว',
+    'CHECKED_OUT': 'เช็คเอาท์แล้ว'
+  }
+  
+  const oldStatusText = statusMessages[oldStatus] || oldStatus
+  const newStatusText = statusMessages[newStatus] || newStatus
+  
+  return `
+📋 อัพเดทสถานะการจอง
+
+ห้อง: ${booking.roomId?.name || 'Room'}
+ผู้จอง: ${booking.guestName}
+เช็คอิน: ${checkInDate}
+เช็คเอาท์: ${checkOutDate}
+
+สถานะเปลี่ยนจาก: ${oldStatusText}
+เป็น: ${newStatusText}
+
+เลขที่การจอง: ${booking._id}
+  `.trim()
+}
+
