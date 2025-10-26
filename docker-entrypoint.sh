@@ -33,5 +33,11 @@ echo "✅ Database setup complete!"
 
 # Start the application
 echo "🌐 Starting Next.js server..."
-exec node server.js
+# Use the server.js from standalone build, or fallback to .next/server.js
+if [ -f "./server.js" ]; then
+  exec node server.js
+else
+  echo "⚠️  server.js not found, using .next/server.js"
+  exec node .next/server.js
+fi
 

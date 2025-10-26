@@ -40,15 +40,14 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 # Copy necessary files
-COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
 
-# Copy built application
+# Copy built application from standalone build
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy production dependencies
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+# Copy public folder (standalone doesn't include it)
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 # Copy entrypoint script
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
@@ -70,4 +69,3 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # Use entrypoint script
 ENTRYPOINT ["./docker-entrypoint.sh"]
-
