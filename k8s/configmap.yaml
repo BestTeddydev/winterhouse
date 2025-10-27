@@ -12,7 +12,7 @@ data:
   MONGODB_URI: "mongodb://mongodb-service:27017/baanlomnow"
   # NextAuth configuration
   NEXTAUTH_URL: "https://baanlomnow.com"
-  NEXTAUTH_SECRET: "your-nextauth-secret"
+  # NEXTAUTH_SECRET should be in Secret, not ConfigMap
   # Google Cloud Storage configuration
   GOOGLE_CLOUD_PROJECT_ID: "baanlomnow-project"
   GOOGLE_CLOUD_STORAGE_BUCKET: "baanlomnow-storage"

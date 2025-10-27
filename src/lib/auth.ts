@@ -29,7 +29,11 @@ async function refreshAccessToken(token: any) {
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: clientPromise ? MongoDBAdapter(clientPromise) : undefined,
+  // MongoDB Adapter and JWT strategy conflict!
+  // If using JWT strategy, disable MongoDB adapter
+  // If using MongoDB adapter, use database strategy
+  // We're using JWT strategy, so disable adapter
+  // adapter: clientPromise ? MongoDBAdapter(clientPromise) : undefined,
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
     LineProvider({
@@ -43,7 +47,8 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async session({ session, token }) {      
+    async session({ session, token }) {     
+       
       try {
         if (session.user && token) {
           session.user.id = token.id as string
@@ -94,15 +99,17 @@ export const authOptions: NextAuthOptions = {
           await connectDB()
           const { default: User } = await import('@/models/User')
           
-          // Find or create user
+          const lineUserId = (profile as any)?.sub || user.id
+          
+          // Find or create user by lineUserId (LINE's primary identifier)
           const existingUser = await User.findOneAndUpdate(
-            { email: user.email },
+            { lineUserId: lineUserId },
             { 
-              name: user?.name || '', 
+              name: user?.name || 'LINE User', 
               image: user?.image || '', 
               email: user?.email || '', 
-              role: 'CUSTOMER', // Default to CUSTOMER role for new users
-              lineUserId: (profile as any)?.sub || user.id
+              // role: 'CUSTOMER', // Default to CUSTOMER role for new users
+              lineUserId: lineUserId
             },
             {
               new: true,
@@ -144,5 +151,5 @@ export const authOptions: NextAuthOptions = {
       },
     },
   },
-  debug: process.env.NODE_ENV === 'development',
+  debug: true,
 }
