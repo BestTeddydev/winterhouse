@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -30,7 +29,6 @@ import Image from 'next/image'
 
 export default function AdminRooms() {
   const { data: session } = useSession()
-  const router = useRouter()
   const [rooms, setRooms] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -39,28 +37,13 @@ export default function AdminRooms() {
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'capacity'>('name')
 
   useEffect(() => {
-    if (session === undefined) {
-      // Session is loading, wait for it
-      return
+    // Middleware already handles authentication and authorization
+    // Just fetch the rooms data
+    if (session && session.user) {
+      console.log('✅ Admin rooms - User authenticated')
+      fetchRooms()
     }
-
-    if (!session) {
-      router.push('/auth/signin')
-      return
-    }
-
-    if (!session.user) {
-      console.error('Session exists but user is undefined')
-      router.push('/auth/signin')
-      return
-    }
-
-    if (session.user.role !== 'ADMIN') {
-      router.push('/')
-      return
-    }
-
-    fetchRooms()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
 
   const fetchRooms = async () => {

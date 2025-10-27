@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import Link from 'next/link'
 import axios from 'axios'
@@ -36,34 +35,18 @@ interface DashboardStats {
 
 export default function AdminDashboard() {
   const { data: session } = useSession()
-  const router = useRouter()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {    
-    if (session === undefined) {
-      // Session is loading, wait for it
-      return
+  useEffect(() => {
+    // Middleware already handles authentication and authorization
+    // Just fetch the dashboard stats
+    if (session && session.user) {
+      console.log('✅ Admin dashboard - User authenticated:', session.user.email, 'Role:', session.user.role)
+      fetchDashboardStats()
     }
-
-    if (!session) {
-      router.push('/auth/signin')
-      return
-    }
-
-    if (!session.user) {
-      console.error('Session exists but user is undefined')
-      router.push('/auth/signin')
-      return
-    }
-
-    if (session.user.role !== 'ADMIN') {
-      router.push('/')
-      return
-    }
-
-    fetchDashboardStats()
-  }, [session, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
 
   const fetchDashboardStats = async () => {
     try {

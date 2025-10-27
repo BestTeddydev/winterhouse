@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -31,29 +30,20 @@ const buildingTypes = {
 
 export default function AdminBuildings() {
   const { data: session } = useSession()
-  const router = useRouter()
   const [buildings, setBuildings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
 
   useEffect(() => {
-    if (session === undefined) {
-      return
+    // Middleware already handles authentication and authorization
+    // Just fetch the buildings data
+    if (session && session.user) {
+      console.log('✅ Admin buildings - User authenticated')
+      fetchBuildings()
     }
-
-    if (!session) {
-      router.push('/auth/signin')
-      return
-    }
-
-    if (session.user.role !== 'ADMIN') {
-      router.push('/')
-      return
-    }
-
-    fetchBuildings()
-  }, [session, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
 
   const fetchBuildings = async () => {
     try {

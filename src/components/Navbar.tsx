@@ -64,7 +64,7 @@ export default function Navbar() {
             
             <Link
               href="/rooms"
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 transition-colors"
+              className="flex items-center gap-2 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-semibold shadow-md hover:shadow-lg"
             >
               <Bed size={20} />
               จองห้องพัก
@@ -149,7 +149,7 @@ export default function Navbar() {
               
               <Link
                 href="/rooms"
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
+                className="flex items-center gap-3 px-4 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-semibold shadow-md"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <Bed size={20} />

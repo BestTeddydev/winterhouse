@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -34,37 +34,22 @@ import Image from 'next/image'
 
 export default function AdminBookings() {
   const { data: session } = useSession()
-  const router = useRouter()
   const [bookings, setBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [paymentFilter, setPaymentFilter] = useState('all')
   const [viewMode, setViewMode] = useState<'timeline' | 'cards'>('timeline')
+  const router = useRouter()
 
   useEffect(() => {
-    if (session === undefined) {
-      // Session is loading, wait for it
-      return
+    // Middleware already handles authentication and authorization
+    // Just fetch the bookings data
+    if (session && session.user) {
+      console.log('✅ Admin bookings - User authenticated')
+      fetchBookings()
     }
-
-    if (!session) {
-      router.push('/auth/signin')
-      return
-    }
-
-    if (!session.user) {
-      console.error('Session exists but user is undefined')
-      router.push('/auth/signin')
-      return
-    }
-
-    if (session.user.role !== 'ADMIN') {
-      router.push('/')
-      return
-    }
-
-    fetchBookings()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
 
   const fetchBookings = async () => {

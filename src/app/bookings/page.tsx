@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams,useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -10,24 +10,15 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { Calendar, CreditCard, CheckCircle, XCircle, Clock } from 'lucide-react'
 
 export default function MyBookings() {
-  const { data: session, status } = useSession()
+  const { data: session } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [bookings, setBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Wait for session to load before checking authentication
-    if (status === 'loading') {
-      return
-    }
-
-    if (status === 'unauthenticated') {
-      router.push('/auth/signin')
-      return
-    }
-
-    // Check for payment success
+    // Middleware already handles authentication
+    // Check for payment success notification
     const payment = searchParams.get('payment')
     const bookingId = searchParams.get('booking')
     
@@ -43,8 +34,13 @@ export default function MyBookings() {
       window.history.replaceState({}, '', url.toString())
     }
 
-    fetchBookings()
-  }, [session, status, searchParams])
+    // Fetch bookings if session exists
+    if (session && session.user) {
+      console.log('✅ My bookings - User authenticated')
+      fetchBookings()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, searchParams])
 
   const fetchBookings = async () => {
     try {

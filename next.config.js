@@ -10,6 +10,8 @@ const nextConfig = {
   },
   // For Docker standalone build
   output: 'standalone',
+  // Ensure native modules are bundled in standalone mode
+  serverExternalPackages: [],
   // Disable static generation for pages that use useSearchParams
   experimental: {
     missingSuspenseWithCSRBailout: false,

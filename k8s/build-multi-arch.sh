@@ -7,7 +7,7 @@ set -e
 
 # Configuration
 IMAGE_NAME="baanlomnow"
-IMAGE_TAG="1.0.0"
+IMAGE_TAG="${1:-1.0.1}"  # Accept version as first argument, default to 1.0.1
 REGISTRY="asia-southeast1-docker.pkg.dev"
 PROJECT_ID="project-14a6d9ab-7aaf-49a0-92d"
 REPOSITORY="baanlomnow-repository"

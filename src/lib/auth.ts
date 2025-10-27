@@ -66,6 +66,20 @@ export const authOptions: NextAuthOptions = {
         return token
       }
 
+      // On subsequent requests, fetch fresh user data from DB if role is missing
+      if (token && token.id && !token.role && DATABASE_URL) {
+        try {
+          await connectDB()
+          const { default: User } = await import('@/models/User')
+          const userFromDb = await User.findById(token.id)
+          if (userFromDb) {
+            token.role = userFromDb.role || 'CUSTOMER'
+          }
+        } catch (error) {
+          console.error('Error fetching user role:', error)
+        }
+      }
+
       // Return previous token if the access token has not expired yet
       if (Date.now() < (token.accessTokenExpires as number)) {
         return token
@@ -87,7 +101,7 @@ export const authOptions: NextAuthOptions = {
               name: user?.name || '', 
               image: user?.image || '', 
               email: user?.email || '', 
-              role: 'ADMIN',
+              role: 'CUSTOMER', // Default to CUSTOMER role for new users
               lineUserId: (profile as any)?.sub || user.id
             },
             {
