@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
       imageUrl: room.imageUrls && room.imageUrls.length > 0 ? room.imageUrls[0] : '/placeholder-room.jpg',
       imageUrls: room.imageUrls || [],
       price: room.price,
+      pricing: room.pricing,
       capacity: room.capacity,
       amenities: room.amenities,
       hotspots: [], // This will be populated by site map data
@@ -54,25 +55,38 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, description, imageUrls, price, capacity, amenities, buildingId } = body
+    const { name, description, imageUrl, imageUrls, price, capacity, amenities, buildingId, pricing } = body
 
     // Validate required fields
-    if (!name || !description || !imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0 || !price || !capacity) {
+    const finalImageUrls = imageUrls || (imageUrl ? [imageUrl] : [])
+    
+    if (!name || !description || !finalImageUrls || !Array.isArray(finalImageUrls) || finalImageUrls.length === 0 || !price || !capacity) {
       return NextResponse.json({ 
         error: 'กรุณากรอกข้อมูลที่จำเป็น: name, description, imageUrls (array), price, capacity' 
       }, { status: 400 })
     }
 
     await connectDB()
-    const room = new Room({
+    const roomData: any = {
       name,
       description,
-      imageUrls,
+      imageUrls: finalImageUrls,
       price,
       capacity,
       amenities: amenities || [],
       buildingId: buildingId || undefined,
-    })
+    }
+
+    // Add pricing if provided
+    if (pricing && (pricing.weekday || pricing.weekend || pricing.holiday)) {
+      roomData.pricing = {
+        weekday: pricing.weekday || price,
+        weekend: pricing.weekend || pricing.weekday || price,
+        holiday: pricing.holiday || pricing.weekday || price
+      }
+    }
+
+    const room = new Room(roomData)
 
     await room.save()
 

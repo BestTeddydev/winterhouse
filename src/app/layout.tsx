@@ -13,6 +13,14 @@ export const metadata: Metadata = {
   authors: [{ name: 'บ้านลมหนาว คาเฟ่ แอนด์ แคมป์ปิ้ง' }],
   creator: 'บ้านลมหนาว คาเฟ่ แอนด์ แคมป์ปิ้ง',
   publisher: 'บ้านลมหนาว คาเฟ่ แอนด์ แคมป์ปิ้ง',
+  icons: {
+    icon: [
+      { url: '/logo.jpeg', sizes: 'any', type: 'image/jpeg' },
+      { url: '/logo.jpeg', type: 'image/jpeg' },
+    ],
+    shortcut: '/logo.jpeg',
+    apple: '/logo.jpeg',
+  },
   robots: {
     index: true,
     follow: true,
@@ -46,7 +54,7 @@ export const metadata: Metadata = {
     images: ['/api/placeholder/1200/630'],
   },
   alternates: {
-    canonical: 'https://winterhouse.com',
+    canonical: 'https://baanlomnow.com',
   },
 }
 
@@ -57,6 +65,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th">
+      <head>
+        <link rel="icon" type="image/jpeg" href="/logo.jpeg" />
+        <link rel="shortcut icon" type="image/jpeg" href="/logo.jpeg" />
+        <link rel="apple-touch-icon" href="/logo.jpeg" />
+      </head>
       <body className={inter.className}>
         <Providers>
           {children}

@@ -12,29 +12,34 @@ export async function GET(
     
     const roomId = params.id
     
-    // Get bookings for the next 30 days
+    // Get bookings for the next 90 days (3 months)
     const startDate = new Date()
+    startDate.setDate(startDate.getDate() - 1) // Include past bookings that haven't checked out yet
     const endDate = new Date()
-    endDate.setDate(endDate.getDate() + 30)
+    endDate.setDate(endDate.getDate() + 90)
     
     const bookings = await Booking.find({
-      roomId: new mongoose.Types.ObjectId(roomId),
-      status: { $in: ['PENDING', 'CONFIRMED'] },
       $or: [
-        {
-          // Find bookings that overlap with the date range
-          $and: [
-            { checkIn: { $lt: endDate } }, // Existing check-in is before end date
-            { checkOut: { $gt: startDate } }  // Existing check-out is after start date
-          ]
-        }
+        // Single room bookings
+        { roomId: new mongoose.Types.ObjectId(roomId) },
+        // Multi-room bookings where this room is included
+        { roomIds: new mongoose.Types.ObjectId(roomId) },
+        // Room details in rooms array
+        { 'rooms.roomId': new mongoose.Types.ObjectId(roomId) }
+      ],
+      status: { $in: ['PENDING', 'CONFIRMED'] },
+      // Find bookings that overlap with the date range
+      $and: [
+        { checkIn: { $lt: endDate } }, // Existing check-in is before end date
+        { checkOut: { $gt: startDate } }  // Existing check-out is after start date
       ]
     }).select('checkIn checkOut status')
     
-    // Create availability map for the next 30 days
+    // Create availability map for the next 90 days
     const availability: { [key: string]: 'available' | 'booked' | 'partial' } = {}
     
-    for (let i = 0; i < 30; i++) {
+    // Include today and next 90 days
+    for (let i = -1; i < 90; i++) {
       const date = new Date()
       date.setDate(date.getDate() + i)
       const dateStr = date.toISOString().split('T')[0]

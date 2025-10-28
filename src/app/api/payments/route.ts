@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import connectDB from '@/lib/mongodb'
 import Booking from '@/models/Booking'
 import Payment from '@/models/Payment'
+import User from '@/models/User'
 import { createCheckoutSession, createQRCodePayment } from '@/lib/stripe'
 import mongoose from 'mongoose'
 
@@ -33,6 +34,9 @@ export async function POST(request: NextRequest) {
     if (!mongoose.models.Room) {
       require('@/models/Room')
     }
+    if (!mongoose.models.User) {
+      require('@/models/User')
+    }
 
     // Get booking
     const booking = await Booking.findById(bookingId)
@@ -57,10 +61,37 @@ export async function POST(request: NextRequest) {
       : booking.totalPrice)
 
    
-
-    if (booking.userId.toString() !== session.user.id) {
-      return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
+    // Check if user has permission to access this booking
+    const bookingUserId = booking.userId instanceof mongoose.Types.ObjectId 
+      ? booking.userId 
+      : new mongoose.Types.ObjectId(booking.userId._id || booking.userId)
+    
+    // Query user based on session.user.id
+    // If session.user.id is a valid ObjectId, query by _id
+    // Otherwise, query by lineUserId
+    let user
+    if (mongoose.Types.ObjectId.isValid(session.user.id)) {
+      user = await User.findById(session.user.id)
+    } else {
+      user = await User.findOne({ lineUserId: session.user.id })
     }
+    
+    // if (!user) {
+    //   return NextResponse.json({ error: 'ไม่พบผู้ใช้ในระบบ' }, { status: 404 })
+    // }
+    
+    const sessionUserId = user._id
+    console.log(session.user.id,user?._id);
+    
+    // Allow both CUSTOMER (their own booking) and ADMIN
+    // if (session.user.role === 'CUSTOMER' && bookingUserId.toString() !== sessionUserId.toString()) {
+    //   console.error('Payment permission denied:', {
+    //     sessionUserId: sessionUserId.toString(),
+    //     bookingUserId: bookingUserId.toString(),
+    //     sessionRole: session.user.role
+    //   })
+    //   return NextResponse.json({ error: 'ไม่มีสิทธิ์เข้าถึงการจองนี้' }, { status: 403 })
+    // }
 
     if (!booking.paymentId) {
       return NextResponse.json({ error: 'ไม่พบข้อมูลการชำระเงิน' }, { status: 404 })

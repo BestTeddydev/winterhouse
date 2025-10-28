@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useRef } from 'react'
 import { Home, Calendar, User, LogOut, Settings, Coffee, Bed, Phone, Menu, X } from 'lucide-react'
@@ -44,13 +45,20 @@ export default function Navbar() {
   }, [])
 
   return (
-    <nav className="bg-white shadow-lg sticky top-0 z-50" ref={mobileMenuRef}>
+    <nav className="bg-gradient-to-r from-white to-gray-50 shadow-lg sticky top-0 z-50" ref={mobileMenuRef}>
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16 sm:h-20">
-          <Link href="/" className="flex items-center gap-2 text-xl sm:text-2xl font-bold text-primary-600">
-            <Coffee size={24} className="sm:w-7 sm:h-7" />
-            <span className="hidden xs:inline">บ้านลมหนาว คาเฟ่ แอนด์ แคมป์ปิ้ง</span>
-            <span className="xs:hidden">บ้านลมหนาว</span>
+        <div className="flex items-center justify-between h-20 sm:h-24 min-h-[80px]">
+          <Link href="/" className="flex items-center hover:opacity-90 transition-opacity duration-200 group">
+            <div className="relative overflow-hidden rounded-lg shadow-md group-hover:shadow-lg transition-shadow duration-200">
+              <Image
+                src="/logo.jpeg"
+                alt="บ้านลมหนาว คาเฟ่ แอนด์ แคมป์ปิ้ง"
+                width={320}
+                height={80}
+                className="h-14 sm:h-16 md:h-18 w-auto object-cover"
+                priority
+              />
+            </div>
           </Link>
 
           <div className="hidden lg:flex items-center gap-4 xl:gap-6">

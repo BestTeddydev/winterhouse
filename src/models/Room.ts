@@ -4,7 +4,12 @@ export interface IRoom extends Document {
   name: string
   description: string
   imageUrls: string[]
-  price: number
+  price: number // Base price (for backward compatibility)
+  pricing: {
+    weekday: number   // Monday-Thursday
+    weekend: number   // Friday-Sunday
+    holiday: number   // Holiday rates
+  }
   capacity: number
   amenities: string[]
   buildingId?: mongoose.Types.ObjectId
@@ -32,6 +37,11 @@ const RoomSchema = new Schema<IRoom>({
     type: Number, 
     required: true,
     min: 0 
+  },
+  pricing: {
+    weekday: { type: Number, min: 0 },
+    weekend: { type: Number, min: 0 },
+    holiday: { type: Number, min: 0 }
   },
   capacity: { 
     type: Number, 

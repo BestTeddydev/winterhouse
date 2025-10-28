@@ -31,10 +31,11 @@ export default function Payment() {
 
   useEffect(() => {
     if (!session) {
-      router.push('/auth/signin')
+      router.push('/auth/signin?callbackUrl=' + encodeURIComponent(window.location.pathname))
       return
     }
 
+    // Only check if user is logged in, any role can access
     if (params.id) {
       fetchBooking()
     }

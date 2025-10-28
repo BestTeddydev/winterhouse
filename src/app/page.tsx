@@ -60,7 +60,7 @@ const staticRooms: Room[] = [
     id: "3",
     name: "ห้องพรีเมียม",
     description: "ห้องพักหรูหราพร้อมวิวธรรมชาติที่สวยงาม เหมาะสำหรับการพักผ่อนที่สมบูรณ์แบบ",
-    imageUrl: "/rooms/room4.jpeg", 
+    imageUrl: "/rooms/room4.JPEG", 
     price: "2,800",
     capacity: 3,
     amenities: ["WiFi ฟรี", "เครื่องปรับอากาศ", "ทีวี", "ห้องน้ำในตัว", "วิวธรรมชาติ"]
@@ -95,7 +95,6 @@ const useIntersectionObserver = (threshold = 0.1) => {
 }
 
 export default function Home() {
-  const { data: session } = useSession()
 
   // Animation hooks for each section
   const featuredRoomsSection = useIntersectionObserver(0.1)
@@ -119,9 +118,9 @@ export default function Home() {
             "name": "บ้านลมหนาว คาเฟ่ แอนด์ แคมป์ปิ้ง",
             "alternateName": "บ้านลมหนาว วังน้ำเขียว",
             "description": "คาเฟ่และห้องพักสุดพิเศษที่วังน้ำเขียว พร้อมลานกางเต้นท์ในบรรยากาศธรรมชาติ",
-            "url": "https://winterhouse.com",
-            "logo": "https://winterhouse.com/logo.png",
-            "image": "https://winterhouse.com/api/placeholder/1200/630",
+            "url": "https://baanlomnow.com",
+            "logo": "https://baanlomnow.com/logo.png",
+            "image": "https://baanlomnow.com/background.jpg",
             "telephone": "064-553-5691",
             "email": "banlomnowcafeandcamping@gmail.com",
             "address": {
@@ -272,35 +271,39 @@ export default function Home() {
             </p>
           </div>
 
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 mb-20 transition-all duration-1000 delay-300 ${featuredRoomsSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
-          {featuredRooms.map((room, index) => (
-            <div 
-              key={room.id}
-              className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 cursor-pointer block ${featuredRoomsSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`}
-              style={{ animationDelay: `${index * 200 + 500}ms` }}
-            >
-              <Image
-                src={room.imageUrl}
-                alt={room.name}
-                fill
-                className="object-cover group-hover:scale-110 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                  <h3 className="text-2xl font-bold mb-3 text-white drop-shadow-lg leading-tight bg-gradient-to-r from-white to-gray-100 bg-clip-text text-transparent">{room.name}</h3>
-                  <div className="flex items-center gap-2 text-gray-100 text-sm">
-                    <div className="bg-white/20 rounded-full p-1">
-                      <Users size={16} className="text-white" />
-                    </div>
-                    <span className="font-medium">{room.capacity} คน</span>
-                  </div>
+        <div className={`relative mb-20 transition-all duration-1000 delay-300 ${featuredRoomsSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
+          <div className="flex flex-col md:flex-row md:justify-center md:items-center md:py-12 md:px-8 gap-6 md:gap-0">
+            {featuredRooms.map((room, index) => (
+              <div 
+                key={room.id}
+                className={`group relative rounded-3xl overflow-hidden shadow-2xl hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] transition-all duration-700 hover:scale-105 cursor-pointer ${featuredRoomsSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'} ${
+                  index === 0 
+                    ? 'h-[420px] w-full md:w-[350px] md:z-10 md:-rotate-[5deg] hover:rotate-0 md:scale-90 hover:scale-100' 
+                    : index === 1 
+                    ? 'h-[450px] w-full md:w-[380px] md:z-20 md:-ml-12 md:rotate-[3deg] hover:rotate-0 md:scale-95 hover:scale-105' 
+                    : 'h-[420px] w-full md:w-[350px] md:z-30 md:-ml-12 md:-rotate-[5deg] hover:rotate-0 md:scale-90 hover:scale-100'
+                }`}
+                style={{ animationDelay: `${index * 200 + 500}ms` }}
+              >
+                {/* Glowing border effect */}
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-green-400 via-emerald-500 to-green-400 rounded-3xl opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500"></div>
+                
+                <Image
+                  src={room.imageUrl}
+                  alt={room.name}
+                  fill
+                  className="object-cover group-hover:scale-125 transition-transform duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+                
+                {/* Shine effect on hover */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
                 </div>
+
               </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-         
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
           <div className={`text-center transition-all duration-1000 delay-700 ${featuredRoomsSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
@@ -349,10 +352,10 @@ export default function Home() {
                 className="object-cover group-hover:scale-110 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
+              {/* <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
                 <h3 className="text-2xl font-bold mb-2">คาเฟ่ในบรรยากาศธรรมชาติ</h3>
                 <p className="text-gray-200 text-sm">กาแฟสดและเครื่องดื่มหลากหลาย</p>
-              </div>
+              </div> */}
             </div>
 
             <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '600ms' }}>
@@ -363,10 +366,10 @@ export default function Home() {
                 className="object-cover group-hover:scale-110 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
+              {/* <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
                 <h3 className="text-2xl font-bold mb-2">อาหารอร่อยหลากหลาย</h3>
                 <p className="text-gray-200 text-sm">เมนูไทยและสากล</p>
-              </div>
+              </div> */}
             </div>
 
             <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 md:col-span-2 lg:col-span-1 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '800ms' }}>
@@ -377,10 +380,10 @@ export default function Home() {
                 className="object-cover group-hover:scale-110 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
+              {/* <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
                 <h3 className="text-2xl font-bold mb-2">บรรยากาศสบายๆ</h3>
                 <p className="text-gray-200 text-sm">พร้อม WiFi ฟรี</p>
-              </div>
+              </div> */}
             </div>
           </div>
 
@@ -420,10 +423,10 @@ export default function Home() {
                 className="object-cover group-hover:scale-110 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
+              {/* <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
                 <h3 className="text-2xl font-bold mb-2">ลานกางเต้นท์กว้างขวาง</h3>
                 <p className="text-gray-200 text-sm">พื้นที่กางเต้นท์ในบรรยากาศธรรมชาติ</p>
-              </div>
+              </div> */}
             </div>
 
             <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 ${campingSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '600ms' }}>
@@ -434,24 +437,24 @@ export default function Home() {
                 className="object-cover group-hover:scale-110 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
+              {/* <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
                 <h3 className="text-2xl font-bold mb-2">บรรยากาศธรรมชาติ</h3>
                 <p className="text-gray-200 text-sm">ล้อมรอบด้วยป่าไม้และธรรมชาติ</p>
-              </div>
+              </div> */}
             </div>
 
             <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 ${campingSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '800ms' }}>
               <Image
-                src="/rooms/room3.JPEG"
+                src="/rooms/room3.jpeg"
                 alt="กิจกรรมแคมป์ปิ้ง - บ้านลมหนาว"
                 fill
                 className="object-cover group-hover:scale-110 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
+              {/* <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
                 <h3 className="text-2xl font-bold mb-2">กิจกรรมสนุกๆ</h3>
                 <p className="text-gray-200 text-sm">เดินป่า ดูดาว และกิจกรรมกลุ่ม</p>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>

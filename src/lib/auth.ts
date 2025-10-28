@@ -51,9 +51,19 @@ export const authOptions: NextAuthOptions = {
        
       try {
         if (session.user && token) {
-          session.user.id = token.id as string
-          session.user.role = token.role as string || 'CUSTOMER'
+          // Convert token.id to string if needed
+          const tokenId = token.id ? String(token.id) : undefined
+          
+          session.user.id = tokenId as string
+          session.user.role = (token.role as string) || 'CUSTOMER'
           session.user.lineUserId = token.lineUserId as string
+          
+          console.log('🔍 Session callback - Setting user data:', {
+            id: session.user.id,
+            role: session.user.role,
+            tokenId: token.id,
+            tokenIdType: typeof token.id
+          })
         }
         return session
       } catch (error) {
@@ -118,7 +128,7 @@ export const authOptions: NextAuthOptions = {
           )
           
           // Update user object with database data
-          user.id = existingUser._id.toString()
+          user.id = existingUser?._id
           user.role = existingUser.role
           user.lineUserId = existingUser.lineUserId
           

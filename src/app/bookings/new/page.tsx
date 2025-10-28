@@ -7,6 +7,7 @@ import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { formatCurrency } from '@/lib/utils'
+import { calculateRoomPriceRange } from '@/lib/pricing'
 
 export default function NewBooking() {
   const router = useRouter()
@@ -14,10 +15,13 @@ export default function NewBooking() {
   const { data: session } = useSession()
 
   const roomId = searchParams.get('roomId')
+  const roomIdsParam = searchParams.get('roomIds') // For multi-room booking
+  const roomIds = roomIdsParam ? roomIdsParam.split(',') : []
   const checkIn = searchParams.get('checkIn')
   const checkOut = searchParams.get('checkOut')
 
   const [room, setRoom] = useState<any>(null)
+  const [rooms, setRooms] = useState<any[]>([]) // For multi-room booking
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [sessionLoading, setSessionLoading] = useState(true)
@@ -41,16 +45,51 @@ export default function NewBooking() {
       return
     }
 
-    if (!roomId || !checkIn || !checkOut) {
+    // Check if we have roomId (single) or roomIds (multiple)
+    if (!roomId && roomIds.length === 0) {
       toast.error('ข้อมูลการจองไม่ครบถ้วน กรุณาเลือกห้องพักใหม่')
       router.push('/rooms')
       return
     }
 
-    fetchRoom()
+    if (!checkIn || !checkOut) {
+      toast.error('ข้อมูลการจองไม่ครบถ้วน กรุณาเลือกวันที่เช็คอิน')
+      router.push('/rooms')
+      return
+    }
+
+    // For multi-room, we'll handle it differently
+    if (roomIds.length > 0) {
+      // Multi-room booking - fetch all rooms
+      fetchMultipleRooms()
+    } else {
+      fetchRoom()
+    }
+    
     setGuestName(session.user.name || '')
     setGuestEmail(session.user.email || '')
-  }, [session, roomId, checkIn, checkOut])
+  }, [session, roomId, checkIn, checkOut, roomIdsParam])
+
+  const fetchMultipleRooms = async () => {
+    try {
+      console.log('Fetching multiple rooms:', roomIds)
+      const roomPromises = roomIds.map(id => axios.get(`/api/rooms/${id}`))
+      const responses = await Promise.all(roomPromises)
+      const roomsData = responses.map(res => res.data)
+      console.log('Fetched rooms data:', roomsData)
+      setRooms(roomsData)
+      
+      // Show first room as the primary display
+      if (roomsData.length > 0) {
+        setRoom(roomsData[0])
+      }
+    } catch (error) {
+      console.error('Error fetching rooms:', error)
+      toast.error('ไม่สามารถโหลดข้อมูลห้องพักได้')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const fetchRoom = async () => {
     try {
@@ -65,13 +104,34 @@ export default function NewBooking() {
   }
 
   const calculateTotalPrice = () => {
-    if (!room || !checkIn || !checkOut) return 0
+    if (!checkIn || !checkOut) return 0
 
     const start = new Date(checkIn)
     const end = new Date(checkOut)
-    const nights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
     
-    return parseFloat(room.price) * nights
+    // If multiple rooms, calculate for all
+    if (rooms.length > 0) {
+      return rooms.reduce((total, room) => {
+        try {
+          const result = calculateRoomPriceRange(room as any, start, end)
+          return total + result.totalPrice
+        } catch (error) {
+          const nights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+          return total + parseFloat(room.price) * nights
+        }
+      }, 0)
+    }
+    
+    // Single room
+    if (!room) return 0
+    
+    try {
+      const result = calculateRoomPriceRange(room as any, start, end)
+      return result.totalPrice
+    } catch (error) {
+      const nights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+      return parseFloat(room.price) * nights
+    }
   }
 
   const calculatePaymentAmount = () => {
@@ -93,8 +153,9 @@ export default function NewBooking() {
     setSubmitting(true)
 
     try {
-      const response = await axios.post('/api/bookings', {
-        roomId,
+      // For multi-room booking, send roomIds array
+      // For single room, send roomId
+      const bookingData: any = {
         checkIn,
         checkOut,
         totalPrice: calculateTotalPrice(),
@@ -103,7 +164,34 @@ export default function NewBooking() {
         guestPhone,
         specialRequests,
         paymentType,
-      })
+      }
+
+      // Check if this is multi-room or single-room booking
+      console.log('Submitting booking - rooms:', rooms, 'roomId:', roomId)
+      
+      if (rooms.length > 0) {
+        // Filter out any null or undefined IDs - support both 'id' and '_id'
+        const validRoomIds = rooms
+          .map(r => r.id || r._id)
+          .filter(id => id && id !== 'null' && typeof id === 'string')
+        console.log('Valid room IDs:', validRoomIds)
+        
+        if (validRoomIds.length > 0) {
+          bookingData.roomIds = validRoomIds
+        } else {
+          console.error('Invalid room IDs in rooms array:', rooms)
+          toast.error('ไม่พบ Room IDs ที่ถูกต้อง')
+          return
+        }
+      } else if (roomId && roomId !== 'null') {
+        bookingData.roomId = roomId
+      } else {
+        console.error('No valid room ID or room IDs found')
+        toast.error('กรุณาเลือกห้องพักก่อนจอง')
+        return
+      }
+
+      const response = await axios.post('/api/bookings', bookingData)
 
       toast.success('สร้างการจองสำเร็จ')
       router.push(`/bookings/${response.data._id || response.data.id}/payment`)
@@ -270,8 +358,23 @@ export default function NewBooking() {
               <h2 className="text-xl font-bold mb-4 text-gray-900">สรุปการจอง</h2>
 
               <div className="mb-4">
-                <h3 className="font-semibold text-gray-900">{room.name}</h3>
-                <p className="text-gray-800 text-sm">{room.description}</p>
+                {rooms.length > 0 ? (
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-2">{rooms.length} ห้องพัก</h3>
+                    <div className="space-y-2">
+                      {rooms.map((r, idx) => (
+                        <div key={r.id} className="bg-gray-50 p-3 rounded-lg">
+                          <p className="font-medium text-gray-900 text-sm">{r.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <h3 className="font-semibold text-gray-900">{room?.name}</h3>
+                    <p className="text-gray-800 text-sm">{room?.description}</p>
+                  </>
+                )}
               </div>
 
               <div className="border-t border-b py-4 mb-4 space-y-2">
@@ -296,17 +399,17 @@ export default function NewBooking() {
               <div className="space-y-2 mb-4">
                 <div className="flex justify-between">
                   <span className="text-gray-800 font-medium">
-                    {formatCurrency(room.price)} x {nights} คืน
+                    ราคารวม {nights} คืน
                   </span>
                   <span className="font-semibold text-gray-900">
-                    {formatCurrency(parseFloat(room.price) * nights)}
+                    {formatCurrency(calculateTotalPrice())}
                   </span>
                 </div>
                 {paymentType === 'PARTIAL' && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">มัดจำ 50%</span>
                     <span className="text-gray-600">
-                      {formatCurrency(Math.round(parseFloat(room.price) * nights * 0.5))}
+                      {formatCurrency(calculatePaymentAmount())}
                     </span>
                   </div>
                 )}

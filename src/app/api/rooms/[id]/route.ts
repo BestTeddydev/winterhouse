@@ -36,21 +36,42 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { name, description, imageUrl, price, capacity, amenities, hotspots, isActive } = body
+    const { 
+      name, description, imageUrl, imageUrls, price, 
+      capacity, amenities, hotspots, isActive, pricing 
+    } = body
 
     await connectDB()
+    
+    const updateData: any = {
+      name,
+      description,
+      price,
+      capacity,
+      amenities,
+      hotspots,
+      isActive,
+    }
+
+    // Handle imageUrls
+    if (imageUrls) {
+      updateData.imageUrls = imageUrls
+    } else if (imageUrl) {
+      updateData.imageUrls = [imageUrl]
+    }
+
+    // Add pricing if provided
+    if (pricing && (pricing.weekday || pricing.weekend || pricing.holiday)) {
+      updateData.pricing = {
+        weekday: pricing.weekday || price,
+        weekend: pricing.weekend || pricing.weekday || price,
+        holiday: pricing.holiday || pricing.weekday || price
+      }
+    }
+
     const room = await Room.findByIdAndUpdate(
       params.id,
-      {
-        name,
-        description,
-        imageUrl,
-        price,
-        capacity,
-        amenities,
-        hotspots,
-        isActive,
-      },
+      updateData,
       { new: true }
     )
 

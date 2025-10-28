@@ -72,7 +72,7 @@ export async function middleware(req: NextRequest) {
   // Booking page protection - check authentication
   if (isBookingPage && !isAuth) {
     console.log('❌ Booking page - Not authenticated, redirecting to signin')
-    return NextResponse.redirect(new URL('/', req.url))
+    return NextResponse.redirect(new URL('/auth/signin?callbackUrl=' + encodeURIComponent(req.nextUrl.pathname + req.nextUrl.search), req.url))
   }
 
   console.log('✅ Middleware passed, allowing request')

@@ -24,6 +24,11 @@ export default function EditRoom() {
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [coverImageIndex, setCoverImageIndex] = useState(0)
   const [price, setPrice] = useState('')
+  const [pricing, setPricing] = useState({
+    weekday: '',
+    weekend: '',
+    holiday: ''
+  })
   const [capacity, setCapacity] = useState('')
   const [amenities, setAmenities] = useState<string[]>([])
   const [amenityInput, setAmenityInput] = useState('')
@@ -78,8 +83,13 @@ export default function EditRoom() {
         setCoverImageIndex(0)
       }
       
-      setPrice(room.price)
+      setPrice(room.price || room.pricing?.weekday || '')
       setCapacity(room.capacity.toString())
+      setPricing({
+        weekday: room.pricing?.weekday?.toString() || room.price?.toString() || '',
+        weekend: room.pricing?.weekend?.toString() || '',
+        holiday: room.pricing?.holiday?.toString() || ''
+      })
       setAmenities(room.amenities || [])
       setHotspots(room.hotspots || [])
       setIsActive(room.isActive)
@@ -244,7 +254,7 @@ export default function EditRoom() {
     setSubmitting(true)
 
     try {
-      await axios.put(`/api/rooms/${params.id}`, {
+      const roomData: any = {
         name,
         description,
         imageUrl: imageUrls[coverImageIndex], // รูปปก
@@ -254,7 +264,19 @@ export default function EditRoom() {
         amenities,
         hotspots,
         isActive,
-      })
+      }
+
+      // Add pricing if provided
+      if (pricing.weekday || pricing.weekend || pricing.holiday) {
+        const basePrice = pricing.weekday || price
+        roomData.pricing = {
+          weekday: parseFloat(pricing.weekday || basePrice),
+          weekend: parseFloat(pricing.weekend || pricing.weekday || basePrice),
+          holiday: parseFloat(pricing.holiday || pricing.weekday || basePrice)
+        }
+      }
+
+      await axios.put(`/api/rooms/${params.id}`, roomData)
 
       toast.success('อัพเดทห้องพักสำเร็จ')
       router.push('/admin/rooms')
@@ -477,7 +499,7 @@ export default function EditRoom() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-gray-700 font-medium mb-2">
-                ราคาต่อคืน (บาท) *
+                ราคาพื้นฐาน (บาท) *
               </label>
               <input
                 type="number"
@@ -488,6 +510,7 @@ export default function EditRoom() {
                 step="0.01"
                 className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
+              <p className="text-xs text-gray-500 mt-1">ราคาพื้นฐาน (สำหรับความเข้ากันได้กับระบบเดิม)</p>
             </div>
 
             <div>
@@ -502,6 +525,69 @@ export default function EditRoom() {
                 min="1"
                 className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
+            </div>
+          </div>
+
+          {/* Advanced Pricing */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 className="font-semibold text-blue-900 mb-4">💰 กำหนดราคาแบบยืดหยุ่น (แนะนำ)</h3>
+            <p className="text-sm text-blue-800 mb-4">
+              กำหนดราคาที่แตกต่างกันตามประเภทของวัน เพื่อเพิ่มรายได้
+            </p>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="block text-gray-700 font-medium mb-2 text-sm">
+                  ราคาวันธรรมดา (จันทร์-พฤหัสบดี) *
+                </label>
+                <input
+                  type="number"
+                  value={pricing.weekday}
+                  onChange={(e) => setPricing({ ...pricing, weekday: e.target.value })}
+                  min="0"
+                  step="0.01"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder={price}
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-2 text-sm">
+                  ราคาวันหยุดสุดสัปดาห์ (ศุกร์-อาทิตย์)
+                </label>
+                <input
+                  type="number"
+                  value={pricing.weekend}
+                  onChange={(e) => setPricing({ ...pricing, weekend: e.target.value })}
+                  min="0"
+                  step="0.01"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder={pricing.weekday || price}
+                />
+                <p className="text-xs text-gray-500 mt-1">หากไม่กรอก จะใช้ราคาวันธรรมดา</p>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-2 text-sm">
+                  ราคาวันหยุดนักขัตฤกษ์
+                </label>
+                <input
+                  type="number"
+                  value={pricing.holiday}
+                  onChange={(e) => setPricing({ ...pricing, holiday: e.target.value })}
+                  min="0"
+                  step="0.01"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder={pricing.weekday || price}
+                />
+                <p className="text-xs text-gray-500 mt-1">หากไม่กรอก จะใช้ราคาวันธรรมดา</p>
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 bg-white rounded border">
+              <p className="text-xs text-gray-600">
+                💡 <strong>แนะนำ:</strong> ตั้งราคา weekend สูงกว่า weekday 20-30% และ holiday สูงกว่า weekday 50% เพื่อเพิ่มรายได้
+              </p>
             </div>
           </div>
 

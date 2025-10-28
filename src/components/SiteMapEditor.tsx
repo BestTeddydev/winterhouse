@@ -282,41 +282,58 @@ export default function SiteMapEditor({
                   setSelectedIndex(index)
                 }}
               >
-                {/* Building Marker */}
+                {/* Building Marker - Simple Dot */}
                 <div
-                  className={`w-12 h-12 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-2xl transition-all duration-300 ${
+                  className={`w-4 h-4 rounded-full border-2 border-white shadow-lg transition-all duration-300 ${
                     selectedIndex === index
-                      ? 'bg-red-500 scale-125'
-                      : 'bg-primary-500 hover:scale-110'
+                      ? 'bg-red-500 scale-150 ring-4 ring-red-200'
+                      : 'bg-primary-500 hover:scale-125 hover:ring-4 hover:ring-primary-200'
                   }`}
                 >
-                  {buildingTypes.find((t) => t.value === hotspot.buildingType)?.icon || '🏢'}
+                  {/* Icon only shows on hover or when selected */}
+                  {selectedIndex === index && (
+                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap z-30">
+                      <div className="bg-white px-3 py-1 rounded-lg shadow-md border border-gray-200">
+                        <p className="text-xs font-semibold text-gray-900">{hotspot.buildingName}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Building Name Label */}
-                <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                {/* <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
                   <div className="bg-white px-3 py-1 rounded-lg shadow-md border border-gray-200">
                     <p className="text-xs font-semibold text-gray-900">{hotspot.buildingName}</p>
                     {hotspot.rooms.length > 0 && (
                       <p className="text-xs text-gray-600">{hotspot.rooms.length} ห้อง</p>
                     )}
                   </div>
-                </div>
+                </div> */}
               </button>
             </div>
           ))}
 
           {/* Add Hotspot Overlay */}
           {isAddingHotspot && (
-            <div className="absolute inset-0  flex items-center justify-center pointer-events-none">
-              <div className="bg-white px-6 py-3 rounded-xl shadow-lg border-2 border-primary-500">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="bg-white px-6 py-3 rounded-xl shadow-lg border-2 border-primary-500 animate-pulse">
                 <p className="font-semibold text-gray-900 flex items-center gap-2">
-                  <MapPin size={20} className="text-primary-600" />
-                  คลิกที่ตำแหน่งที่ต้องการเพิ่มอาคาร
+                  <MapPin size={20} className="text-primary-600 animate-bounce" />
+                  คลิกจุดใดๆ บนแผนผังเพื่อเพิ่มอาคารใหม่
                 </p>
               </div>
             </div>
           )}
+          
+          {/* Cursor overlay style */}
+          {isAddingHotspot && (
+            <style jsx global>{`
+              div[ref="${imageRef}"] {
+                cursor: crosshair !important;
+              }
+            `}</style>
+          )}
+          
         </div>
 
         {/* Building List and Editor */}

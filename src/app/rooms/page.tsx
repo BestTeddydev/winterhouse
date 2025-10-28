@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { getRoomPriceForDate, getDayType, formatPrice, getDayTypeLabel } from '@/lib/pricing'
 
 interface Room {
   id: string
@@ -81,24 +82,86 @@ export default function RoomsPage() {
   const router = useRouter()
   const [rooms, setRooms] = useState<Room[]>([])
   const [siteMap, setSiteMap] = useState<SiteMapData>({ imageUrl: '', hotspots: [] })
+  
+  // Function to calculate and display price based on selected date
+  const getRoomDisplayPrice = (room: Room): { price: number; dayType: string; formattedPrice: string } => {
+    if (!checkInDate) {
+      // No date selected, show base price
+      return {
+        price: room.price,
+        dayType: 'ราคาพื้นฐาน',
+        formattedPrice: formatPrice(room.price)
+      }
+    }
+    
+    // Use the room object with pricing
+    const roomWithPricing = room as any
+    const checkIn = new Date(checkInDate)
+    const price = getRoomPriceForDate(roomWithPricing, checkIn)
+    const dayType = getDayType(checkIn)
+    const dayTypeLabel = getDayTypeLabel(dayType)
+    
+    return {
+      price,
+      dayType: dayTypeLabel,
+      formattedPrice: formatPrice(price)
+    }
+  }
+  
+  // Calculate total price for selected nights
+  const calculateTotalPrice = (room: Room): number => {
+    if (!checkInDate) return room.price * nights
+    
+    const roomWithPricing = room as any
+    let total = 0
+    const checkIn = new Date(checkInDate)
+    
+    for (let i = 0; i < nights; i++) {
+      const currentDate = new Date(checkIn)
+      currentDate.setDate(checkIn.getDate() + i)
+      total += getRoomPriceForDate(roomWithPricing, currentDate)
+    }
+    
+    return total
+  }
   const [loading, setLoading] = useState(true)
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingHotspot | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [priceFilter, setPriceFilter] = useState('all')
   const [capacityFilter, setCapacityFilter] = useState('all')
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
+  const [selectedRooms, setSelectedRooms] = useState<Room[]>([])
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null) // Keep for detail view
   const [roomAvailability, setRoomAvailability] = useState<RoomAvailability | null>(null)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [showImageModal, setShowImageModal] = useState(false)
-  const [checkInDate, setCheckInDate] = useState('')
+  const [checkInDate, setCheckInDate] = useState(() => {
+    // Set default to today
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const day = String(today.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  })
   const [nights, setNights] = useState(1)
   const [selectedBookingConflicts, setSelectedBookingConflicts] = useState<any[]>([])
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDateRange, setSelectedDateRange] = useState<{start: Date | null, end: Date | null}>({start: null, end: null})
   const [hoveredRoom, setHoveredRoom] = useState<Room | null>(null)
+  const [allBookings, setAllBookings] = useState<any[]>([])
 
   useEffect(() => {
     fetchData()
+    
+    // Initialize selected date range
+    const today = new Date()
+    setCurrentMonth(today)
+    if (checkInDate) {
+      const selectedDate = new Date(checkInDate)
+      setSelectedDateRange({
+        start: selectedDate,
+        end: new Date(selectedDate.getTime() + (nights - 1) * 24 * 60 * 60 * 1000)
+      })
+    }
   }, [])
 
   // Sync calendar with form date selection
@@ -122,10 +185,21 @@ export default function RoomsPage() {
         axios.get('/api/site-map')
       ])
       
+      // Try to fetch bookings for availability checking
+      let bookingsData: any[] = []
+      try {
+        const bookingsResponse = await axios.get('/api/bookings/public')
+        bookingsData = bookingsResponse.data || []
+      } catch (error) {
+        console.log('Could not fetch bookings:', error)
+      }
+      
       console.log('Rooms data:', roomsResponse.data)
       console.log('Site map data:', siteMapResponse.data)
+      console.log('Bookings data:', bookingsData)
       
       setRooms(roomsResponse.data)
+      setAllBookings(bookingsData)
       
       if (siteMapResponse.data && siteMapResponse.data.imageUrl) {
         console.log('Setting site map:', siteMapResponse.data)
@@ -165,10 +239,40 @@ export default function RoomsPage() {
     }
     
     const checkOutDate = calculateCheckOutDate()
-    const conflicts = checkBookingConflicts()
     
-    if (conflicts.length > 0) {
-      toast.error('วันที่ที่เลือกมีการจองทับซ้อน กรุณาเลือกวันที่อื่น')
+    // First check local bookings
+    const roomBookings = allBookings.filter(booking => {
+      const bookingRoomId = booking.roomId?._id?.toString() || booking.roomId?.toString() || booking.roomId
+      let isForThisRoom = bookingRoomId === roomId
+      
+      if (!isForThisRoom && booking.roomIds) {
+        isForThisRoom = booking.roomIds.some((rid: any) => {
+          const ridStr = rid?._id?.toString() || rid?.toString() || rid
+          return ridStr === roomId
+        })
+      }
+      
+      return isForThisRoom
+    })
+    
+    const selectedCheckIn = new Date(checkInDate)
+    const selectedCheckOut = new Date(checkOutDate)
+    
+    const localConflicts = roomBookings.filter(booking => {
+      if (!['PENDING', 'CONFIRMED'].includes(booking.status)) return false
+      
+      const bookingCheckIn = new Date(booking.checkIn)
+      const bookingCheckOut = new Date(booking.checkOut)
+      
+      return (
+        (selectedCheckIn < bookingCheckOut && selectedCheckOut > bookingCheckIn) ||
+        (selectedCheckIn >= bookingCheckIn && selectedCheckOut <= bookingCheckOut) ||
+        (selectedCheckIn <= bookingCheckIn && selectedCheckOut >= bookingCheckOut)
+      )
+    })
+    
+    if (localConflicts.length > 0) {
+      toast.error('ห้องพักไม่ว่างในวันที่เลือก กรุณาเลือกวันที่อื่น')
       return
     }
     
@@ -176,9 +280,6 @@ export default function RoomsPage() {
     try {
       const response = await axios.get(`/api/rooms/${roomId}/availability`)
       const availability = response.data
-      
-      const selectedCheckIn = new Date(checkInDate)
-      const selectedCheckOut = new Date(checkOutDate)
       
       const hasConflict = availability.bookings.some((booking: any) => {
         const bookingCheckIn = new Date(booking.checkIn)
@@ -206,6 +307,44 @@ export default function RoomsPage() {
 
   const handleRoomBook = (roomId: string) => {
     handleBooking(roomId)
+  }
+
+  // Calculate total price for multiple selected rooms
+  const calculateMultipleRoomsTotalPrice = (): number => {
+    if (!checkInDate) return 0
+    
+    return selectedRooms.reduce((total, room) => {
+      return total + calculateTotalPrice(room)
+    }, 0)
+  }
+
+  // Handle booking multiple rooms
+  const handleMultipleRoomsBooking = () => {
+    if (selectedRooms.length === 0) {
+      toast.error('กรุณาเลือกห้องพักก่อน')
+      return
+    }
+
+    if (!checkInDate) {
+      toast.error('กรุณาเลือกวันที่เช็คอิน')
+      return
+    }
+
+    // Build query params with multiple room IDs
+    const roomIds = selectedRooms.map(r => r.id).join(',')
+    const checkOutDate = calculateCheckOutDate() // This returns string already
+    const params = new URLSearchParams({
+      roomIds,
+      checkIn: checkInDate,
+      checkOut: checkOutDate as string
+    })
+
+    router.push(`/bookings/new?${params.toString()}`)
+  }
+
+  // Check if a room is selected
+  const isRoomSelected = (roomId: string): boolean => {
+    return selectedRooms.some(r => r.id === roomId)
   }
 
   const handleBuildingSelect = (building: BuildingHotspot | null) => {
@@ -390,6 +529,7 @@ export default function RoomsPage() {
     const selectedCheckOut = new Date(checkOutDate)
     
     // Check if room has any bookings that conflict with selected dates
+    // First check if we have availability data for this specific room
     if (roomAvailability && roomAvailability.roomId === room.id) {
       return !roomAvailability.bookings.some(booking => {
         const bookingCheckIn = new Date(booking.checkIn)
@@ -407,47 +547,99 @@ export default function RoomsPage() {
       })
     }
     
-    // If no room availability data, we need to fetch it
-    // For now, return true but this should be improved
-    return true
+    // If no room availability data for this specific room, check allBookings
+    const conflictingBookings = allBookings.filter(booking => {
+      // Check if this booking is for the current room
+      // Handle both string and ObjectId comparisons
+      const bookingRoomId = booking.roomId?._id?.toString() || booking.roomId?.toString() || booking.roomId
+      const roomIdStr = room.id
+      
+      let isForThisRoom = bookingRoomId === roomIdStr
+      
+      // Check roomIds array
+      if (!isForThisRoom && booking.roomIds) {
+        isForThisRoom = booking.roomIds.some((rid: any) => {
+          const ridStr = rid?._id?.toString() || rid?.toString() || rid
+          return ridStr === roomIdStr
+        })
+      }
+      
+      // Check rooms array
+      if (!isForThisRoom && booking.rooms) {
+        isForThisRoom = booking.rooms.some((r: any) => {
+          const rId = r.roomId?._id?.toString() || r.roomId?.toString() || r.roomId
+          return rId === roomIdStr
+        })
+      }
+      
+      if (!isForThisRoom) return false
+      if (!['PENDING', 'CONFIRMED'].includes(booking.status)) return false
+      
+      const bookingCheckIn = new Date(booking.checkIn)
+      const bookingCheckOut = new Date(booking.checkOut)
+      
+      // Check for overlap
+      return (
+        (selectedCheckIn < bookingCheckOut && selectedCheckOut > bookingCheckIn) ||
+        (selectedCheckIn >= bookingCheckIn && selectedCheckOut <= bookingCheckOut) ||
+        (selectedCheckIn <= bookingCheckIn && selectedCheckOut >= bookingCheckOut)
+      )
+    })
+    
+    // Room is available if there are no conflicting bookings
+    return conflictingBookings.length === 0
   }
 
   // Enhanced availability status check for calendar
-  const getCalendarAvailabilityStatus = (date: string) => {
-    if (!roomAvailability) return 'available'
+  const getCalendarAvailabilityStatus = (date: string, roomId?: string) => {
+    const dateObj = new Date(date)
     
-    // Check if date is in the availability data
-    const status = roomAvailability.availability[date]    
-    if (status) {
-      console.log('Found in availability data:', date, 'status:', status);
-      return status
+    // Check allBookings for this room first (most reliable)
+    if (roomId && allBookings.length > 0) {
+      const hasBooking = allBookings.some(booking => {
+        const bookingRoomId = booking.roomId?._id?.toString() || booking.roomId?.toString() || booking.roomId
+        let isForThisRoom = bookingRoomId === roomId
+        
+        if (!isForThisRoom && booking.roomIds) {
+          isForThisRoom = booking.roomIds.some((rid: any) => {
+            const ridStr = rid?._id?.toString() || rid?.toString() || rid
+            return ridStr === roomId
+          })
+        }
+        
+        if (!isForThisRoom) return false
+        if (!['PENDING', 'CONFIRMED'].includes(booking.status)) return false
+        
+        const bookingCheckIn = new Date(booking.checkIn)
+        const bookingCheckOut = new Date(booking.checkOut)
+        
+        // Check if date falls within booking period
+        return dateObj >= bookingCheckIn && dateObj < bookingCheckOut
+      })
+      
+      if (hasBooking) return 'booked'
     }
     
-    // If not in current month data, check bookings
-    const dateObj = new Date(date)
-    const hasBooking = roomAvailability.bookings.some(booking => {
-      const bookingCheckIn = new Date(booking.checkIn)
-      const bookingCheckOut = new Date(booking.checkOut)
-      bookingCheckOut.setDate(bookingCheckOut.getDate() - 1) // Booked until day before checkout
-      
-      const isBooked = dateObj >= bookingCheckIn && dateObj <= bookingCheckOut
-      
-      // Debug specific dates
-      if (date.includes('2025-10-25') || date.includes('2025-10-26')) {
-        console.log('Booking check:', {
-          date: date,
-          bookingCheckIn: bookingCheckIn.toISOString().split('T')[0],
-          bookingCheckOut: bookingCheckOut.toISOString().split('T')[0],
-          isBooked: isBooked
-        });
+    // Use roomAvailability if we have it for this specific room
+    if (roomAvailability && (!roomId || roomAvailability.roomId === roomId)) {
+      // Check if date is in the availability data
+      const status = roomAvailability.availability[date]    
+      if (status) {
+        return status
       }
       
-      return isBooked
-    })
+      // If not in availability map, check bookings from roomAvailability
+      const hasBooking = roomAvailability.bookings.some(booking => {
+        const bookingCheckIn = new Date(booking.checkIn)
+        const bookingCheckOut = new Date(booking.checkOut)
+        
+        return dateObj >= bookingCheckIn && dateObj < bookingCheckOut
+      })
+      
+      return hasBooking ? 'booked' : 'available'
+    }
     
-    const result = hasBooking ? 'booked' : 'available'
-    console.log('Final status for', date, ':', result);
-    return result
+    return 'available'
   }
 
   // Get filtered rooms based on availability
@@ -481,6 +673,18 @@ export default function RoomsPage() {
   }
 
   const filteredRooms = getFilteredRooms()
+
+  // Toggle room selection (add/remove from selected rooms)
+  const handleRoomToggle = (room: Room) => {
+    setSelectedRooms(prev => {
+      const isSelected = prev.some(r => r.id === room.id)
+      if (isSelected) {
+        return prev.filter(r => r.id !== room.id)
+      } else {
+        return [...prev, room]
+      }
+    })
+  }
 
   // Reset calendar selection when room changes
   const handleRoomSelect = (room: Room) => {
@@ -557,8 +761,7 @@ export default function RoomsPage() {
   }
 
   // Interactive Calendar Component
-  const InteractiveCalendar = ({ roomAvailability }: { roomAvailability: RoomAvailability | null }) => {
-    if (!roomAvailability) return null
+  const InteractiveCalendar = ({ roomAvailability, roomId }: { roomAvailability: RoomAvailability | null, roomId?: string }) => {
 
     const today = new Date()
     const daysInMonth = getDaysInMonth(currentMonth)
@@ -571,9 +774,18 @@ export default function RoomsPage() {
 
     const conflicts = checkBookingConflicts()
 
+    // Debug: Log room availability info
+    console.log('InteractiveCalendar - roomAvailability:', roomAvailability)
+    console.log('InteractiveCalendar - roomId:', roomId)
+    console.log('InteractiveCalendar - allBookings:', allBookings)
+
     return (
       <div className="mt-4">
         <h4 className="text-sm font-semibold text-gray-900 mb-3">ปฏิทินการจองล่วงหน้า</h4>
+        <p className="text-xs text-gray-600 mb-3">
+          <span className="inline-flex items-center gap-1"><CheckCircle size={12} className="text-green-600" /> เขียว = ว่าง</span>{' '}
+          <span className="inline-flex items-center gap-1 ml-2"><XCircle size={12} className="text-red-600" /> แดง = จองแล้ว</span>
+        </p>
         
         {/* Calendar Header */}
         <div className="flex items-center justify-between mb-4">
@@ -705,7 +917,7 @@ export default function RoomsPage() {
               const month = currentMonth.getMonth() + 1 // getMonth() returns 0-11, we need 1-12
               const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
               const date = new Date(year, currentMonth.getMonth(), day)
-              const status = getCalendarAvailabilityStatus(dateStr)              
+              const status = getCalendarAvailabilityStatus(dateStr, roomId)              
     
               const isToday = date.toDateString() === today.toDateString()
               const isSelected = isDateSelected(date)
@@ -733,13 +945,16 @@ export default function RoomsPage() {
                   } ${isToday ? 'ring-2 ring-blue-500' : ''}`}
                 >
                   <div className="flex flex-col items-center justify-center h-full">
-                    <span className="text-xs">{day}</span>
+                    <span className={`text-xs font-medium ${status === 'booked' ? 'text-red-900' : ''}`}>{day}</span>
                     {!isPast && (
                       <div className="text-xs">
                         {status === 'available' && <CheckCircle size={8} />}
                         {status === 'booked' && <XCircle size={8} />}
                         {status === 'partial' && <Clock size={8} />}
                       </div>
+                    )}
+                    {status === 'booked' && !isPast && (
+                      <span className="text-[8px] text-red-700 font-bold mt-0.5">X</span>
                     )}
                   </div>
                 </button>
@@ -752,15 +967,11 @@ export default function RoomsPage() {
         <div className="flex gap-4 mt-3 text-xs">
           <div className="flex items-center gap-1">
             <CheckCircle size={12} className="text-green-600" />
-            <span>ว่าง</span>
+            <span className='text-green-600'>ว่าง</span>
           </div>
           <div className="flex items-center gap-1">
             <XCircle size={12} className="text-red-600" />
-            <span>จองแล้ว</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Clock size={12} className="text-yellow-600" />
-            <span>บางส่วน</span>
+            <span className='text-red-600'>จองแล้ว</span>
           </div>
         </div>
       </div>
@@ -862,12 +1073,16 @@ export default function RoomsPage() {
     building, 
     rooms, 
     onRoomBook, 
-    onClose 
+    onClose,
+    onRoomToggle,
+    isRoomSelected
   }: { 
     building: BuildingHotspot
     rooms: Room[]
     onRoomBook: (roomId: string) => void
     onClose: () => void
+    onRoomToggle: (room: Room) => void
+    isRoomSelected: (roomId: string) => boolean
   }) => {
     const buildingRooms = rooms.filter(room => building.rooms.includes(room.id))
     const buildingTypes = {
@@ -910,11 +1125,28 @@ export default function RoomsPage() {
             <h4 className="text-base lg:text-lg font-semibold text-gray-900 mb-3 lg:mb-4">ห้องพักในอาคารนี้ ({buildingRooms.length} ห้อง)</h4>
             <div className="space-y-4 lg:space-y-6">
               {buildingRooms.map((room) => (
-                <div key={room.id} className={`border rounded-lg p-4 lg:p-6 transition-all ${
+                <div key={room.id} className={`border rounded-lg p-4 lg:p-6 transition-all relative ${
                   selectedRoom?.id === room.id 
                     ? 'border-primary-500 shadow-lg bg-primary-50' 
+                    : isRoomSelected(room.id)
+                    ? 'border-green-500 shadow-lg bg-green-50'
                     : 'border-gray-200 hover:shadow-md'
                 }`}>
+                  {/* Multi-select Checkbox */}
+                  <div className="absolute top-4 right-4">
+                    <button
+                      onClick={() => onRoomToggle(room)}
+                      className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
+                        isRoomSelected(room.id)
+                          ? 'bg-green-600 border-green-600'
+                          : 'border-gray-300 hover:border-primary-500'
+                      }`}
+                    >
+                      {isRoomSelected(room.id) && (
+                        <CheckCircle size={18} className="text-white" />
+                      )}
+                    </button>
+                  </div>
                   {/* Room Header */}
                   <div className="flex gap-4 mb-4">
                     <div className="w-24 h-20 lg:w-32 lg:h-24 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
@@ -934,7 +1166,14 @@ export default function RoomsPage() {
                           <Users size={16} className="lg:w-4 lg:h-4" />
                           {room.capacity} คน
                         </div>
-                        <span className="font-bold text-primary-600 text-lg lg:text-xl">฿{room.price.toLocaleString()}</span>
+                        <div className="text-right">
+                          <div className="font-bold text-primary-600 text-lg lg:text-xl">
+                            {getRoomDisplayPrice(room).formattedPrice}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {getRoomDisplayPrice(room).dayType}
+                          </div>
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <button
@@ -958,9 +1197,9 @@ export default function RoomsPage() {
                     </div>
                   </div>
 
-                  {/* Room Details (when selected) */}
+                  {/* Room Details (when selected) - Show as expanded card content */}
                   {selectedRoom?.id === room.id && (
-                    <div className="border-t pt-4">
+                    <div className="border-t pt-4 mt-4">
                       {/* Image Gallery */}
                       <div className="mb-4">
                         <h6 className="text-sm font-semibold text-gray-900 mb-2">รูปภาพห้องพัก</h6>
@@ -1009,6 +1248,41 @@ export default function RoomsPage() {
                         </div>
                       )}
 
+                      {/* Current Bookings Info */}
+                      {(() => {
+                        const roomBookings = allBookings.filter(booking => {
+                          const bookingRoomId = booking.roomId?._id?.toString() || booking.roomId?.toString() || booking.roomId
+                          let isForThisRoom = bookingRoomId === room.id
+                          
+                          if (!isForThisRoom && booking.roomIds) {
+                            isForThisRoom = booking.roomIds.some((rid: any) => {
+                              const ridStr = rid?._id?.toString() || rid?.toString() || rid
+                              return ridStr === room.id
+                            })
+                          }
+                          
+                          return isForThisRoom && ['PENDING', 'CONFIRMED'].includes(booking.status)
+                        })
+                        
+                        return roomBookings.length > 0 ? (
+                          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <h6 className="text-sm font-semibold text-red-900 mb-2">การจองที่มีอยู่</h6>
+                            <div className="text-xs text-red-800 space-y-1 max-h-32 overflow-y-auto">
+                              {roomBookings.map((booking: any, idx: number) => (
+                                <div key={idx} className="flex justify-between items-center">
+                                  <span>
+                                    {new Date(booking.checkIn).toLocaleDateString('th-TH')} - {new Date(booking.checkOut).toLocaleDateString('th-TH')}
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded text-xs bg-red-100 text-red-700">
+                                    {booking.status}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null
+                      })()}
+
                       {/* Booking Conflicts Info */}
                       {checkInDate && (
                         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -1017,13 +1291,13 @@ export default function RoomsPage() {
                             <div>เช็คอิน: {new Date(checkInDate).toLocaleDateString('th-TH')}</div>
                             <div>เช็คเอาท์: {new Date(calculateCheckOutDate()).toLocaleDateString('th-TH')}</div>
                             <div>จำนวนคืน: {nights} คืน</div>
-                            <div>ราคารวม: ฿{(room.price * nights).toLocaleString()}</div>
+                            <div>ราคารวม: {formatPrice(calculateTotalPrice(room))}</div>
                           </div>
                         </div>
                       )}
 
                       {/* Interactive Calendar */}
-                      <InteractiveCalendar roomAvailability={roomAvailability} />
+                      <InteractiveCalendar roomAvailability={roomAvailability} roomId={room.id} />
                     </div>
                   )}
                 </div>
@@ -1096,6 +1370,59 @@ export default function RoomsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
+      
+      {/* Floating Action Button for Multi-Room Booking */}
+      {selectedRooms.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 border-2 border-green-500 min-w-[300px]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900">ห้องที่เลือกแล้ว</h3>
+              <button
+                onClick={() => setSelectedRooms([])}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-2 mb-4 max-h-32 overflow-y-auto">
+              {selectedRooms.map(room => (
+                <div key={room.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-2">
+                  <span className="text-sm font-medium text-gray-900">{room.name}</span>
+                  <button
+                    onClick={() => handleRoomToggle(room)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {checkInDate && (
+              <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">ราคารวม:</span>
+                  <span className="text-lg font-bold text-green-700">
+                    {formatPrice(calculateMultipleRoomsTotalPrice())}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-600 mt-1">
+                  {selectedRooms.length} ห้อง × {nights} คืน
+                </div>
+              </div>
+            )}
+            
+            <button
+              onClick={handleMultipleRoomsBooking}
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
+            >
+              <Calendar size={20} />
+              จอง {selectedRooms.length} ห้อง
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="container mx-auto px-4 py-8">
         {/* Header */}
@@ -1176,6 +1503,9 @@ export default function RoomsPage() {
               onBuildingSelect={handleBuildingSelect}
               hoveredRoom={hoveredRoom}
               rooms={rooms}
+              roomBookings={allBookings}
+              checkInDate={checkInDate}
+              checkOutDate={calculateCheckOutDate()}
             />
           </div>
 
@@ -1190,12 +1520,18 @@ export default function RoomsPage() {
                 rooms={rooms.filter(room => room.isActive)}
                 onRoomBook={handleRoomBook}
                 onClose={() => setSelectedBuilding(null)}
+                onRoomToggle={handleRoomToggle}
+                isRoomSelected={isRoomSelected}
               />
             ) : (
               <div className="h-full">
                 <div className="mb-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">รายการห้องพักทั้งหมด</h3>
-                  <p className="text-sm text-gray-600">คลิกที่จุดบนแผนผังเพื่อดูห้องพักในอาคารนั้น หรือเลือกห้องพักจากรายการด้านล่าง</p>
+                  <p className="text-sm text-gray-600 mb-2">คลิกที่จุดบนแผนผังเพื่อดูห้องพักในอาคารนั้น หรือเลือกห้องพักจากรายการด้านล่าง</p>
+                  <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                    <Calendar size={14} />
+                    <span>💡 สามารถเลือกจองหลายห้องพร้อมกันโดยคลิก checkbox ที่มุมขวาบนของแต่ละห้อง</span>
+                  </div>
                 </div>
                 
                 <div className="space-y-4 max-h-[500px] overflow-y-auto">
@@ -1210,15 +1546,34 @@ export default function RoomsPage() {
                     filteredRooms.map((room) => (
                       <div 
                         key={room.id} 
-                        className={`border rounded-lg p-4 transition-all cursor-pointer ${
+                        className={`border rounded-lg p-4 transition-all cursor-pointer relative overflow-hidden ${
                           hoveredRoom?.id === room.id 
                             ? 'border-primary-500 shadow-lg bg-primary-50' 
+                            : isRoomSelected(room.id)
+                            ? 'border-green-500 shadow-lg bg-green-50'
                             : 'border-gray-200 hover:shadow-md'
                         }`}
                         onMouseEnter={() => setHoveredRoom(room)}
                         onMouseLeave={() => setHoveredRoom(null)}
-                        onClick={() => handleRoomSelect(room)}
                       >
+                        {/* Multi-select Checkbox */}
+                        <div className="absolute top-[-6px] right-0 z-10 ">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleRoomToggle(room)
+                            }}
+                            className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
+                              isRoomSelected(room.id)
+                                ? 'bg-green-600 border-green-600'
+                                : 'border-gray-300 hover:border-primary-500 bg-white'
+                            }`}
+                          >
+                            {isRoomSelected(room.id) && (
+                              <CheckCircle size={18} className="text-white" />
+                            )}
+                          </button>
+                        </div>
                         <div className="flex gap-4">
                           <div className="w-20 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                             <Image
@@ -1232,7 +1587,14 @@ export default function RoomsPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex justify-between items-start mb-2">
                               <h5 className="font-bold text-gray-900 text-sm">{room.name}</h5>
-                              <span className="font-bold text-primary-600 text-sm">฿{room.price.toLocaleString()}</span>
+                              <div className="text-right">
+                                <div className="font-bold text-primary-600 text-sm">
+                                  {getRoomDisplayPrice(room).formattedPrice}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {getRoomDisplayPrice(room).dayType}
+                                </div>
+                              </div>
                             </div>
                             <p className="text-xs text-gray-600 mb-2 line-clamp-2">{room.description}</p>
                             <div className="flex items-center justify-between">
@@ -1262,137 +1624,131 @@ export default function RoomsPage() {
                                   className="px-2 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-xs font-medium flex items-center gap-1"
                                 >
                                   <Calendar size={10} />
-                                  จอง
+                                  จองเดี่ยว
                                 </button>
                               </div>
                             </div>
                           </div>
                         </div>
+                        
+                        {/* Room Details - Show inside the same card when selected */}
+                        {selectedRoom?.id === room.id && (
+                          <div className="mt-4 pt-4 border-t border-gray-200 animate-fade-in">
+                            <div className="flex items-center justify-between mb-3">
+                              <h6 className="text-sm font-semibold text-gray-900">รายละเอียดเพิ่มเติม</h6>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedRoom(null)
+                                }}
+                                className="text-gray-500 hover:text-gray-700 text-xs"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                            
+                            {/* Image Gallery */}
+                            <div className="mb-4">
+                              <div className="flex gap-2 overflow-x-auto">
+                                {[room.imageUrl, ...(room.imageUrls || [])].slice(0, 5).map((image, index) => (
+                                  <div
+                                    key={index}
+                                    className="w-16 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setCurrentImageIndex(index)
+                                      setShowImageModal(true)
+                                    }}
+                                  >
+                                    <Image
+                                      src={image}
+                                      alt={`${room.name} ${index + 1}`}
+                                      width={64}
+                                      height={48}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Amenities */}
+                            {room.amenities.length > 0 && (
+                              <div className="mb-4">
+                                <h6 className="text-xs font-semibold text-gray-900 mb-2">สิ่งอำนวยความสะดวก</h6>
+                                <div className="flex flex-wrap gap-1">
+                                  {room.amenities.map((amenity, index) => (
+                                    <div
+                                      key={index}
+                                      className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs"
+                                    >
+                                      {getAmenityIcon(amenity)}
+                                      {amenity}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Current Bookings Info */}
+                            {(() => {
+                              const roomBookings = allBookings.filter(booking => {
+                                const bookingRoomId = booking.roomId?._id?.toString() || booking.roomId?.toString() || booking.roomId
+                                let isForThisRoom = bookingRoomId === room.id
+                                
+                                if (!isForThisRoom && booking.roomIds) {
+                                  isForThisRoom = booking.roomIds.some((rid: any) => {
+                                    const ridStr = rid?._id?.toString() || rid?.toString() || rid
+                                    return ridStr === room.id
+                                  })
+                                }
+                                
+                                return isForThisRoom && ['PENDING', 'CONFIRMED'].includes(booking.status)
+                              })
+                              
+                              return roomBookings.length > 0 ? (
+                                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                  <h6 className="text-xs font-semibold text-red-900 mb-2">การจองที่มีอยู่</h6>
+                                  <div className="text-xs text-red-800 space-y-1 max-h-32 overflow-y-auto">
+                                    {roomBookings.map((booking: any, idx: number) => (
+                                      <div key={idx} className="flex justify-between items-center">
+                                        <span>
+                                          {new Date(booking.checkIn).toLocaleDateString('th-TH')} - {new Date(booking.checkOut).toLocaleDateString('th-TH')}
+                                        </span>
+                                        <span className="px-2 py-0.5 rounded text-xs bg-red-100 text-red-700">
+                                          {booking.status}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null
+                            })()}
+
+                            {/* Booking Calendar Info */}
+                            {checkInDate && (
+                              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <h6 className="text-xs font-semibold text-blue-900 mb-2">ข้อมูลการจองที่เลือก</h6>
+                                <div className="text-xs text-blue-800">
+                                  <div>เช็คอิน: {new Date(checkInDate).toLocaleDateString('th-TH')}</div>
+                                  <div>เช็คเอาท์: {new Date(calculateCheckOutDate()).toLocaleDateString('th-TH')}</div>
+                                  <div>จำนวนคืน: {nights} คืน</div>
+                                  <div>ราคารวม: {formatPrice(calculateTotalPrice(room))}</div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Interactive Calendar */}
+                            <div className="mb-4">
+                              <h6 className="text-xs font-semibold text-gray-900 mb-2">ความพร้อมของห้อง</h6>
+                              <InteractiveCalendar roomAvailability={roomAvailability} roomId={room.id} />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
                 </div>
-                
-                {/* Room Details Section */}
-                {selectedRoom && (
-                  <div className="mt-6 border-t pt-6">
-                    <div className="mb-4">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-2">รายละเอียดห้องพัก</h4>
-                      <div className="flex items-center gap-2 mb-3">
-                        <button
-                          onClick={() => setSelectedRoom(null)}
-                          className="text-gray-500 hover:text-gray-700 transition-colors"
-                        >
-                          <X size={16} />
-                        </button>
-                        <span className="text-sm text-gray-600">กดปิดเพื่อดูรายการห้องพักทั้งหมด</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      {/* Room Header */}
-                      <div className="flex gap-4 mb-4">
-                        <div className="w-32 h-24 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                          <Image
-                            src={selectedRoom.imageUrl}
-                            alt={selectedRoom.name}
-                            width={128}
-                            height={96}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h5 className="font-bold text-gray-900 mb-1 text-lg">{selectedRoom.name}</h5>
-                          <p className="text-sm text-gray-600 mb-3">{selectedRoom.description}</p>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-1 text-sm text-gray-600">
-                              <Users size={16} />
-                              {selectedRoom.capacity} คน
-                            </div>
-                            <span className="font-bold text-primary-600 text-xl">฿{selectedRoom.price.toLocaleString()}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Image Gallery */}
-                      <div className="mb-4">
-                        <h6 className="text-sm font-semibold text-gray-900 mb-2">รูปภาพห้องพัก</h6>
-                        <div className="flex gap-2 overflow-x-auto">
-                          {[selectedRoom.imageUrl, ...(selectedRoom.imageUrls || [])].slice(0, 5).map((image, index) => (
-                            <div
-                              key={index}
-                              className="w-16 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={() => {
-                                setCurrentImageIndex(index)
-                                setShowImageModal(true)
-                              }}
-                            >
-                              <Image
-                                src={image}
-                                alt={`${selectedRoom.name} ${index + 1}`}
-                                width={64}
-                                height={48}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          ))}
-                          {[selectedRoom.imageUrl, ...(selectedRoom.imageUrls || [])].length > 5 && (
-                            <div className="w-16 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-600 flex-shrink-0">
-                              +{([selectedRoom.imageUrl, ...(selectedRoom.imageUrls || [])].length - 5)}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Amenities */}
-                      {selectedRoom.amenities.length > 0 && (
-                        <div className="mb-4">
-                          <h6 className="text-sm font-semibold text-gray-900 mb-2">สิ่งอำนวยความสะดวก</h6>
-                          <div className="flex flex-wrap gap-2">
-                            {selectedRoom.amenities.map((amenity, index) => (
-                              <div
-                                key={index}
-                                className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs"
-                              >
-                                {getAmenityIcon(amenity)}
-                                {amenity}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Booking Info */}
-                      {checkInDate && (
-                        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <h6 className="text-sm font-semibold text-blue-900 mb-2">ข้อมูลการจองที่เลือก</h6>
-                          <div className="text-xs text-blue-800">
-                            <div>เช็คอิน: {new Date(checkInDate).toLocaleDateString('th-TH')}</div>
-                            <div>เช็คเอาท์: {new Date(calculateCheckOutDate()).toLocaleDateString('th-TH')}</div>
-                            <div>จำนวนคืน: {nights} คืน</div>
-                            <div>ราคารวม: ฿{(selectedRoom.price * nights).toLocaleString()}</div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleRoomBook(selectedRoom.id)}
-                          className="flex-1 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium flex items-center justify-center gap-1"
-                        >
-                          <Calendar size={14} />
-                          จองห้องพัก
-                        </button>
-                      </div>
-
-                      {/* Interactive Calendar */}
-                      <InteractiveCalendar roomAvailability={roomAvailability} />
-                    </div>
-                  </div>
-                )}
-
-               
               </div>
             )}
           </div>

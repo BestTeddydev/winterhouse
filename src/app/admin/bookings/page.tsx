@@ -28,7 +28,9 @@ import {
   TrendingDown,
   Plus,
   Edit,
-  Settings
+  Settings,
+  ShoppingCart,
+  UserCog
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -319,12 +321,24 @@ export default function AdminBookings() {
                             {getPaymentIcon(booking.payment.status)}
                             {booking.payment.status}
                           </span>
-                          {booking.isManualBooking && (
-                            <span className="px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 bg-purple-100 text-purple-800">
-                              <Settings size={12} />
-                              จองด้วยตนเอง
-                            </span>
-                          )}
+                          {/* Booking Source Badge */}
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
+                            booking.isManualBooking 
+                              ? 'bg-purple-100 text-purple-800 border border-purple-300' 
+                              : 'bg-blue-100 text-blue-800 border border-blue-300'
+                          }`}>
+                            {booking.isManualBooking ? (
+                              <>
+                                <UserCog size={12} />
+                                Admin สร้าง
+                              </>
+                            ) : (
+                              <>
+                                <ShoppingCart size={12} />
+                                ลูกค้าสร้าง
+                              </>
+                            )}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -485,6 +499,23 @@ export default function AdminBookings() {
                   <div className="absolute top-4 right-4 flex gap-2">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm ${getStatusColor(booking.status)}`}>
                       {booking.status}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm flex items-center gap-1 ${
+                      booking.isManualBooking 
+                        ? 'bg-purple-500/90 text-white' 
+                        : 'bg-blue-500/90 text-white'
+                    }`}>
+                      {booking.isManualBooking ? (
+                        <>
+                          <UserCog size={12} />
+                          Admin
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingCart size={12} />
+                          Customer
+                        </>
+                      )}
                     </span>
                   </div>
                 </div>

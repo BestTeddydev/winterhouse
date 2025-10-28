@@ -4,8 +4,10 @@ import { authOptions } from '@/lib/auth'
 import connectDB from '@/lib/mongodb'
 import Booking from '@/models/Booking'
 import Room from '@/models/Room'
+import User from '@/models/User'
 import Payment from '@/models/Payment'
 import { sendLineNotification, formatBookingNotification } from '@/lib/line'
+import { calculateMultipleRoomsPrice, calculateRoomPriceRange } from '@/lib/pricing'
 import mongoose from 'mongoose'
 
 export async function GET(request: NextRequest) {
@@ -37,21 +39,28 @@ export async function GET(request: NextRequest) {
     if (!mongoose.models.Payment) {
       require('@/models/Payment')
     }
+    if (!mongoose.models.User) {
+      require('@/models/User')
+    }
 
     let query: any = {}
-
+    
     if (session.user.role === 'CUSTOMER') {
-      // Validate session.user.id before creating ObjectId
-      if (!session.user.id) {
-        return NextResponse.json({ error: 'ไม่พบ User ID ใน session' }, { status: 400 })
+      // Query user based on session.user.id
+      // If session.user.id is a valid ObjectId, query by _id
+      // Otherwise, query by lineUserId
+      let user
+      if (mongoose.Types.ObjectId.isValid(session.user.id)) {
+        user = await User.findById(session.user.id)
+      } else {
+        user = await User.findOne({ lineUserId: session.user.id })
       }
       
-      // Validate ObjectId format
-      if (!mongoose.Types.ObjectId.isValid(session.user.id)) {
-        return NextResponse.json({ error: 'รูปแบบ User ID ไม่ถูกต้อง' }, { status: 400 })
+      if (!user) {
+        return NextResponse.json({ error: 'ไม่พบผู้ใช้ในระบบ' }, { status: 404 })
       }
       
-      query.userId = new mongoose.Types.ObjectId(session.user.id)
+      query.userId = user._id
     } else if (userId) {
       // Validate userId from query params
       if (!mongoose.Types.ObjectId.isValid(userId)) {
@@ -124,6 +133,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       roomId,
+      roomIds, // สำหรับจองหลายห้อง
       checkIn,
       checkOut,
       totalPrice,
@@ -135,8 +145,18 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Validate required fields
-    if (!roomId) {
-      return NextResponse.json({ error: 'ต้องระบุ Room ID' }, { status: 400 })
+    // Support both single roomId and multiple roomIds
+    let selectedRoomIds: string[] = []
+    
+    if (roomIds && Array.isArray(roomIds) && roomIds.length > 0) {
+      // Filter out null, undefined, and empty strings
+      selectedRoomIds = roomIds.filter(id => id && id.trim() !== '' && id !== 'null')
+    } else if (roomId && roomId !== 'null') {
+      selectedRoomIds = [roomId]
+    }
+    
+    if (selectedRoomIds.length === 0) {
+      return NextResponse.json({ error: 'ต้องระบุ Room ID หรือ Room IDs' }, { status: 400 })
     }
     
     if (!checkIn || !checkOut) {
@@ -157,13 +177,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate ObjectId formats
-    if (!mongoose.Types.ObjectId.isValid(roomId)) {
-      return NextResponse.json({ error: 'รูปแบบ Room ID ไม่ถูกต้อง' }, { status: 400 })
+    for (const id of selectedRoomIds) {
+      if (!id || typeof id !== 'string') {
+        return NextResponse.json({ error: `Room ID ไม่ถูกต้อง: ${id}` }, { status: 400 })
+      }
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return NextResponse.json({ error: `รูปแบบ Room ID ไม่ถูกต้อง: ${id}` }, { status: 400 })
+      }
     }
     
-    if (!session.user.id || !mongoose.Types.ObjectId.isValid(session.user.id)) {
-      return NextResponse.json({ error: 'รูปแบบ User ID ไม่ถูกต้อง' }, { status: 400 })
-    }
+    // if (!session.user.id || !mongoose.Types.ObjectId.isValid(session.user.id)) {
+    //   return NextResponse.json({ error: 'รูปแบบ User ID ไม่ถูกต้อง' }, { status: 400 })
+    // }
 
     // Validate dates
     const checkInDate = new Date(checkIn)
@@ -199,38 +224,83 @@ export async function POST(request: NextRequest) {
     if (!mongoose.models.Payment) {
       require('@/models/Payment')
     }
+    let user
+    if (mongoose.Types.ObjectId.isValid(session.user.id)) {
+      user = await User.findById(session.user.id)
+    } else {
+      user = await User.findOne({ lineUserId: session.user.id })
+    }
+    // const user = await User.findOne({lineUserId: session.user.id})
+    console.log('user',user?._id);
+    
+    // if (!user) {
+    //   return NextResponse.json({ error: 'ไม่พบข้อมูลผู้ใช้งาน' }, { status: 404 })
+    // }
+    
+    const ObjectId = mongoose.Types.ObjectId
 
-    // Check availability
-    // Allow check-in on the same day as previous guest's check-out
-    // But prevent check-in on the same day as previous guest's check-in
-    const existingBookings = await Booking.find({
-      roomId: new mongoose.Types.ObjectId(roomId),
-      status: { $in: ['PENDING', 'CONFIRMED'] },
-      $or: [
-        {
-          // Prevent if new check-in overlaps with existing booking period
-          $and: [
-            { checkIn: { $lt: checkOutDate } }, // Existing check-in is before new check-out
-            { checkOut: { $gt: checkInDate } }  // Existing check-out is after new check-in
-          ]
-        }
-      ]
-    })
+    // Check availability for all selected rooms
+    for (const roomIdToCheck of selectedRoomIds) {
+      const existingBookings = await Booking.find({
+        $or: [
+          { roomId: new mongoose.Types.ObjectId(roomIdToCheck) },
+          { roomIds: new mongoose.Types.ObjectId(roomIdToCheck) }
+        ],
+        status: { $in: ['PENDING', 'CONFIRMED'] },
+        $and: [
+          { checkIn: { $lt: checkOutDate } },
+          { checkOut: { $gt: checkInDate } }
+        ]
+      })
 
-    if (existingBookings.length > 0) {
-      return NextResponse.json(
-        { error: 'ห้องพักไม่ว่างในวันที่เลือก' },
-        { status: 400 }
-      )
+      if (existingBookings.length > 0) {
+        const room = await Room.findById(roomIdToCheck)
+        const roomName = room?.name || roomIdToCheck
+        return NextResponse.json(
+          { error: `ห้องพัก ${roomName} ไม่ว่างในวันที่เลือก` },
+          { status: 400 }
+        )
+      }
     }
 
+    // Fetch rooms and calculate prices
+    const rooms = await Room.find({
+      _id: { $in: selectedRoomIds.map((id: string) => new mongoose.Types.ObjectId(id)) }
+    })
+
+    // Calculate prices for each room
+    const roomPrices: Array<{ roomId: string; price: number }> = []
+    let calculatedTotalPrice = 0
+
+    for (const room of rooms) {
+      const { totalPrice: roomTotal } = calculateRoomPriceRange(
+        room,
+        checkInDate,
+        checkOutDate
+      )
+      calculatedTotalPrice += roomTotal
+      roomPrices.push({
+        roomId: room._id.toString(),
+        price: roomTotal
+      })
+    }
+
+    // Use calculated price or provided price
+    const finalTotalPrice = totalPrice || calculatedTotalPrice
+
+    
     // Create booking
     const booking = new Booking({
-      roomId: new mongoose.Types.ObjectId(roomId),
-      userId: new mongoose.Types.ObjectId(session.user.id),
+      roomId: new mongoose.Types.ObjectId(selectedRoomIds[0]), // Keep first room for backward compatibility
+      roomIds: selectedRoomIds.map((id: string) => new mongoose.Types.ObjectId(id)), // Multiple rooms
+      rooms: roomPrices.map(rp => ({
+        roomId: new mongoose.Types.ObjectId(rp.roomId),
+        price: rp.price
+      })),
+      userId: new ObjectId(user?._id),
       checkIn: checkInDate,
       checkOut: checkOutDate,
-      totalPrice,
+      totalPrice: finalTotalPrice,
       guestName,
       guestEmail,
       guestPhone,
@@ -241,7 +311,10 @@ export async function POST(request: NextRequest) {
     await booking.save()
 
     // Populate for response
-    await booking.populate('roomId', 'name description price capacity imageUrls')
+    await booking.populate('roomId', 'name description price capacity imageUrls pricing')
+    if (booking.roomIds && booking.roomIds.length > 0) {
+      await booking.populate('roomIds', 'name description price capacity imageUrls pricing')
+    }
     await booking.populate('userId', 'lineUserId')
 
     // Create payment record
@@ -253,19 +326,19 @@ export async function POST(request: NextRequest) {
     let remainingAmount: number
     
     if (paymentType === 'FULL') {
-      paymentAmount = totalPrice
-      paidAmount = totalPrice
+      paymentAmount = finalTotalPrice
+      paidAmount = finalTotalPrice
       remainingAmount = 0
     } else { // PARTIAL
-      paymentAmount = Math.round(totalPrice * 0.5) // 50% down payment
+      paymentAmount = Math.round(finalTotalPrice * 0.5) // 50% down payment
       paidAmount = paymentAmount
-      remainingAmount = totalPrice - paymentAmount
+      remainingAmount = finalTotalPrice - paymentAmount
     }
     
     const payment = new Payment({
       bookingId: booking._id,
       amount: paymentAmount,
-      totalAmount: totalPrice,
+      totalAmount: finalTotalPrice,
       paidAmount: paidAmount,
       remainingAmount: remainingAmount,
       paymentType: paymentType,
@@ -278,18 +351,6 @@ export async function POST(request: NextRequest) {
 
     // Populate payment for response
     await booking.populate('paymentId', 'status amount totalAmount paidAmount remainingAmount')
-
-    // Send notification to admin
-    if (process.env.LINE_ADMIN_USER_ID) {
-      try {
-        await sendLineNotification({
-          userId: process.env.LINE_ADMIN_USER_ID,
-          message: formatBookingNotification(booking),
-        })
-      } catch (error) {
-        console.error('Failed to send admin notification:', error)
-      }
-    }
 
     // Transform the data to match frontend expectations
     const bookingObj = booking.toObject()

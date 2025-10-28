@@ -175,7 +175,7 @@ export default function MyBookings() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-bold">{booking.roomId?.name || 'ไม่ระบุชื่อห้อง'}</h3>
+                      <h3 className="text-xl font-bold">{booking.roomId?.name || 'ไม่ระบุชื่อห้อง'}({booking?.roomIds?.length || 0})</h3>
                       <span
                         className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
                           booking.status

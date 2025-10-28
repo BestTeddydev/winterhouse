@@ -18,6 +18,7 @@ spec:
         app: baanlomnow
         component: app
     spec:
+      serviceAccountName: baanlomnow-sa
       containers:
       - name: baanlomnow-app
         image: baanlomnow:1.0
