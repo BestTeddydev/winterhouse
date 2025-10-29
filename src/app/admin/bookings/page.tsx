@@ -30,7 +30,10 @@ import {
   Edit,
   Settings,
   ShoppingCart,
-  UserCog
+  UserCog,
+  ChevronLeft,
+  ChevronRight,
+  X
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -41,7 +44,20 @@ export default function AdminBookings() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [paymentFilter, setPaymentFilter] = useState('all')
-  const [viewMode, setViewMode] = useState<'timeline' | 'cards'>('timeline')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [viewMode, setViewMode] = useState<'table' | 'timeline' | 'cards'>('table')
+  const [sortBy, setSortBy] = useState<'checkIn' | 'createdAt' | 'totalPrice'>('checkIn')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false
+  })
   const router = useRouter()
 
   useEffect(() => {
@@ -52,18 +68,54 @@ export default function AdminBookings() {
       fetchBookings()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session])
+  }, [session, currentPage, sortBy, sortOrder])
 
   const fetchBookings = async () => {
     try {
-      const response = await axios.get('/api/bookings')
-      setBookings(response.data)
+      setLoading(true)
+      const response = await axios.get('/api/bookings', {
+        params: {
+          page: currentPage,
+          limit: 20,
+          sortBy,
+          sortOrder
+        }
+      })
+      
+      if (response.data.bookings && response.data.pagination) {
+        // New API format with pagination
+        setBookings(response.data.bookings)
+        setPagination(response.data.pagination)
+      } else {
+        // Fallback for old API format
+        setBookings(response.data)
+        setPagination({
+          page: 1,
+          limit: response.data.length,
+          total: response.data.length,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPrevPage: false
+        })
+      }
     } catch (error) {
       console.error('Error fetching bookings:', error)
       toast.error('ไม่สามารถโหลดข้อมูลการจองได้')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSort = (field: 'checkIn' | 'createdAt' | 'totalPrice') => {
+    if (sortBy === field) {
+      // Toggle order if same field
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      // Set new field with ascending order
+      setSortBy(field)
+      setSortOrder('asc')
+    }
+    setCurrentPage(1) // Reset to first page when sorting changes
   }
 
   const handleStatusUpdate = async (id: string, status: string) => {
@@ -106,21 +158,53 @@ export default function AdminBookings() {
     }
   }
 
-  // Filter bookings
+  // Filter bookings (filtering is now done on frontend for search/filters)
+  // Sorting is done on backend, but we still apply filters here
   const filteredBookings = bookings
     .filter(booking => {
       const matchesSearch = 
-        booking.guestName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.guestEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.room.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.id.toLowerCase().includes(searchTerm.toLowerCase())
+        booking.guestName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        booking.guestEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        booking.room?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        booking.id?.toLowerCase().includes(searchTerm.toLowerCase())
       
       const matchesStatus = statusFilter === 'all' || booking.status === statusFilter
-      const matchesPayment = paymentFilter === 'all' || booking.payment.status === paymentFilter
+      const matchesPayment = paymentFilter === 'all' || booking.payment?.status === paymentFilter
       
-      return matchesSearch && matchesStatus && matchesPayment
+      // Date range filter for booking creation date
+      let matchesDateRange = true
+      if (dateFrom || dateTo) {
+        const bookingDate = new Date(booking.createdAt)
+        bookingDate.setHours(0, 0, 0, 0)
+        
+        if (dateFrom) {
+          const fromDate = new Date(dateFrom)
+          fromDate.setHours(0, 0, 0, 0)
+          if (bookingDate < fromDate) {
+            matchesDateRange = false
+          }
+        }
+        
+        if (dateTo) {
+          const toDate = new Date(dateTo)
+          toDate.setHours(23, 59, 59, 999)
+          if (bookingDate > toDate) {
+            matchesDateRange = false
+          }
+        }
+      }
+      
+      return matchesSearch && matchesStatus && matchesPayment && matchesDateRange
     })
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+  // Calculate pagination for filtered results
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || paymentFilter !== 'all' || dateFrom || dateTo
+  
+  // When filters are active, show all filtered results (no pagination on client)
+  // When no filters, use server-side pagination
+  const paginatedBookings = hasActiveFilters 
+    ? filteredBookings  // Show all filtered results when filters are active
+    : filteredBookings  // Server already paginated, but we still have all bookings in current page
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -194,13 +278,22 @@ export default function AdminBookings() {
               <p className="text-sm text-gray-500">การจองทั้งหมด</p>
               <p className="text-2xl font-bold text-primary-600">{bookings.length}</p>
             </div>
-            <button
-              onClick={() => router.push('/admin/bookings/new')}
-              className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 font-medium"
-            >
-              <Plus size={20} />
-              เพิ่มการจองใหม่
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => router.push('/admin/bookings/upcoming')}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-medium"
+              >
+                <Calendar size={20} />
+                การจองที่จะมาถึง
+              </button>
+              <button
+                onClick={() => router.push('/admin/bookings/new')}
+                className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 font-medium"
+              >
+                <Plus size={20} />
+                เพิ่มการจองใหม่
+              </button>
+            </div>
           </div>
         </div>
 
@@ -244,9 +337,71 @@ export default function AdminBookings() {
               <option value="PROCESSING">กำลังดำเนินการ</option>
               <option value="FAILED">ชำระไม่สำเร็จ</option>
             </select>
+          </div>
 
-            {/* View Mode */}
+          {/* Date Range Filter */}
+          <div className="flex flex-col sm:flex-row gap-4 items-center mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center gap-2">
+              <Calendar size={18} className="text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">ช่วงวันที่ที่จองเข้ามา:</span>
+            </div>
+            <div className="flex items-center gap-3 flex-1">
+              <div className="flex-1">
+                <label className="block text-xs text-gray-500 mb-1">ตั้งแต่</label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    setDateFrom(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div className="pt-5">
+                <span className="text-gray-400">ถึง</span>
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs text-gray-500 mb-1">ถึง</label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => {
+                    setDateTo(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  min={dateFrom}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              {(dateFrom || dateTo) && (
+                <button
+                  onClick={() => {
+                    setDateFrom('')
+                    setDateTo('')
+                    setCurrentPage(1)
+                  }}
+                  className="px-4 py-2 mt-6 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                  title="ล้างการกรองวันที่"
+                >
+                  <X size={16} />
+                  ล้าง
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* View Mode */}
+          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-200">
             <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-2 rounded-md transition-colors text-sm font-medium ${
+                  viewMode === 'table' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-500'
+                }`}
+              >
+                Table
+              </button>
               <button
                 onClick={() => setViewMode('timeline')}
                 className={`px-3 py-2 rounded-md transition-colors text-sm font-medium ${
@@ -267,11 +422,69 @@ export default function AdminBookings() {
           </div>
         </div>
 
-        {/* Results Count */}
-        <div className="mb-6">
-          <p className="text-gray-700 font-semibold">
-            แสดงผล {filteredBookings.length} จาก {bookings.length} การจอง
-          </p>
+        {/* Sort and Results Count */}
+        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <span className="text-gray-700 font-semibold">
+              แสดงผล {paginatedBookings.length} {hasActiveFilters ? 'จากการกรอง' : ''} จาก {hasActiveFilters ? filteredBookings.length : pagination.total} การจอง
+            </span>
+            {(dateFrom || dateTo) && (
+              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                {dateFrom && dateTo ? `${dateFrom} ถึง ${dateTo}` : dateFrom ? `ตั้งแต่ ${dateFrom}` : `ถึง ${dateTo}`}
+              </span>
+            )}
+            {!hasActiveFilters && (
+              <span className="text-gray-500 text-sm">
+                (หน้า {pagination.page} จาก {pagination.totalPages})
+              </span>
+            )}
+          </div>
+          
+          {/* Sort Controls */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">เรียงตาม:</span>
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => handleSort('checkIn')}
+                className={`px-3 py-2 rounded-md transition-colors text-sm font-medium ${
+                  sortBy === 'checkIn' 
+                    ? 'bg-white shadow-sm text-primary-600' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                วันที่เช็คอิน
+                {sortBy === 'checkIn' && (
+                  <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </button>
+              <button
+                onClick={() => handleSort('createdAt')}
+                className={`px-3 py-2 rounded-md transition-colors text-sm font-medium ${
+                  sortBy === 'createdAt' 
+                    ? 'bg-white shadow-sm text-primary-600' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                วันที่สร้าง
+                {sortBy === 'createdAt' && (
+                  <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </button>
+              <button
+                onClick={() => handleSort('totalPrice')}
+                className={`px-3 py-2 rounded-md transition-colors text-sm font-medium ${
+                  sortBy === 'totalPrice' 
+                    ? 'bg-white shadow-sm text-primary-600' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                ราคา
+                {sortBy === 'totalPrice' && (
+                  <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
 
         {bookings.length === 0 ? (
@@ -282,7 +495,7 @@ export default function AdminBookings() {
             <h3 className="text-xl font-semibold text-gray-900 mb-2">ยังไม่มีการจอง</h3>
             <p className="text-gray-500">เมื่อมีการจองใหม่จะแสดงที่นี่</p>
           </div>
-        ) : filteredBookings.length === 0 ? (
+        ) : paginatedBookings.length === 0 ? (
           <div className="bg-white rounded-xl shadow-lg p-12 text-center">
             <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <Search className="text-gray-400" size={32} />
@@ -290,9 +503,151 @@ export default function AdminBookings() {
             <h3 className="text-xl font-semibold text-gray-900 mb-2">ไม่พบการจอง</h3>
             <p className="text-gray-500">ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p>
           </div>
+        ) : viewMode === 'table' ? (
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสการจอง</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ห้องพัก</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ลูกค้า</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เช็คอิน</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เช็คเอาท์</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การชำระเงิน</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ราคา</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {paginatedBookings.map((booking) => (
+                    <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm font-mono text-gray-900">{booking.id?.slice(0, 8) || 'N/A'}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 relative rounded-lg overflow-hidden flex-shrink-0">
+                            <Image
+                              src={booking.room?.imageUrls?.[0] || '/placeholder-room.jpg'}
+                              alt={booking.room?.name || 'Room'}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{booking.room?.name || 'N/A'}</div>
+                            <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                              {booking.isManualBooking ? (
+                                <>
+                                  <UserCog size={12} />
+                                  Admin
+                                </>
+                              ) : (
+                                <>
+                                  <ShoppingCart size={12} />
+                                  Customer
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">{booking.guestName}</div>
+                        <div className="text-xs text-gray-500">{booking.guestEmail}</div>
+                        <div className="text-xs text-gray-500">{booking.guestPhone}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{formatDateTime(booking.checkIn)}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{formatDateTime(booking.checkOut)}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${getStatusColor(booking.status)}`}>
+                          {getStatusIcon(booking.status)}
+                          {booking.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${getPaymentStatusColor(booking.payment?.status)}`}>
+                          {getPaymentIcon(booking.payment?.status)}
+                          {booking.payment?.status || 'PENDING'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-semibold text-primary-600">{formatCurrency(booking.totalPrice)}</div>
+                        {(booking.discount > 0 || booking.discountAmount > 0) && (
+                          <div className="text-xs text-gray-500 line-through">
+                            {formatCurrency(booking.totalPrice + (booking.discountAmount || (booking.totalPrice * (booking.discount || 0) / 100)))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              if (booking.id) {
+                                router.push(`/admin/bookings/${booking.id}/edit`)
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-gray-600 text-white rounded text-xs font-medium hover:bg-gray-700 transition-colors flex items-center gap-1"
+                          >
+                            <Edit size={14} />
+                            แก้ไข
+                          </button>
+                          {booking.status === 'PENDING' && (
+                            <button
+                              onClick={() => {
+                                if (booking.id) {
+                                  handleStatusUpdate(booking.id, 'CONFIRMED')
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-colors flex items-center gap-1"
+                            >
+                              <CheckCircle size={14} />
+                              ยืนยัน
+                            </button>
+                          )}
+                          {booking.status === 'CONFIRMED' && (
+                            <button
+                              onClick={() => {
+                                if (booking.id) {
+                                  handleStatusUpdate(booking.id, 'COMPLETED')
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors flex items-center gap-1"
+                            >
+                              <CheckCircle size={14} />
+                              เสร็จสิ้น
+                            </button>
+                          )}
+                          {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
+                            <button
+                              onClick={() => {
+                                if (booking.id) {
+                                  handleStatusUpdate(booking.id, 'CANCELLED')
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 transition-colors flex items-center gap-1"
+                            >
+                              <XCircle size={14} />
+                              ยกเลิก
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         ) : viewMode === 'timeline' ? (
           <div className="space-y-6">
-            {filteredBookings.map((booking, index) => (
+            {paginatedBookings.map((booking, index) => (
               <div key={booking.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300">
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-6">
@@ -487,7 +842,7 @@ export default function AdminBookings() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredBookings.map((booking) => (
+            {paginatedBookings.map((booking) => (
               <div key={booking.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
                 <div className="relative h-48">
                   <Image
@@ -608,6 +963,66 @@ export default function AdminBookings() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!hasActiveFilters && pagination.totalPages > 1 && (
+          <div className="mt-8 flex justify-center items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={!pagination.hasPrevPage}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                pagination.hasPrevPage
+                  ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              <ChevronLeft size={20} />
+              ก่อนหน้า
+            </button>
+            
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                let pageNum: number
+                if (pagination.totalPages <= 5) {
+                  pageNum = i + 1
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1
+                } else if (currentPage >= pagination.totalPages - 2) {
+                  pageNum = pagination.totalPages - 4 + i
+                } else {
+                  pageNum = currentPage - 2 + i
+                }
+                
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      currentPage === pageNum
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+            </div>
+            
+            <button
+              onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
+              disabled={!pagination.hasNextPage}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                pagination.hasNextPage
+                  ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              ถัดไป
+              <ChevronRight size={20} />
+            </button>
           </div>
         )}
       </main>

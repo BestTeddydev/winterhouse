@@ -70,28 +70,72 @@ export async function POST(request: NextRequest) {
       }
       
 
-      // Update payment status
-      const updatedPayment = await Payment.findOneAndUpdate({_id: payment._id}, {
-        status: 'COMPLETED',
-      }, { new: true,upsert: true })
-
-      // Handle remaining payment logic
-      if (payment.paymentType === 'REMAINING') {
-        // Update the current payment record (which is the same as the original for remaining payments)
-        await Payment.findByIdAndUpdate(payment._id, {
-          paidAmount: payment.totalAmount,
-          remainingAmount: 0,
-          status: 'COMPLETED',
-        })
+      // Get booking to check current status
+      const booking = await Booking.findById(payment.bookingId)
+      
+      if (!booking) {
+        console.error('Booking not found for payment:', payment._id)
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
       }
 
-      // Update booking status
-      const updatedBooking = await Booking.findOneAndUpdate({_id: payment.bookingId}, { 
-        status: 'CONFIRMED',
-        updatedAt: new Date(),
-      }, { new: true,upsert: true })
+      // Calculate updated payment amounts
+      let updatedPaidAmount = payment.paidAmount || 0
+      let updatedRemainingAmount = payment.remainingAmount || 0
+
+      if (payment.paymentType === 'REMAINING') {
+        // Remaining payment - add the payment amount to existing paid amount
+        // The payment.amount is the remaining amount that was just paid
+        updatedPaidAmount = (payment.paidAmount || 0) + payment.amount
+        updatedRemainingAmount = 0
+      } else if (payment.paymentType === 'PARTIAL') {
+        // Partial payment (deposit) - this is the first payment
+        updatedPaidAmount = payment.amount
+        updatedRemainingAmount = payment.totalAmount - payment.amount
+      } else {
+        // Full payment
+        updatedPaidAmount = payment.totalAmount
+        updatedRemainingAmount = 0
+      }
+
+      // Update payment status and amounts
+      const updatedPayment = await Payment.findByIdAndUpdate(
+        payment._id,
+        {
+          status: 'COMPLETED',
+          paidAmount: updatedPaidAmount,
+          remainingAmount: updatedRemainingAmount,
+        },
+        { new: true }
+      )
+
+      // Update booking status only if this is the initial payment (booking status is PENDING)
+      // If booking is already CONFIRMED, it means this is a remaining payment
+      let updatedBooking = booking
       
-      console.log('Updated booking status to CONFIRMED:', updatedBooking?.status)
+      if (booking.status === 'PENDING') {
+        // First payment completed - confirm the booking
+        updatedBooking = await Booking.findByIdAndUpdate(
+          payment.bookingId,
+          {
+            status: 'CONFIRMED',
+            updatedAt: new Date(),
+          },
+          { new: true }
+        )
+        console.log('Booking confirmed after initial payment:', updatedBooking?._id)
+      } else if (booking.status === 'CONFIRMED' && payment.paymentType === 'REMAINING') {
+        // Remaining payment - just update the booking timestamp
+        updatedBooking = await Booking.findByIdAndUpdate(
+          payment.bookingId,
+          {
+            updatedAt: new Date(),
+          },
+          { new: true }
+        )
+        console.log('Remaining payment completed for booking:', updatedBooking?._id)
+      } else {
+        console.log('Booking already confirmed, no status update needed')
+      }
 
       // Send notifications after successful payment
       if (updatedBooking) {

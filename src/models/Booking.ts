@@ -20,6 +20,8 @@ export interface IBooking extends Document {
   manualBookingNotes?: string
   createdBy?: mongoose.Types.ObjectId
   paymentType?: 'FULL' | 'PARTIAL'
+  discount?: number // Discount percentage (0-100)
+  discountAmount?: number // Fixed discount amount in THB
   rooms?: Array<{
     roomId: mongoose.Types.ObjectId
     price: number
@@ -53,7 +55,9 @@ const BookingSchema = new Schema<IBooking>({
   isManualBooking: { type: Boolean, default: false },
   manualBookingNotes: { type: String },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
-  paymentType: { type: String, enum: ['FULL', 'PARTIAL'], default: 'FULL' }
+  paymentType: { type: String, enum: ['FULL', 'PARTIAL'], default: 'FULL' },
+  discount: { type: Number, default: 0, min: 0, max: 100 }, // Discount percentage
+  discountAmount: { type: Number, default: 0, min: 0 } // Fixed discount amount
 }, {
   timestamps: true,
 })

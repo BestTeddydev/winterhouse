@@ -96,8 +96,8 @@ ${paymentInfo}
 ${isPartialPayment && !isRemainingPayment ? '📝 หมายเหตุ: กรุณาชำระส่วนที่เหลือก่อนเช็คเอาท์' : ''}
 
 📞 หากมีคำถาม กรุณาติดต่อเราได้ที่:
-📧 ${process.env.ADMIN_EMAIL || 'admin@winterhouse.com'}
-📱 ${process.env.ADMIN_PHONE || '02-xxx-xxxx'}
+📧 ${process.env.ADMIN_EMAIL || 'baanlomnowcafeandcamping@gmail.com'}
+📱 ${process.env.ADMIN_PHONE || '064-553-5691, 064-554-6591'}
 
 เราหวังว่าจะได้ต้อนรับคุณในเร็วๆ นี้! 🏡✨
   `.trim()

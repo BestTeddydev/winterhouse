@@ -27,7 +27,7 @@ export async function GET(
         // Room details in rooms array
         { 'rooms.roomId': new mongoose.Types.ObjectId(roomId) }
       ],
-      status: { $in: ['PENDING', 'CONFIRMED'] },
+      status: { $in: ['CONFIRMED'] }, // Only count confirmed bookings as unavailable
       // Find bookings that overlap with the date range
       $and: [
         { checkIn: { $lt: endDate } }, // Existing check-in is before end date

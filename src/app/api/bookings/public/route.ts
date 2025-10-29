@@ -18,9 +18,9 @@ export async function GET(request: NextRequest) {
       require('@/models/Booking')
     }
 
-    // Fetch only confirmed and pending bookings
+    // Fetch only confirmed bookings - PENDING bookings don't count as booked until payment is completed
     const bookings = await Booking.find({
-      status: { $in: ['PENDING', 'CONFIRMED'] }
+      status: { $in: ['CONFIRMED'] }
     }).select('roomId roomIds rooms checkIn checkOut status').lean()
 
     // Transform the data to match frontend expectations

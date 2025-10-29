@@ -45,7 +45,16 @@ export default function MyBookings() {
   const fetchBookings = async () => {
     try {
       const response = await axios.get('/api/bookings')
-      const bookingsData = response.data
+      
+      // Handle both old format (array) and new format (with pagination)
+      let bookingsData = []
+      if (Array.isArray(response.data)) {
+        bookingsData = response.data
+      } else if (response.data.bookings && Array.isArray(response.data.bookings)) {
+        bookingsData = response.data.bookings
+      } else {
+        bookingsData = []
+      }
       
       console.log('Raw bookings data:', bookingsData)
       console.log('Bookings count:', bookingsData.length)
@@ -61,9 +70,10 @@ export default function MyBookings() {
       
       console.log('Valid bookings count:', validBookings.length)
       setBookings(validBookings)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching bookings:', error)
-      toast.error('ไม่สามารถโหลดข้อมูลการจองได้')
+      console.error('Error details:', error.response?.data)
+      toast.error(error.response?.data?.error || 'ไม่สามารถโหลดข้อมูลการจองได้')
     } finally {
       setLoading(false)
     }
@@ -113,7 +123,7 @@ export default function MyBookings() {
     }
   }
 
-  if (loading || status === 'loading') {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />

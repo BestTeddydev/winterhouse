@@ -118,3 +118,119 @@ export async function GET(
     )
   }
 }
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session) {
+      return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
+    }
+
+    // Only ADMIN can update bookings
+    if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'ไม่มีสิทธิ์แก้ไขการจอง' }, { status: 403 })
+    }
+
+    await connectDB()
+    
+    // Set strictPopulate to false to avoid schema validation errors
+    mongoose.set('strictPopulate', false)
+    
+    // Ensure models are registered
+    if (!mongoose.models.Room) {
+      require('@/models/Room')
+    }
+    if (!mongoose.models.Booking) {
+      require('@/models/Booking')
+    }
+    if (!mongoose.models.Payment) {
+      require('@/models/Payment')
+    }
+    if (!mongoose.models.User) {
+      require('@/models/User')
+    }
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+      return NextResponse.json({ error: 'รูปแบบ Booking ID ไม่ถูกต้อง' }, { status: 400 })
+    }
+
+    const bookingId = new mongoose.Types.ObjectId(params.id)
+    const body = await request.json()
+
+    // Get the existing booking first
+    const existingBooking = await Booking.findById(bookingId)
+    if (!existingBooking) {
+      return NextResponse.json({ error: 'ไม่พบการจอง' }, { status: 404 })
+    }
+
+    // Prepare update data
+    const updateData: any = {}
+
+    // Update basic booking information
+    if (body.checkIn) updateData.checkIn = new Date(body.checkIn)
+    if (body.checkOut) updateData.checkOut = new Date(body.checkOut)
+    if (body.guestName) updateData.guestName = body.guestName
+    if (body.guestEmail) updateData.guestEmail = body.guestEmail
+    if (body.guestPhone) updateData.guestPhone = body.guestPhone
+    if (body.guestCount) updateData.guestCount = body.guestCount
+    if (body.specialRequests !== undefined) updateData.specialRequests = body.specialRequests
+    if (body.manualBookingNotes !== undefined) updateData.manualBookingNotes = body.manualBookingNotes
+    if (body.totalPrice !== undefined) updateData.totalPrice = body.totalPrice
+
+    // Update booking status - accept both 'status' and 'bookingStatus'
+    if (body.status) updateData.status = body.status
+    if (body.bookingStatus) updateData.status = body.bookingStatus
+
+    // Set updated timestamp
+    updateData.updatedAt = new Date()
+
+    // Update the booking
+    const updatedBooking = await Booking.findByIdAndUpdate(
+      bookingId,
+      updateData,
+      { new: true, runValidators: true }
+    ).populate({
+      path: 'roomId',
+      select: 'name description price capacity imageUrls'
+    }).populate({
+      path: 'roomIds',
+      select: 'name description price capacity imageUrls'
+    }).populate({
+      path: 'rooms.roomId',
+      select: 'name description price capacity imageUrls'
+    }).populate({
+      path: 'paymentId',
+      select: 'status amount totalAmount paidAmount remainingAmount'
+    }).populate({
+      path: 'userId',
+      select: 'name email lineUserId'
+    })
+
+    // Update payment status if provided
+    if (body.paymentStatus && existingBooking.paymentId) {
+      const Payment = mongoose.models.Payment
+      await Payment.findByIdAndUpdate(
+        existingBooking.paymentId,
+        { status: body.paymentStatus },
+        { new: true }
+      )
+    }
+
+    return NextResponse.json({
+      message: 'อัพเดทการจองสำเร็จ',
+      booking: updatedBooking
+    })
+
+  } catch (error: any) {
+    console.error('Error updating booking:', error)
+    return NextResponse.json(
+      { error: 'ไม่สามารถอัพเดทการจองได้', details: error.message },
+      { status: 500 }
+    )
+  }
+}

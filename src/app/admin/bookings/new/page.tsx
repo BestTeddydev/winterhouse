@@ -57,7 +57,7 @@ export default function NewBooking() {
     checkIn: '',
     checkOut: '',
     guestName: '',
-    guestEmail: '',
+    guestEmail: 'unknow@gmail.com',
     guestPhone: '',
     guestCount: 1,
     specialRequests: '',
@@ -65,6 +65,8 @@ export default function NewBooking() {
     paymentStatus: 'COMPLETED',
     bookingStatus: 'CONFIRMED',
     totalPrice: 0,
+    discount: 0,
+    discountAmount: 0,
     notes: ''
   })
 
@@ -113,7 +115,7 @@ export default function NewBooking() {
     return selectedRooms.some(r => r.id === roomId)
   }
 
-  const calculateTotalPrice = () => {
+  const calculateBasePrice = () => {
     if (!formData.checkIn || !formData.checkOut) return 0
     
     const checkIn = new Date(formData.checkIn)
@@ -156,6 +158,23 @@ export default function NewBooking() {
     }
   }
 
+  const calculateTotalPrice = () => {
+    const basePrice = calculateBasePrice()
+    const discount = formData.discount || 0
+    const discountAmount = formData.discountAmount || 0
+    
+    // Apply discount (either percentage or fixed amount)
+    let finalPrice = basePrice
+    if (discount > 0) {
+      finalPrice = basePrice - (basePrice * discount / 100)
+    }
+    if (discountAmount > 0) {
+      finalPrice = basePrice - discountAmount
+    }
+    
+    return Math.max(0, Math.round(finalPrice)) // Ensure price is not negative
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -183,9 +202,14 @@ export default function NewBooking() {
           ...formData,
           roomIds: selectedRooms.map(r => r.id),
           totalPrice: calculateTotalPrice(),
+          discount: Number(formData.discount) || 0, // Ensure it's a number
+          discountAmount: Number(formData.discountAmount) || 0, // Ensure it's a number
           isManualBooking: true,
-          createdBy: session?.user?.id
+          isManualPayment:true,
+          createdBy: session?.user?.id,
+          bookingStatus: 'CONFIRMED' // Always CONFIRMED for admin manual bookings
         }
+        console.log('Sending booking data:', bookingData) // Debug log
         const response = await axios.post('/api/bookings', bookingData)
         toast.success('สร้างการจองสำเร็จ')
         router.push('/admin/bookings')
@@ -195,9 +219,14 @@ export default function NewBooking() {
           ...formData,
           roomId: selectedRoom.id,
           totalPrice: calculateTotalPrice(),
+          discount: Number(formData.discount) || 0, // Ensure it's a number
+          discountAmount: Number(formData.discountAmount) || 0, // Ensure it's a number
           isManualBooking: true,
-          createdBy: session?.user?.id
+          isManualPayment:true,
+          createdBy: session?.user?.id,
+          bookingStatus: 'CONFIRMED' // Always CONFIRMED for admin manual bookings
         }
+        console.log('Sending booking data:', bookingData) // Debug log
         const response = await axios.post('/api/bookings', bookingData)
         toast.success('สร้างการจองสำเร็จ')
         router.push('/admin/bookings')
@@ -397,7 +426,7 @@ export default function NewBooking() {
                       type="email"
                       value={formData.guestEmail}
                       onChange={(e) => handleInputChange('guestEmail', e.target.value)}
-                      placeholder="(ไม่บังคับ)"
+                      placeholder="unknow@gmail.com"
                       className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 placeholder-gray-500"
                     />
                   </div>
@@ -514,15 +543,80 @@ export default function NewBooking() {
                     <select
                       value={formData.bookingStatus}
                       onChange={(e) => handleInputChange('bookingStatus', e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 bg-green-50"
+                      disabled
                     >
-                      <option value="PENDING">รอดำเนินการ</option>
-                      <option value="CONFIRMED">ยืนยันแล้ว</option>
-                      <option value="COMPLETED">เสร็จสิ้น</option>
-                      <option value="CANCELLED">ยกเลิก</option>
+                      <option value="CONFIRMED">ยืนยันแล้ว (ได้รับมัดจำแล้ว)</option>
                     </select>
+                    <p className="mt-1 text-xs text-gray-500">การจองจากแอดมินจะเป็น CONFIRMED เสมอ เพราะได้รับมัดจำแล้ว</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Discount Section */}
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                  <DollarSign size={20} />
+                  ส่วนลด
+                </h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      ส่วนลด (เปอร์เซ็นต์)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={formData.discount}
+                      onChange={(e) => {
+                        const discount = parseFloat(e.target.value) || 0
+                        handleInputChange('discount', discount)
+                        handleInputChange('discountAmount', 0) // Clear fixed amount when using percentage
+                      }}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                      placeholder="0"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">กรอกเป็นเปอร์เซ็นต์ (0-100)</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      ส่วนลด (จำนวนเงิน)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.discountAmount}
+                      onChange={(e) => {
+                        const discountAmount = parseFloat(e.target.value) || 0
+                        handleInputChange('discountAmount', discountAmount)
+                        handleInputChange('discount', 0) // Clear percentage when using fixed amount
+                      }}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                      placeholder="0"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">กรอกเป็นจำนวนเงิน (บาท)</p>
+                  </div>
+                </div>
+                {(formData.discount > 0 || formData.discountAmount > 0) && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-700 font-medium">ราคาก่อนส่วนลด:</span>
+                      <span className="text-gray-900">฿{calculateBasePrice().toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-red-700 font-medium">ส่วนลด:</span>
+                      <span className="text-red-700 font-bold">
+                        {formData.discount > 0 
+                          ? `-฿${(calculateBasePrice() * formData.discount / 100).toLocaleString()} (${formData.discount}%)`
+                          : `-฿${formData.discountAmount.toLocaleString()}`
+                        }
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Special Requests & Notes */}
@@ -606,12 +700,39 @@ export default function NewBooking() {
                           <span className="text-gray-600">จำนวนคืน:</span>
                           <span className="text-gray-900">{nights} คืน</span>
                         </div>
-                        <div className="border-t pt-3">
-                          <div className="flex justify-between text-lg font-bold">
-                            <span className="text-gray-900">ราคารวม:</span>
-                            <span className="text-primary-600">฿{totalPrice.toLocaleString()}</span>
+                        {((formData.discount > 0 || formData.discountAmount > 0) && totalPrice < calculateBasePrice()) && (
+                          <>
+                            <div className="border-t pt-3">
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">ราคาก่อนส่วนลด:</span>
+                                <span className="text-gray-600 line-through">฿{calculateBasePrice().toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between text-red-700">
+                                <span className="text-red-700">ส่วนลด:</span>
+                                <span className="text-red-700 font-bold">
+                                  {formData.discount > 0 
+                                    ? `-฿${(calculateBasePrice() * formData.discount / 100).toLocaleString()} (${formData.discount}%)`
+                                    : `-฿${formData.discountAmount.toLocaleString()}`
+                                  }
+                                </span>
+                              </div>
+                            </div>
+                            <div className="border-t pt-3 mt-3">
+                              <div className="flex justify-between text-lg font-bold">
+                                <span className="text-gray-900">ราคารวมหลังหักส่วนลด:</span>
+                                <span className="text-primary-600">฿{totalPrice.toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                        {!(formData.discount > 0 || formData.discountAmount > 0) && (
+                          <div className="border-t pt-3">
+                            <div className="flex justify-between text-lg font-bold">
+                              <span className="text-gray-900">ราคารวม:</span>
+                              <span className="text-primary-600">฿{totalPrice.toLocaleString()}</span>
+                            </div>
                           </div>
-                        </div>
+                        )}
                         <div className="mt-2 text-xs text-gray-500 italic">
                           💡 ราคาคำนวณตามวันประเภท (วันธรรมดา/สุดสัปดาห์/วันหยุด)
                         </div>

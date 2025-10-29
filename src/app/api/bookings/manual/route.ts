@@ -32,7 +32,6 @@ export async function POST(request: NextRequest) {
       specialRequests,
       paymentType = 'FULL',
       paymentStatus = 'COMPLETED',
-      bookingStatus = 'CONFIRMED',
       totalPrice,
       notes,
       isManualBooking = true,
@@ -97,7 +96,7 @@ export async function POST(request: NextRequest) {
     if (!body.overrideAvailability) {
       const existingBookings = await Booking.find({
         roomId: new mongoose.Types.ObjectId(roomId),
-        status: { $in: ['PENDING', 'CONFIRMED'] },
+        status: { $in: ['CONFIRMED'] }, // Only check against confirmed bookings
         $or: [
           {
             $and: [
@@ -117,13 +116,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Create booking with manual booking flag
+    // Manual bookings are always CONFIRMED because customer has already paid deposit
     const booking = new Booking({
       roomId: new mongoose.Types.ObjectId(roomId),
       userId: new mongoose.Types.ObjectId(createdBy || session.user.id), // Use admin as user
       checkIn: checkInDate,
       checkOut: checkOutDate,
       totalPrice,
-      status: bookingStatus,
+      status: 'CONFIRMED', // Manual bookings are always confirmed since customer already paid deposit
       guestName,
       guestEmail,
       guestPhone,

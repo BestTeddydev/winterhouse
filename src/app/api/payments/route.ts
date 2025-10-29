@@ -60,6 +60,9 @@ export async function POST(request: NextRequest) {
       ? Math.round(booking.totalPrice * 0.5) 
       : booking.totalPrice)
 
+    // Check if booking is pending payment - if not, it might be a remaining payment
+    const isInitialPayment = booking.status === 'PENDING'
+
    
     // Check if user has permission to access this booking
     const bookingUserId = booking.userId instanceof mongoose.Types.ObjectId 

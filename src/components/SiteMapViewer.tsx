@@ -229,10 +229,10 @@ export default function SiteMapViewer({
                   <button
                     className={`absolute rounded-full border-2 border-white shadow-lg transition-all duration-300 cursor-pointer z-10 ${
                       selectedBuilding?.id === hotspot.id
-                        ? 'w-8 h-8 scale-150 animate-pulse ring-2 ring-white ring-opacity-75'
+                        ? 'w-6 h-6 scale-150 animate-pulse ring-2 ring-white ring-opacity-75'
                         : isHovered
-                        ? 'w-7 h-7 scale-125 animate-bounce ring-2 ring-green-300'
-                        : 'w-5 h-5 hover:scale-125'
+                        ? 'w-5 h-5 scale-125 animate-bounce ring-2 ring-green-300'
+                        : 'w-3 h-3 hover:scale-125'
                     } ${selectedBuilding?.id === hotspot.id ? '' : statusColor}`}
                     style={{
                       left: `${hotspot.x}%`,

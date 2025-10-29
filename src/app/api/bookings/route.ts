@@ -20,6 +20,10 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
+    const sortBy = searchParams.get('sortBy') || 'checkIn' // Default sort by checkIn
+    const sortOrder = searchParams.get('sortOrder') || 'asc' // Default ascending
 
     await connectDB()
     
@@ -70,6 +74,25 @@ export async function GET(request: NextRequest) {
       query.userId = new mongoose.Types.ObjectId(userId)
     }
 
+    // Build sort object
+    const sortObject: any = {}
+    if (sortBy === 'checkIn') {
+      sortObject.checkIn = sortOrder === 'desc' ? -1 : 1
+    } else if (sortBy === 'createdAt') {
+      sortObject.createdAt = sortOrder === 'desc' ? -1 : 1
+    } else if (sortBy === 'totalPrice') {
+      sortObject.totalPrice = sortOrder === 'desc' ? -1 : 1
+    } else {
+      sortObject.checkIn = 1 // Default to checkIn ascending
+    }
+
+    // Get total count for pagination
+    const totalBookings = await Booking.countDocuments(query)
+
+    // Calculate pagination
+    const skip = (page - 1) * limit
+    const totalPages = Math.ceil(totalBookings / limit)
+
     const bookings = await Booking.find(query)
       .populate({
         path: 'roomId',
@@ -86,7 +109,9 @@ export async function GET(request: NextRequest) {
         model: 'User',
         select: 'name email lineUserId'
       })
-      .sort({ createdAt: -1 })
+      .sort(sortObject)
+      .skip(skip)
+      .limit(limit)
 
     // Transform the data to match frontend expectations
     const transformedBookings = bookings.map(booking => {
@@ -99,8 +124,17 @@ export async function GET(request: NextRequest) {
       }
     })
 
-
-    return NextResponse.json(transformedBookings)
+    return NextResponse.json({
+      bookings: transformedBookings,
+      pagination: {
+        page,
+        limit,
+        total: totalBookings,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    })
   } catch (error) {
     console.error('Error fetching bookings:', error)
     
@@ -142,7 +176,24 @@ export async function POST(request: NextRequest) {
       guestPhone,
       specialRequests,
       paymentType = 'FULL', // Default to full payment
+      discount,
+      discountAmount,
+      bookingStatus,
+      isManualBooking = false,
     } = body
+
+    // Handle discount values - use nullish coalescing to allow 0 values
+    const finalDiscount = discount !== undefined && discount !== null ? Number(discount) : 0
+    const finalDiscountAmount = discountAmount !== undefined && discountAmount !== null ? Number(discountAmount) : 0
+    
+    // Ensure values are valid numbers and within bounds
+    const validDiscount = Math.max(0, Math.min(100, Number.isNaN(finalDiscount) ? 0 : finalDiscount))
+    const validDiscountAmount = Math.max(0, Number.isNaN(finalDiscountAmount) ? 0 : finalDiscountAmount)
+    
+    console.log('Discount values received:', { 
+      original: { discount, discountAmount },
+      processed: { discount: validDiscount, discountAmount: validDiscountAmount }
+    })
 
     // Validate required fields
     // Support both single roomId and multiple roomIds
@@ -246,7 +297,7 @@ export async function POST(request: NextRequest) {
           { roomId: new mongoose.Types.ObjectId(roomIdToCheck) },
           { roomIds: new mongoose.Types.ObjectId(roomIdToCheck) }
         ],
-        status: { $in: ['PENDING', 'CONFIRMED'] },
+        status: { $in: ['CONFIRMED'] }, // Only check against confirmed bookings to prevent duplicate bookings
         $and: [
           { checkIn: { $lt: checkOutDate } },
           { checkOut: { $gt: checkInDate } }
@@ -289,6 +340,9 @@ export async function POST(request: NextRequest) {
     const finalTotalPrice = totalPrice || calculatedTotalPrice
 
     
+    // Determine booking status: manual bookings from admin are always CONFIRMED, others are PENDING
+    const finalBookingStatus = isManualBooking ? 'CONFIRMED' : (bookingStatus || 'PENDING')
+    
     // Create booking
     const booking = new Booking({
       roomId: new mongoose.Types.ObjectId(selectedRoomIds[0]), // Keep first room for backward compatibility
@@ -306,9 +360,22 @@ export async function POST(request: NextRequest) {
       guestPhone,
       specialRequests,
       paymentType,
+      discount: validDiscount,
+      discountAmount: validDiscountAmount,
+      status: finalBookingStatus, // CONFIRMED for manual bookings, PENDING for regular bookings until payment
+      isManualBooking: isManualBooking || false,
     })
 
     await booking.save()
+    
+    // Verify discount was saved
+    const savedBooking = await Booking.findById(booking._id)
+    console.log('Booking saved with discount:', { 
+      bookingId: booking._id,
+      discount: savedBooking?.discount,
+      discountAmount: savedBooking?.discountAmount,
+      totalPrice: savedBooking?.totalPrice
+    })
 
     // Populate for response
     await booking.populate('roomId', 'name description price capacity imageUrls pricing')

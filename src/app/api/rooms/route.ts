@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     
     const rooms = await Room.find({ isActive: true })
       .populate('buildingId', 'name buildingType x y')
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 1 })
 
     // Transform the data to match frontend expectations
     const transformedRooms = rooms.map(room => ({
