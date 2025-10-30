@@ -53,11 +53,18 @@ export async function PUT(
       isActive,
     }
 
-    // Handle imageUrls
-    if (imageUrls) {
-      updateData.imageUrls = imageUrls
+    // Handle imageUrls - allow empty array to clear all images
+    if (imageUrls !== undefined) {
+      // Filter out empty strings and invalid URLs
+      const validUrls = Array.isArray(imageUrls) 
+        ? imageUrls.filter((url: string) => url && url.trim() !== '' && !url.includes('placeholder'))
+        : []
+      updateData.imageUrls = validUrls
+      // Set imageUrl to first valid URL or empty string
+      updateData.imageUrl = validUrls.length > 0 ? validUrls[0] : ''
     } else if (imageUrl) {
       updateData.imageUrls = [imageUrl]
+      updateData.imageUrl = imageUrl
     }
 
     // Add pricing if provided

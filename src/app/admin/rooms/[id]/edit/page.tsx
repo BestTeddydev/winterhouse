@@ -36,6 +36,7 @@ export default function EditRoom() {
   const [isActive, setIsActive] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [removingImages, setRemovingImages] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -71,15 +72,24 @@ export default function EditRoom() {
       setDescription(room.description)
       setImageUrl(room.imageUrl)
       
-      // Handle multiple images
+      // Handle multiple images - filter out empty or invalid URLs
       if (room.imageUrls && room.imageUrls.length > 0) {
-        setImageUrls(room.imageUrls)
-        // Find cover image index
-        const coverIndex = room.imageUrls.findIndex((url: string) => url === room.imageUrl)
-        setCoverImageIndex(coverIndex >= 0 ? coverIndex : 0)
-      } else if (room.imageUrl) {
+        const validUrls = room.imageUrls.filter((url: string) => url && url.trim() !== '' && !url.includes('placeholder'))
+        if (validUrls.length > 0) {
+          setImageUrls(validUrls)
+          // Find cover image index
+          const coverIndex = validUrls.findIndex((url: string) => url === room.imageUrl)
+          setCoverImageIndex(coverIndex >= 0 ? coverIndex : 0)
+        } else {
+          setImageUrls([])
+          setCoverImageIndex(0)
+        }
+      } else if (room.imageUrl && room.imageUrl.trim() !== '' && !room.imageUrl.includes('placeholder')) {
         // Fallback to single image
         setImageUrls([room.imageUrl])
+        setCoverImageIndex(0)
+      } else {
+        setImageUrls([])
         setCoverImageIndex(0)
       }
       
@@ -161,15 +171,33 @@ export default function EditRoom() {
       })
       
       const uploadedUrls = await Promise.all(uploadPromises)
-      setImageUrls([...imageUrls, ...uploadedUrls])
-      setSelectedFiles([])
       
-      // Clean up preview URLs
+      // Separate existing URLs (non-blob) from preview URLs (blob)
+      const existingUrls = imageUrls.filter(url => url && !url.startsWith('blob:') && url.trim() !== '')
+      
+      // Clean up all blob preview URLs before updating state
       imageUrls.forEach(url => {
         if (url.startsWith('blob:')) {
           URL.revokeObjectURL(url)
         }
       })
+      
+      // Combine existing URLs with newly uploaded URLs
+      const newImageUrls = [...existingUrls, ...uploadedUrls]
+      setImageUrls(newImageUrls)
+      setSelectedFiles([])
+      
+      // Update cover image if needed
+      if (newImageUrls.length > 0 && coverImageIndex >= existingUrls.length) {
+        // If cover was a blob preview that we removed, set to last uploaded image
+        setCoverImageIndex(newImageUrls.length - 1)
+        setImageUrl(newImageUrls[newImageUrls.length - 1])
+      } else if (newImageUrls.length > 0 && (coverImageIndex < 0 || !imageUrl || imageUrl.startsWith('blob:'))) {
+        // If cover is invalid or missing, set to first existing image or last uploaded
+        const validCoverIndex = existingUrls.length > 0 ? 0 : newImageUrls.length - 1
+        setCoverImageIndex(validCoverIndex)
+        setImageUrl(newImageUrls[validCoverIndex])
+      }
       
       toast.success(`อัปโหลดรูปภาพ ${uploadedUrls.length} รูปสำเร็จ`)
       
@@ -182,49 +210,114 @@ export default function EditRoom() {
   }
 
   const handleRemoveImage = (index: number) => {
+    if (index < 0 || index >= imageUrls.length) return
+    
     const urlToRemove = imageUrls[index]
     
     // Clean up preview URL if it's a blob
-    if (urlToRemove.startsWith('blob:')) {
+    if (urlToRemove && urlToRemove.startsWith('blob:')) {
       URL.revokeObjectURL(urlToRemove)
     }
     
-    // Remove from arrays
-    const newImageUrls = imageUrls.filter((_, i) => i !== index)
+    // Remove from arrays and filter out any empty/invalid URLs
+    const newImageUrls = imageUrls
+      .filter((_, i) => i !== index)
+      .filter(url => url && url.trim() !== '' && !url.includes('placeholder'))
+    
     setImageUrls(newImageUrls)
     
     // Adjust cover image index if needed
-    if (coverImageIndex >= newImageUrls.length) {
-      setCoverImageIndex(Math.max(0, newImageUrls.length - 1))
+    if (newImageUrls.length === 0) {
+      setCoverImageIndex(0)
+      setImageUrl('')
+    } else if (coverImageIndex === index) {
+      // If we removed the cover image, set new cover (prefer existing, then last uploaded)
+      const newCoverIndex = Math.max(0, Math.min(coverImageIndex, newImageUrls.length - 1))
+      setCoverImageIndex(newCoverIndex)
+      setImageUrl(newImageUrls[newCoverIndex] || '')
     } else if (coverImageIndex > index) {
+      // Adjust index if we removed an image before the cover
       setCoverImageIndex(coverImageIndex - 1)
-    }
-    
-    // Update main imageUrl if this was the cover image
-    if (coverImageIndex === index) {
-      setImageUrl(newImageUrls[Math.max(0, newImageUrls.length - 1)] || '')
+      setImageUrl(newImageUrls[coverImageIndex - 1] || '')
+    } else {
+      // Keep current cover but update imageUrl to ensure it's valid
+      if (newImageUrls[coverImageIndex]) {
+        setImageUrl(newImageUrls[coverImageIndex])
+      }
     }
   }
 
   const handleSetCoverImage = (index: number) => {
+    if (index < 0 || index >= imageUrls.length) {
+      console.error('Invalid cover image index:', index)
+      return
+    }
+    
+    const selectedUrl = imageUrls[index]
+    if (!selectedUrl || selectedUrl.trim() === '' || selectedUrl.startsWith('blob:')) {
+      toast.error('กรุณาอัปโหลดรูปภาพก่อนเลือกเป็นรูปปก')
+      return
+    }
+    
     setCoverImageIndex(index)
-    setImageUrl(imageUrls[index])
+    setImageUrl(selectedUrl)
   }
 
-  const handleRemoveAllImages = () => {
-    // Clean up all preview URLs
-    imageUrls.forEach(url => {
-      if (url.startsWith('blob:')) {
-        URL.revokeObjectURL(url)
+  const handleRemoveAllImages = async () => {
+    // Ask for confirmation
+    const confirm = window.confirm('คุณแน่ใจหรือไม่ที่จะลบรูปภาพทั้งหมด? การกระทำนี้ไม่สามารถย้อนกลับได้')
+    if (!confirm) return
+
+    setRemovingImages(true)
+
+    try {
+      // Clean up all preview URLs
+      imageUrls.forEach(url => {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url)
+        }
+      })
+      
+      // Update state immediately for better UX
+      setSelectedFiles([])
+      setImageUrls([])
+      setImageUrl('')
+      setCoverImageIndex(0)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
       }
-    })
-    
-    setSelectedFiles([])
-    setImageUrls([])
-    setImageUrl('')
-    setCoverImageIndex(0)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+
+      // Update database by sending empty imageUrls array
+      await axios.put(`/api/rooms/${params.id}`, {
+        name,
+        description,
+        imageUrl: '',
+        imageUrls: [],
+        price: parseFloat(price),
+        capacity: parseInt(capacity),
+        amenities,
+        hotspots,
+        isActive,
+        pricing: pricing.weekday || pricing.weekend || pricing.holiday ? {
+          weekday: parseFloat(pricing.weekday || price),
+          weekend: parseFloat(pricing.weekend || pricing.weekday || price),
+          holiday: parseFloat(pricing.holiday || pricing.weekday || price)
+        } : undefined
+      })
+
+      toast.success('ลบรูปภาพทั้งหมดสำเร็จ')
+    } catch (error: any) {
+      console.error('Error removing all images:', error)
+      toast.error(error.response?.data?.error || 'ไม่สามารถลบรูปภาพได้')
+      
+      // Re-fetch room data on error to restore state
+      try {
+        await fetchRoom()
+      } catch (fetchError) {
+        console.error('Error fetching room after failed delete:', fetchError)
+      }
+    } finally {
+      setRemovingImages(false)
     }
   }
 
@@ -236,9 +329,14 @@ export default function EditRoom() {
       return
     }
 
-    if (imageUrls.length === 0) {
-      toast.error('กรุณาอัปโหลดรูปภาพอย่างน้อย 1 รูป')
-      return
+    // Allow empty imageUrls if user intentionally deleted all images
+    // This will update the database to have empty imageUrls array
+    if (imageUrls.length === 0 && selectedFiles.length === 0) {
+      // Check if user is trying to delete all images - allow this
+      const confirmDelete = window.confirm('คุณแน่ใจหรือไม่ที่จะลบรูปภาพทั้งหมด? หากบันทึก ห้องพักนี้จะไม่มีรูปภาพ')
+      if (!confirmDelete) {
+        return
+      }
     }
 
     // ถ้ายังไม่ได้อัปโหลด ให้อัปโหลดก่อน
@@ -257,13 +355,21 @@ export default function EditRoom() {
       const roomData: any = {
         name,
         description,
-        imageUrl: imageUrls[coverImageIndex], // รูปปก
-        imageUrls, // รูปทั้งหมด
         price: parseFloat(price),
         capacity: parseInt(capacity),
         amenities,
         hotspots,
         isActive,
+      }
+
+      // Handle image URLs - only set if there are images
+      if (imageUrls.length > 0 && imageUrls[coverImageIndex]) {
+        roomData.imageUrl = imageUrls[coverImageIndex] // รูปปก
+        roomData.imageUrls = imageUrls.filter(url => url && url.trim() !== '') // รูปทั้งหมด (filter out empty strings)
+      } else {
+        // If no images, set empty arrays
+        roomData.imageUrl = ''
+        roomData.imageUrls = []
       }
 
       // Add pricing if provided
@@ -385,15 +491,24 @@ export default function EditRoom() {
                       <div className={`relative h-48 w-full rounded-lg overflow-hidden border-2 ${
                         coverImageIndex === index ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200'
                       }`}>
-                        <Image
-                          src={imageUrl}
-                          alt={`Preview ${index + 1}`}
-                          fill
-                          className="object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = '/placeholder.jpg'
-                          }}
-                        />
+                        {imageUrl && imageUrl.trim() !== '' ? (
+                          <Image
+                            src={imageUrl}
+                            alt={`Preview ${index + 1}`}
+                            fill
+                            className="object-cover"
+                            onError={(e) => {
+                              const target = e.currentTarget as HTMLImageElement
+                              if (target.src && !target.src.includes('placeholder')) {
+                                target.src = '/placeholder.jpg'
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                            <ImageIcon className="text-gray-400" size={48} />
+                          </div>
+                        )}
                         
                         {/* Remove Button */}
                         <button
@@ -411,8 +526,8 @@ export default function EditRoom() {
                           </div>
                         )}
                         
-                        {/* Set Cover Button */}
-                        {coverImageIndex !== index && (
+                        {/* Set Cover Button - Only show for uploaded images (not blob previews) */}
+                        {coverImageIndex !== index && imageUrls[index] && !imageUrls[index].startsWith('blob:') && imageUrls[index].trim() !== '' ? (
                           <button
                             type="button"
                             onClick={() => handleSetCoverImage(index)}
@@ -420,7 +535,11 @@ export default function EditRoom() {
                           >
                             เลือกเป็นรูปปก
                           </button>
-                        )}
+                        ) : coverImageIndex !== index && imageUrls[index] && imageUrls[index].startsWith('blob:') ? (
+                          <div className="absolute bottom-2 left-2 px-3 py-1 bg-yellow-500 bg-opacity-90 text-white text-xs rounded font-medium opacity-0 group-hover:opacity-100">
+                            ยังไม่ได้อัปโหลด
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   ))}
@@ -452,10 +571,11 @@ export default function EditRoom() {
                   <button
                     type="button"
                     onClick={handleRemoveAllImages}
-                    className="px-4 py-2 border border-red-300 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors flex items-center gap-2"
+                    disabled={removingImages || imageUrls.length === 0}
+                    className="px-4 py-2 border border-red-300 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Trash2 size={16} />
-                    ลบทั้งหมด
+                    {removingImages ? 'กำลังลบ...' : 'ลบทั้งหมด'}
                   </button>
                 </div>
                 
@@ -472,17 +592,29 @@ export default function EditRoom() {
           </div>
 
           {/* Cover Image Preview */}
-          {imageUrls.length > 0 && (
+          {imageUrls.length > 0 && imageUrls[coverImageIndex] && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
               <h3 className="font-semibold text-gray-900 mb-3">รูปปกที่เลือก</h3>
               <div className="flex items-center gap-4">
                 <div className="relative w-24 h-16 rounded-lg overflow-hidden border-2 border-primary-500">
-                  <Image
-                    src={imageUrls[coverImageIndex]}
-                    alt="Cover Image"
-                    fill
-                    className="object-cover"
-                  />
+                  {imageUrls[coverImageIndex] && imageUrls[coverImageIndex].trim() !== '' ? (
+                    <Image
+                      src={imageUrls[coverImageIndex]}
+                      alt="Cover Image"
+                      fill
+                      className="object-cover"
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement
+                        if (target.src && !target.src.includes('placeholder')) {
+                          target.src = '/placeholder.jpg'
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                      <ImageIcon className="text-gray-400" size={24} />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <p className="text-sm text-gray-700">
