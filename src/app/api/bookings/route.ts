@@ -100,6 +100,11 @@ export async function GET(request: NextRequest) {
         select: 'name description price capacity imageUrls'
       })
       .populate({
+        path: 'roomIds',
+        model: 'Room',
+        select: 'name description price capacity imageUrls'
+      })
+      .populate({
         path: 'paymentId',
         model: 'Payment',
         select: 'status amount totalAmount paidAmount remainingAmount'
@@ -116,10 +121,16 @@ export async function GET(request: NextRequest) {
     // Transform the data to match frontend expectations
     const transformedBookings = bookings.map(booking => {
       const bookingObj = booking.toObject()
+      // Get all rooms: use roomIds if available, otherwise use roomId
+      const allRooms = (booking.roomIds && booking.roomIds.length > 0) 
+        ? booking.roomIds 
+        : (booking.roomId ? [booking.roomId] : [])
+      
       return {
         ...bookingObj,
         id: bookingObj._id, // Ensure id is properly set
         room: booking.roomId,
+        rooms: allRooms, // Array of all rooms
         payment: booking.paymentId || { status: 'PENDING', amount: 0 }
       }
     })

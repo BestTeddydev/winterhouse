@@ -33,6 +33,7 @@ import {
   UserCog,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   X
 } from 'lucide-react'
 import Image from 'next/image'
@@ -162,10 +163,15 @@ export default function AdminBookings() {
   // Sorting is done on backend, but we still apply filters here
   const filteredBookings = bookings
     .filter(booking => {
+      // Get all room names for search
+      const allRoomNames = (booking.rooms && booking.rooms.length > 0)
+        ? booking.rooms.map((r: any) => r?.name || '').join(' ')
+        : (booking.room?.name || '')
+      
       const matchesSearch = 
         booking.guestName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         booking.guestEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.room?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        allRoomNames.toLowerCase().includes(searchTerm.toLowerCase()) ||
         booking.id?.toLowerCase().includes(searchTerm.toLowerCase())
       
       const matchesStatus = statusFilter === 'all' || booking.status === statusFilter
@@ -298,126 +304,211 @@ export default function AdminBookings() {
         </div>
 
         {/* Filters and Controls */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <div className="flex flex-col lg:flex-row gap-4 items-center">
-            {/* Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="ค้นหาการจอง..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
+        <div className="bg-white rounded-xl shadow-lg mb-8 overflow-hidden">
+          {/* Active Filters Bar */}
+          {hasActiveFilters && (
+            <div className="px-6 py-3 bg-primary-50 border-b border-primary-100 flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium text-primary-700">การกรองที่เปิดอยู่:</span>
+                {searchTerm && (
+                  <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-medium flex items-center gap-1">
+                    ค้นหา: {searchTerm}
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="ml-1 hover:bg-primary-200 rounded-full p-0.5"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+                {statusFilter !== 'all' && (
+                  <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-medium flex items-center gap-1">
+                    สถานะ: {statusFilter === 'PENDING' ? 'รอดำเนินการ' : statusFilter === 'CONFIRMED' ? 'ยืนยันแล้ว' : statusFilter === 'COMPLETED' ? 'เสร็จสิ้น' : 'ยกเลิก'}
+                    <button
+                      onClick={() => setStatusFilter('all')}
+                      className="ml-1 hover:bg-primary-200 rounded-full p-0.5"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+                {paymentFilter !== 'all' && (
+                  <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-medium flex items-center gap-1">
+                    การชำระ: {paymentFilter}
+                    <button
+                      onClick={() => setPaymentFilter('all')}
+                      className="ml-1 hover:bg-primary-200 rounded-full p-0.5"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+                {(dateFrom || dateTo) && (
+                  <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-medium flex items-center gap-1">
+                    วันที่: {dateFrom || 'ทั้งหมด'} ถึง {dateTo || 'ทั้งหมด'}
+                    <button
+                      onClick={() => {
+                        setDateFrom('')
+                        setDateTo('')
+                      }}
+                      className="ml-1 hover:bg-primary-200 rounded-full p-0.5"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setSearchTerm('')
+                  setStatusFilter('all')
+                  setPaymentFilter('all')
+                  setDateFrom('')
+                  setDateTo('')
+                  setCurrentPage(1)
+                }}
+                className="text-xs text-primary-700 hover:text-primary-800 font-medium flex items-center gap-1"
+              >
+                <X size={14} />
+                ล้างทั้งหมด
+              </button>
             </div>
+          )}
 
-            {/* Status Filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            >
-              <option value="all">ทุกสถานะ</option>
-              <option value="PENDING">รอดำเนินการ</option>
-              <option value="CONFIRMED">ยืนยันแล้ว</option>
-              <option value="COMPLETED">เสร็จสิ้น</option>
-              <option value="CANCELLED">ยกเลิก</option>
-            </select>
-
-            {/* Payment Filter */}
-            <select
-              value={paymentFilter}
-              onChange={(e) => setPaymentFilter(e.target.value)}
-              className="px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            >
-              <option value="all">ทุกสถานะการชำระ</option>
-              <option value="COMPLETED">ชำระแล้ว</option>
-              <option value="PENDING">รอชำระ</option>
-              <option value="PROCESSING">กำลังดำเนินการ</option>
-              <option value="FAILED">ชำระไม่สำเร็จ</option>
-            </select>
-          </div>
-
-          {/* Date Range Filter */}
-          <div className="flex flex-col sm:flex-row gap-4 items-center mt-4 pt-4 border-t border-gray-200">
-            <div className="flex items-center gap-2">
-              <Calendar size={18} className="text-gray-500" />
-              <span className="text-sm font-medium text-gray-700">ช่วงวันที่ที่จองเข้ามา:</span>
-            </div>
-            <div className="flex items-center gap-3 flex-1">
-              <div className="flex-1">
-                <label className="block text-xs text-gray-500 mb-1">ตั้งแต่</label>
+          <div className="p-6">
+            {/* Main Filters Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              {/* Search */}
+              <div className="relative lg:col-span-2">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => {
-                    setDateFrom(e.target.value)
-                    setCurrentPage(1)
-                  }}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  type="text"
+                  placeholder="ค้นหาการจอง (ชื่อ, อีเมล, รหัส...) ..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 />
               </div>
-              <div className="pt-5">
-                <span className="text-gray-400">ถึง</span>
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs text-gray-500 mb-1">ถึง</label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => {
-                    setDateTo(e.target.value)
-                    setCurrentPage(1)
-                  }}
-                  min={dateFrom}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                />
-              </div>
-              {(dateFrom || dateTo) && (
-                <button
-                  onClick={() => {
-                    setDateFrom('')
-                    setDateTo('')
-                    setCurrentPage(1)
-                  }}
-                  className="px-4 py-2 mt-6 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
-                  title="ล้างการกรองวันที่"
+
+              {/* Status Filter */}
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <CheckCircle className="text-gray-400" size={18} />
+                </div>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent appearance-none bg-white cursor-pointer"
                 >
-                  <X size={16} />
-                  ล้าง
-                </button>
-              )}
-            </div>
-          </div>
+                  <option value="all">ทุกสถานะ</option>
+                  <option value="PENDING">รอดำเนินการ</option>
+                  <option value="CONFIRMED">ยืนยันแล้ว</option>
+                  <option value="COMPLETED">เสร็จสิ้น</option>
+                  <option value="CANCELLED">ยกเลิก</option>
+                </select>
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <ChevronDown className="text-gray-400" size={16} />
+                </div>
+              </div>
 
-          {/* View Mode */}
-          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-200">
-            <div className="flex bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('table')}
-                className={`px-3 py-2 rounded-md transition-colors text-sm font-medium ${
-                  viewMode === 'table' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-500'
-                }`}
-              >
-                Table
-              </button>
-              <button
-                onClick={() => setViewMode('timeline')}
-                className={`px-3 py-2 rounded-md transition-colors text-sm font-medium ${
-                  viewMode === 'timeline' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-500'
-                }`}
-              >
-                Timeline
-              </button>
-              <button
-                onClick={() => setViewMode('cards')}
-                className={`px-3 py-2 rounded-md transition-colors text-sm font-medium ${
-                  viewMode === 'cards' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-500'
-                }`}
-              >
-                Cards
-              </button>
+              {/* Payment Filter */}
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <CreditCard className="text-gray-400" size={18} />
+                </div>
+                <select
+                  value={paymentFilter}
+                  onChange={(e) => setPaymentFilter(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent appearance-none bg-white cursor-pointer"
+                >
+                  <option value="all">ทุกสถานะการชำระ</option>
+                  <option value="COMPLETED">ชำระแล้ว</option>
+                  <option value="PENDING">รอชำระ</option>
+                  <option value="PROCESSING">กำลังดำเนินการ</option>
+                  <option value="FAILED">ชำระไม่สำเร็จ</option>
+                </select>
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <ChevronDown className="text-gray-400" size={16} />
+                </div>
+              </div>
+            </div>
+
+            {/* Date Range and View Mode Row */}
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between pt-4 border-t border-gray-200">
+              {/* Date Range Filter */}
+              <div className="flex items-center gap-3 flex-1">
+                <Calendar className="text-gray-500 flex-shrink-0" size={18} />
+                <span className="text-sm font-medium text-gray-700 whitespace-nowrap">วันที่สร้าง:</span>
+                <div className="flex items-center gap-2 flex-1">
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => {
+                      setDateFrom(e.target.value)
+                      setCurrentPage(1)
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                  />
+                  <span className="text-gray-400 text-sm">ถึง</span>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => {
+                      setDateTo(e.target.value)
+                      setCurrentPage(1)
+                    }}
+                    min={dateFrom}
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                  />
+                  {(dateFrom || dateTo) && (
+                    <button
+                      onClick={() => {
+                        setDateFrom('')
+                        setDateTo('')
+                        setCurrentPage(1)
+                      }}
+                      className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1 text-sm"
+                      title="ล้างการกรองวันที่"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 font-medium">มุมมอง:</span>
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setViewMode('table')}
+                    className={`px-3 py-1.5 rounded-md transition-all text-sm font-medium flex items-center gap-1 ${
+                      viewMode === 'table' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Settings size={14} />
+                    Table
+                  </button>
+                  <button
+                    onClick={() => setViewMode('timeline')}
+                    className={`px-3 py-1.5 rounded-md transition-all text-sm font-medium flex items-center gap-1 ${
+                      viewMode === 'timeline' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Calendar size={14} />
+                    Timeline
+                  </button>
+                  <button
+                    onClick={() => setViewMode('cards')}
+                    className={`px-3 py-1.5 rounded-md transition-all text-sm font-medium flex items-center gap-1 ${
+                      viewMode === 'cards' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Eye size={14} />
+                    Cards
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -522,7 +613,15 @@ export default function AdminBookings() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {paginatedBookings.map((booking) => (
-                    <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
+                    <tr 
+                      key={booking.id} 
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => {
+                        if (booking.id) {
+                          router.push(`/bookings/${booking.id}`)
+                        }
+                      }}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm font-mono text-gray-900">{booking.id?.slice(0, 8) || 'N/A'}</span>
                       </td>
@@ -537,7 +636,11 @@ export default function AdminBookings() {
                             />
                           </div>
                           <div>
-                            <div className="text-sm font-medium text-gray-900">{booking.room?.name || 'N/A'}</div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {booking.rooms && booking.rooms.length > 0
+                                ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
+                                : booking.room?.name || 'N/A'}
+                            </div>
                             <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
                               {booking.isManualBooking ? (
                                 <>
@@ -586,7 +689,7 @@ export default function AdminBookings() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => {
                               if (booking.id) {
@@ -600,7 +703,8 @@ export default function AdminBookings() {
                           </button>
                           {booking.status === 'PENDING' && (
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation()
                                 if (booking.id) {
                                   handleStatusUpdate(booking.id, 'CONFIRMED')
                                 }
@@ -613,7 +717,8 @@ export default function AdminBookings() {
                           )}
                           {booking.status === 'CONFIRMED' && (
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation()
                                 if (booking.id) {
                                   handleStatusUpdate(booking.id, 'COMPLETED')
                                 }
@@ -626,7 +731,8 @@ export default function AdminBookings() {
                           )}
                           {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation()
                                 if (booking.id) {
                                   handleStatusUpdate(booking.id, 'CANCELLED')
                                 }
@@ -648,22 +754,34 @@ export default function AdminBookings() {
         ) : viewMode === 'timeline' ? (
           <div className="space-y-6">
             {paginatedBookings.map((booking, index) => (
-              <div key={booking.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300">
+              <div 
+                key={booking.id} 
+                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer"
+                onClick={() => {
+                  if (booking.id) {
+                    router.push(`/bookings/${booking.id}`)
+                  }
+                }}
+              >
                 <div className="p-6">
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="flex items-center gap-4">
-                      <div className="flex-shrink-0">
-                        <div className="w-16 h-16 relative rounded-lg overflow-hidden">
-                          <Image
-                            src={booking.room.imageUrls?.[0] || '/placeholder-room.jpg'}
-                            alt={booking.room.name}
-                            fill
-                            className="object-cover"
-                          />
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-shrink-0">
+                          <div className="w-16 h-16 relative rounded-lg overflow-hidden">
+                            <Image
+                              src={booking.room?.imageUrls?.[0] || booking.rooms?.[0]?.imageUrls?.[0] || '/placeholder-room.jpg'}
+                              alt={booking.room?.name || booking.rooms?.[0]?.name || 'Room'}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
                         </div>
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-1">{booking.room.name}</h3>
+                        <div>
+                          <h3 className="text-xl font-bold text-gray-900 mb-1">
+                            {booking.rooms && booking.rooms.length > 0
+                              ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
+                              : booking.room?.name || 'N/A'}
+                          </h3>
                         <p className="text-sm text-gray-500 mb-2">
                           รหัสการจอง: <span className="font-mono">{booking.id?.slice(0, 8) || 'N/A'}</span>
                         </p>
@@ -749,7 +867,7 @@ export default function AdminBookings() {
                     </div>
 
                     {/* Actions */}
-                    <div>
+                    <div onClick={(e) => e.stopPropagation()}>
                       <h4 className="font-semibold text-gray-900 mb-3">จัดการการจอง</h4>
                       <div className="space-y-2">
                         <button
@@ -767,7 +885,8 @@ export default function AdminBookings() {
                         </button>
                         {booking.status === 'PENDING' && (
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation()
                               if (booking.id) {
                                 handleStatusUpdate(booking.id, 'CONFIRMED')
                               } else {
@@ -782,7 +901,8 @@ export default function AdminBookings() {
                         )}
                         {booking.status === 'CONFIRMED' && (
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation()
                               if (booking.id) {
                                 handleStatusUpdate(booking.id, 'COMPLETED')
                               } else {
@@ -797,7 +917,8 @@ export default function AdminBookings() {
                         )}
                         {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation()
                               if (booking.id) {
                                 handleStatusUpdate(booking.id, 'CANCELLED')
                               } else {
@@ -843,11 +964,19 @@ export default function AdminBookings() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {paginatedBookings.map((booking) => (
-              <div key={booking.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+              <div 
+                key={booking.id} 
+                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
+                onClick={() => {
+                  if (booking.id) {
+                    router.push(`/bookings/${booking.id}`)
+                  }
+                }}
+              >
                 <div className="relative h-48">
                   <Image
-                    src={booking.room.imageUrls?.[0] || '/placeholder-room.jpg'}
-                    alt={booking.room.name}
+                    src={booking.room?.imageUrls?.[0] || booking.rooms?.[0]?.imageUrls?.[0] || '/placeholder-room.jpg'}
+                    alt={booking.room?.name || booking.rooms?.[0]?.name || 'Room'}
                     fill
                     className="object-cover"
                   />
@@ -876,7 +1005,11 @@ export default function AdminBookings() {
                 </div>
 
                 <div className="p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{booking.room.name}</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                    {booking.rooms && booking.rooms.length > 0
+                      ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
+                      : booking.room?.name || 'N/A'}
+                  </h3>
                   <p className="text-sm text-gray-500 mb-4 font-mono">{booking.id?.slice(0, 8) || 'N/A'}</p>
 
                   <div className="space-y-3 mb-4">
@@ -904,7 +1037,7 @@ export default function AdminBookings() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => {
                         if (booking.id) {
@@ -919,7 +1052,8 @@ export default function AdminBookings() {
                     </button>
                     {booking.status === 'PENDING' && (
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation()
                           if (booking.id) {
                             handleStatusUpdate(booking.id, 'CONFIRMED')
                           } else {
@@ -933,7 +1067,8 @@ export default function AdminBookings() {
                     )}
                     {booking.status === 'CONFIRMED' && (
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation()
                           if (booking.id) {
                             handleStatusUpdate(booking.id, 'COMPLETED')
                           } else {
@@ -947,7 +1082,8 @@ export default function AdminBookings() {
                     )}
                     {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation()
                           if (booking.id) {
                             handleStatusUpdate(booking.id, 'CANCELLED')
                           } else {

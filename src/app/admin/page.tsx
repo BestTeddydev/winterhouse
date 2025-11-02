@@ -18,7 +18,8 @@ import {
   XCircle,
   Eye,
   EyeOff,
-  MapPin
+  MapPin,
+  LogOut
 } from 'lucide-react'
 
 interface DashboardStats {
@@ -37,6 +38,10 @@ export default function AdminDashboard() {
   const { data: session } = useSession()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [todayCheckIns, setTodayCheckIns] = useState<any[]>([])
+  const [todayCheckOuts, setTodayCheckOuts] = useState<any[]>([])
+  const [todayStaying, setTodayStaying] = useState<any[]>([])
+  const [todayCreated, setTodayCreated] = useState<any[]>([])
 
   useEffect(() => {
     // Middleware already handles authentication and authorization
@@ -52,11 +57,12 @@ export default function AdminDashboard() {
     try {
       const [roomsResponse, bookingsResponse] = await Promise.all([
         axios.get('/api/rooms'),
-        axios.get('/api/bookings')
+        axios.get('/api/bookings?limit=150&sortBy=createdAt&sortOrder=desc')
       ])
 
       const rooms = roomsResponse.data
-      const bookings = bookingsResponse.data
+      const bookingsRaw = bookingsResponse.data
+      const bookings = Array.isArray(bookingsRaw) ? bookingsRaw : (bookingsRaw.bookings || [])
 
       const totalRooms = rooms.length
       const activeRooms = rooms.filter((room: any) => room.isActive).length
@@ -92,6 +98,23 @@ export default function AdminDashboard() {
         totalRevenue,
         monthlyRevenue
       })
+
+      // Today bookings info
+      const today = new Date()
+      const todayStr = today.toDateString()
+      const createdToday = bookings.filter((b: any) => b.createdAt && new Date(b.createdAt).toDateString() === todayStr) 
+      const checkIns = bookings.filter((b: any) => b.checkIn && new Date(b.checkIn).toDateString() === todayStr && b.status !== 'CANCELLED')
+      const checkOuts = bookings.filter((b: any) => b.checkOut && new Date(b.checkOut).toDateString() === todayStr && b.status !== 'CANCELLED')
+      const staying = bookings.filter((b: any) => {
+        if (!b.checkIn || !b.checkOut) return false
+        const ci = new Date(b.checkIn)
+        const co = new Date(b.checkOut)
+        return ci <= today && co >= today && b.status !== 'CANCELLED'
+      })
+      setTodayCreated(createdToday)
+      setTodayCheckIns(checkIns)
+      setTodayCheckOuts(checkOuts)
+      setTodayStaying(staying)
     } catch (error) {
       console.error('Error fetching dashboard stats:', error)
     } finally {
@@ -117,12 +140,12 @@ export default function AdminDashboard() {
 
   const menuItems = [
     {
-      title: 'จัดการห้องพัก',
-      description: 'เพิ่ม แก้ไข ลบห้องพัก และจัดการ hotspots',
-      href: '/admin/rooms',
-      icon: Home,
-      color: 'bg-gradient-to-br from-blue-500 to-blue-600',
-      stats: stats ? `${stats.activeRooms}/${stats.totalRooms} ห้องเปิดใช้งาน` : 'กำลังโหลด...'
+      title: 'การจองที่จะมาถึง',
+      description: 'ดูการจองในช่วง 7 วันข้างหน้า',
+      href: '/admin/bookings/upcoming',
+      icon: Calendar,
+      color: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
+      stats: 'ช่วง 7 วันข้างหน้า'
     },
     {
       title: 'จัดการการจอง',
@@ -131,6 +154,15 @@ export default function AdminDashboard() {
       icon: Calendar,
       color: 'bg-gradient-to-br from-green-500 to-green-600',
       stats: stats ? `${stats.totalBookings} การจองทั้งหมด` : 'กำลังโหลด...'
+    },
+    
+    {
+      title: 'จัดการห้องพัก',
+      description: 'เพิ่ม แก้ไข ลบห้องพัก และจัดการ hotspots',
+      href: '/admin/rooms',
+      icon: Home,
+      color: 'bg-gradient-to-br from-blue-500 to-blue-600',
+      stats: stats ? `${stats.activeRooms}/${stats.totalRooms} ห้องเปิดใช้งาน` : 'กำลังโหลด...'
     },
     {
       title: 'แผนผังที่ดินและอาคาร',
@@ -213,10 +245,71 @@ export default function AdminDashboard() {
           ))}
         </div>
 
+ {/* Today Bookings */}
+      <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">การจองวันนี้</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div className="text-center p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-center mb-2">
+                <Calendar className="text-primary-600 mr-2" size={20} />
+                <span className="font-semibold text-gray-900">สร้างวันนี้</span>
+              </div>
+              <p className="text-2xl font-bold text-primary-600">{todayCreated?.length}</p>
+            </div>
+            <div className="text-center p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-center mb-2">
+                <LogOut className="text-orange-600 mr-2" size={20} />
+                <span className="font-semibold text-gray-900">เช็คเอาท์วันนี้</span>
+              </div>
+              <p className="text-2xl font-bold text-orange-600">{todayCheckOuts?.length}</p>
+            </div>
+            <div className="text-center p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-center mb-2">
+                <Eye className="text-blue-600 mr-2" size={20} />
+                <span className="font-semibold text-gray-900">กำลังพัก</span>
+              </div>
+              <p className="text-2xl font-bold text-blue-600">{todayStaying?.length}</p>
+            </div>
+          </div>
+
+          {(todayCheckIns?.length + todayCheckOuts?.length) > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="font-semibold mb-3">รายการเช็คอิน</h3>
+                <div className="divide-y rounded-lg border bg-gray-50">
+                  {todayCheckIns?.slice(0,5).map((b:any)=> (
+                    <div key={b.id} className="p-3 text-sm flex items-center justify-between">
+                      <div className="text-gray-800 font-medium">{b.room?.name || 'ไม่ระบุห้อง'}</div>
+                      <div className="text-gray-500">{b.guestName}</div>
+                    </div>
+                  ))}
+                  {todayCheckIns?.length === 0 && (
+                    <div className="p-3 text-sm text-gray-500">ไม่มีรายการ</div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-3">รายการเช็คเอาท์</h3>
+                <div className="divide-y rounded-lg border bg-gray-50">
+                  {todayCheckOuts?.slice(0,5).map((b:any)=> (
+                    <div key={b.id} className="p-3 text-sm flex items-center justify-between">
+                      <div className="text-gray-800 font-medium">{b.room?.name || 'ไม่ระบุห้อง'}</div>
+                      <div className="text-gray-500">{b?.guestName}</div>
+                    </div>
+                  ))}
+                  {todayCheckOuts?.length === 0 && (
+                    <div className="p-3 text-sm text-gray-500">ไม่มีรายการ</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Quick Actions */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">การจัดการหลัก</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
             {menuItems.map((item) => (
               <Link key={item.href} href={item.href}>
                 <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group">
@@ -240,6 +333,8 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
+
+       
 
         {/* Recent Activity */}
         <div className="bg-white rounded-xl shadow-lg p-6">

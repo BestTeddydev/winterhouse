@@ -6,7 +6,7 @@ export interface IUser extends Document {
   emailVerified?: Date
   image?: string
   lineUserId?: string
-  role: 'ADMIN' | 'CUSTOMER'
+  role: 'ADMIN' | 'CUSTOMER' | 'OWNER'
   createdAt: Date
   updatedAt: Date
 }
@@ -17,7 +17,7 @@ const UserSchema = new Schema<IUser>({
   emailVerified: { type: Date },
   image: { type: String },
   lineUserId: { type: String, unique: true, sparse: true,index: true },
-  role: { type: String, enum: ['ADMIN', 'CUSTOMER'], default: 'CUSTOMER' },
+  role: { type: String, enum: ['ADMIN', 'CUSTOMER', 'OWNER'], default: 'CUSTOMER' },
 }, {
   timestamps: true,
 })

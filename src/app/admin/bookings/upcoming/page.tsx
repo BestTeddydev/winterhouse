@@ -340,15 +340,19 @@ export default function UpcomingBookings() {
                       <div key={booking.id} className="flex items-center gap-3 bg-white/5 rounded-lg p-3">
                         <div className="w-10 h-10 relative rounded-lg overflow-hidden flex-shrink-0">
                           <Image
-                            src={booking.room.imageUrls?.[0] || '/placeholder-room.jpg'}
-                            alt={booking.room.name}
+                            src={booking.room?.imageUrls?.[0] || booking.rooms?.[0]?.imageUrls?.[0] || '/placeholder-room.jpg'}
+                            alt={booking.room?.name || booking.rooms?.[0]?.name || 'Room'}
                             fill
                             className="object-cover"
                           />
                         </div>
                         <div className="flex-1">
                           <p className="font-medium">{booking.guestName}</p>
-                          <p className="text-sm opacity-75">{booking.room.name}</p>
+                          <p className="text-sm opacity-75">
+                            {booking.rooms && booking.rooms.length > 0
+                              ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
+                              : booking.room?.name || 'N/A'}
+                          </p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-medium">{formatCurrency(booking.totalPrice)}</p>
@@ -374,15 +378,19 @@ export default function UpcomingBookings() {
                       <div key={booking.id} className="flex items-center gap-3 bg-white/5 rounded-lg p-3">
                         <div className="w-10 h-10 relative rounded-lg overflow-hidden flex-shrink-0">
                           <Image
-                            src={booking.room.imageUrls?.[0] || '/placeholder-room.jpg'}
-                            alt={booking.room.name}
+                            src={booking.room?.imageUrls?.[0] || booking.rooms?.[0]?.imageUrls?.[0] || '/placeholder-room.jpg'}
+                            alt={booking.room?.name || booking.rooms?.[0]?.name || 'Room'}
                             fill
                             className="object-cover"
                           />
                         </div>
                         <div className="flex-1">
                           <p className="font-medium">{booking.guestName}</p>
-                          <p className="text-sm opacity-75">{booking.room.name}</p>
+                          <p className="text-sm opacity-75">
+                            {booking.rooms && booking.rooms.length > 0
+                              ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
+                              : booking.room?.name || 'N/A'}
+                          </p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-medium">{formatCurrency(booking.totalPrice)}</p>
@@ -443,8 +451,8 @@ export default function UpcomingBookings() {
                               <div className="flex items-center gap-4">
                                 <div className="w-16 h-16 relative rounded-lg overflow-hidden flex-shrink-0">
                                   <Image
-                                    src={booking.room.imageUrls?.[0] || '/placeholder-room.jpg'}
-                                    alt={booking.room.name}
+                                    src={booking.room?.imageUrls?.[0] || booking.rooms?.[0]?.imageUrls?.[0] || '/placeholder-room.jpg'}
+                                    alt={booking.room?.name || booking.rooms?.[0]?.name || 'Room'}
                                     fill
                                     className="object-cover"
                                   />
@@ -461,7 +469,11 @@ export default function UpcomingBookings() {
                                       <span className="ml-1">{activity.label}</span>
                                     </span>
                                   </div>
-                                  <p className="text-sm text-gray-600 mb-1">{booking.room.name}</p>
+                                  <p className="text-sm text-gray-600 mb-1">
+                                    {booking.rooms && booking.rooms.length > 0
+                                      ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
+                                      : booking.room?.name || 'N/A'}
+                                  </p>
                                   <div className="flex items-center gap-4 text-xs text-gray-500">
                                     <span className="flex items-center gap-1">
                                       <Calendar size={12} />

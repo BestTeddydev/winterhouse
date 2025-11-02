@@ -33,6 +33,7 @@ export async function middleware(req: NextRequest) {
   const isAuthPage = req.nextUrl.pathname.startsWith('/auth')
   const isAdminPage = req.nextUrl.pathname.startsWith('/admin')
   const isBookingPage = req.nextUrl.pathname.startsWith('/bookings')
+  const isOwnerPage = req.nextUrl.pathname.startsWith('/owner')
 
   console.log('🛡️ Middleware - Path:', req.nextUrl.pathname)
   console.log('🛡️ Middleware - Is Auth:', isAuth)
@@ -75,6 +76,22 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/auth/signin?callbackUrl=' + encodeURIComponent(req.nextUrl.pathname + req.nextUrl.search), req.url))
   }
 
+  // Owner page protection - check authentication and authorization
+  if (isOwnerPage) {
+    if (!isAuth) {
+      console.log('❌ Owner page - Not authenticated, redirecting to signin')
+      return NextResponse.redirect(new URL('/auth/signin?callbackUrl=' + encodeURIComponent(req.nextUrl.pathname + req.nextUrl.search), req.url))
+    }
+    
+    // Only allow OWNER role to access owner page
+    if (token?.role !== 'OWNER') {
+      console.log('❌ Owner page - Not owner role, redirecting to home')
+      return NextResponse.redirect(new URL('/', req.url))
+    }
+    
+    console.log('✅ Owner page - Access granted')
+  }
+
   console.log('✅ Middleware passed, allowing request')
   return NextResponse.next()
 }
@@ -84,5 +101,6 @@ export const config = {
     '/admin/:path*',
     '/bookings/:path*',
     '/auth/:path*',
+    '/owner/:path*',
   ],
 }
