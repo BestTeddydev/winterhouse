@@ -4,6 +4,8 @@ import LineProvider from 'next-auth/providers/line'
 import connectDB from './mongodb'
 import { MongoClient } from 'mongodb'
 
+type Role = 'ADMIN' | 'CUSTOMER' | 'OWNER' | 'EMPLOYEE'
+
 // Only create MongoDB client if DATABASE_URL is available
 const DATABASE_URL = process.env.DATABASE_URL || process.env.MONGODB_URI
 let client: MongoClient | null = null
@@ -55,7 +57,7 @@ export const authOptions: NextAuthOptions = {
           const tokenId = token.id ? String(token.id) : undefined
           
           session.user.id = tokenId as string
-          session.user.role = (token.role as string) || 'CUSTOMER'
+          session.user.role = ((token.role as string) || 'CUSTOMER') as Role
           session.user.lineUserId = token.lineUserId as string
           
           console.log('🔍 Session callback - Setting user data:', {

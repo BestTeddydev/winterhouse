@@ -10,11 +10,20 @@ export async function GET(req: NextRequest) {
   try {
     await connectDB()
 
-    const users = await User.find({}).select('-__v').lean()
+    const { searchParams } = new URL(req.url)
+    const role = searchParams.get('role')
+
+    const query: any = {}
+    if (role) {
+      query.role = role
+    }
+
+    const users = await User.find(query).select('-__v').lean()
     
     return NextResponse.json({
       success: true,
-      data: users
+      users: users,
+      data: users // Keep backward compatibility
     })
   } catch (error: any) {
     console.error('Error fetching users:', error)

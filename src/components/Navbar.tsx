@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useRef } from 'react'
-import { Home, Calendar, User, LogOut, Settings, Coffee, Bed, Phone, Menu, X } from 'lucide-react'
+import { Home, Calendar, User, LogOut, Settings, Coffee, Bed, Phone, Menu, X, Clock, LayoutDashboard } from 'lucide-react'
 
 export default function Navbar() {
   const { data: session } = useSession()
@@ -103,6 +103,26 @@ export default function Navbar() {
                     </Link>
                   )}
 
+                  {session.user.role === 'OWNER' && (
+                    <Link
+                      href="/owner"
+                      className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 transition-colors"
+                    >
+                      <LayoutDashboard size={20} />
+                      <span>แดชบอร์ด</span>
+                    </Link>
+                  )}
+
+                  {session.user.role === 'EMPLOYEE' && (
+                    <Link
+                      href="/employee/checkin"
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+                    >
+                      <Clock size={20} />
+                      <span>เช็คอิน</span>
+                    </Link>
+                  )}
+
                   <div className="flex items-center gap-2 px-4 py-2 text-gray-700">
                     <User size={20} />
                     <span className="text-sm">
@@ -188,6 +208,28 @@ export default function Navbar() {
                     >
                       <Settings size={20} />
                       จัดการระบบ
+                    </Link>
+                  )}
+
+                  {session.user.role === 'OWNER' && (
+                    <Link
+                      href="/owner"
+                      className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <LayoutDashboard size={20} />
+                      แดชบอร์ด
+                    </Link>
+                  )}
+
+                  {session.user.role === 'EMPLOYEE' && (
+                    <Link
+                      href="/employee/checkin"
+                      className="flex items-center gap-3 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <Clock size={20} />
+                      เช็คอิน
                     </Link>
                   )}
 

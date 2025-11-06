@@ -34,17 +34,7 @@ export async function middleware(req: NextRequest) {
   const isAdminPage = req.nextUrl.pathname.startsWith('/admin')
   const isBookingPage = req.nextUrl.pathname.startsWith('/bookings')
   const isOwnerPage = req.nextUrl.pathname.startsWith('/owner')
-
-  console.log('🛡️ Middleware - Path:', req.nextUrl.pathname)
-  console.log('🛡️ Middleware - Is Auth:', isAuth)
-  console.log('🛡️ Middleware - Token exists:', !!token)
-  console.log('🛡️ Middleware - Role:', token?.role)
-  console.log('🛡️ Middleware - Token data:', token ? {
-    id: token.id,
-    role: token.role,
-    name: token.name
-  } : 'No token')
-
+  const isEmployeePage = req.nextUrl.pathname.startsWith('/employee')
   // If user is on auth page and already authenticated, redirect to callbackUrl or home
   if (isAuthPage && isAuth) {
     console.log('✅ User authenticated, redirecting from auth page')
@@ -92,6 +82,22 @@ export async function middleware(req: NextRequest) {
     console.log('✅ Owner page - Access granted')
   }
 
+  // Employee page protection - check authentication and authorization
+  if (isEmployeePage) {
+    if (!isAuth) {
+      console.log('❌ Employee page - Not authenticated, redirecting to signin')
+      return NextResponse.redirect(new URL('/auth/signin?callbackUrl=' + encodeURIComponent(req.nextUrl.pathname + req.nextUrl.search), req.url))
+    }
+    
+    // Only allow EMPLOYEE role to access employee pages
+    if (token?.role !== 'EMPLOYEE') {
+      console.log('❌ Employee page - Not employee role, redirecting to home')
+      return NextResponse.redirect(new URL('/', req.url))
+    }
+    
+    console.log('✅ Employee page - Access granted')
+  }
+
   console.log('✅ Middleware passed, allowing request')
   return NextResponse.next()
 }
@@ -102,5 +108,6 @@ export const config = {
     '/bookings/:path*',
     '/auth/:path*',
     '/owner/:path*',
+    '/employee/:path*',
   ],
 }

@@ -19,7 +19,8 @@ import {
   Eye,
   EyeOff,
   MapPin,
-  LogOut
+  LogOut,
+  UserCheck
 } from 'lucide-react'
 
 interface DashboardStats {
@@ -42,6 +43,11 @@ export default function AdminDashboard() {
   const [todayCheckOuts, setTodayCheckOuts] = useState<any[]>([])
   const [todayStaying, setTodayStaying] = useState<any[]>([])
   const [todayCreated, setTodayCreated] = useState<any[]>([])
+  const [attendanceStats, setAttendanceStats] = useState({
+    pending: 0,
+    approvedToday: 0,
+    totalToday: 0
+  })
 
   useEffect(() => {
     // Middleware already handles authentication and authorization
@@ -49,6 +55,7 @@ export default function AdminDashboard() {
     if (session && session.user) {
       console.log('✅ Admin dashboard - User authenticated:', session.user.email, 'Role:', session.user.role)
       fetchDashboardStats()
+      fetchAttendanceStats()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
@@ -122,6 +129,40 @@ export default function AdminDashboard() {
     }
   }
 
+  const fetchAttendanceStats = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      
+      // Get pending attendance
+      const pendingResponse = await axios.get('/api/employee/attendance', {
+        params: {
+          status: 'PENDING',
+          limit: 100
+        }
+      })
+
+      // Get today's attendance
+      const todayResponse = await axios.get('/api/employee/attendance', {
+        params: {
+          date: today,
+          limit: 100
+        }
+      })
+
+      const pendingCount = pendingResponse.data.attendance?.length || 0
+      const todayAttendance = todayResponse.data.attendance || []
+      const approvedToday = todayAttendance.filter((a: any) => a.status === 'APPROVED').length
+
+      setAttendanceStats({
+        pending: pendingCount,
+        approvedToday,
+        totalToday: todayAttendance.length
+      })
+    } catch (error) {
+      console.error('Error fetching attendance stats:', error)
+    }
+  }
+
   if (session === undefined) {
     // Session is still loading
     return (
@@ -171,6 +212,18 @@ export default function AdminDashboard() {
       icon: MapPin,
       color: 'bg-gradient-to-br from-purple-500 to-purple-600',
       stats: 'แผนผังและ Hotspots'
+    },
+    {
+      title: 'จัดการการเช็คอินพนักงาน',
+      description: 'อนุมัติหรือปฏิเสธการเช็คอินของพนักงาน',
+      href: '/admin/employee/attendance',
+      icon: UserCheck,
+      color: 'bg-gradient-to-br from-teal-500 to-teal-600',
+      stats: attendanceStats.pending > 0 
+        ? `${attendanceStats.pending} รออนุมัติ` 
+        : attendanceStats.totalToday > 0 
+        ? `${attendanceStats.approvedToday}/${attendanceStats.totalToday} วันนี้`
+        : 'จัดการการเช็คอิน'
     },
   ]
 
