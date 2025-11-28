@@ -1160,21 +1160,6 @@ export default function RoomsPage() {
                     ? 'border-green-500 shadow-lg bg-green-50'
                     : 'border-gray-200 hover:shadow-md'
                 }`}>
-                  {/* Multi-select Checkbox */}
-                  <div className="absolute top-4 right-4">
-                    <button
-                      onClick={() => onRoomToggle(room)}
-                      className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
-                        isRoomSelected(room.id)
-                          ? 'bg-green-600 border-green-600'
-                          : 'border-gray-300 hover:border-primary-500'
-                      }`}
-                    >
-                      {isRoomSelected(room.id) && (
-                        <CheckCircle size={18} className="text-white" />
-                      )}
-                    </button>
-                  </div>
                   {/* Room Header */}
                   <div className="flex gap-4 mb-4">
                     <div className="w-24 h-20 lg:w-32 lg:h-24 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
@@ -1215,11 +1200,15 @@ export default function RoomsPage() {
                           {selectedRoom?.id === room.id ? 'กำลังดู' : 'ดูรายละเอียด'}
                         </button>
                         <button
-                          onClick={() => onRoomBook(room.id)}
-                          className="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium flex items-center gap-1"
+                          onClick={() => onRoomToggle(room)}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1 transition-colors ${
+                            isRoomSelected(room.id)
+                              ? 'bg-green-600 text-white hover:bg-green-700'
+                              : 'bg-primary-600 text-white hover:bg-primary-700'
+                          }`}
                         >
                           <Calendar size={14} />
-                          จองห้องพัก
+                          {isRoomSelected(room.id) ? 'ยกเลิก' : 'จอง'}
                         </button>
                       </div>
                     </div>
@@ -1533,8 +1522,8 @@ export default function RoomsPage() {
                     <div className="space-y-2">
                       <h5 className="font-medium text-gray-800">👶 นโยบายเด็ก:</h5>
                       <ul className="list-disc list-inside space-y-1 pl-4 text-sm">
-                        <li><strong>เด็ก 0-7 ขวบ:</strong> พักรวมกับผู้ปกครองฟรี ไม่มีอุปกรณ์เสริมใดๆ ให้ อนุญาตพักได้ไม่เกิน 1 คน/หลัง</li>
-                        <li><strong>อายุ 8 ขวบขึ้นไป:</strong> คิดค่าบริการเตียงเสริม 500 บาท/คืน รวมอาหารเช้าพร้อมหมอน+ผ้าห่ม+ผ้าเช็ดตัว เสริมได้สูงสุด 1 ท่าน/หลัง</li>
+                        <li><strong>เด็ก 0-7 ขวบ:</strong> พักรวมกับผู้ปกครองฟรี ไม่มีอุปกรณ์เสริมใดๆ ให้</li>
+                        <li><strong>กรณีขอเตียงเสริม:</strong> คิดค่าบริการ 500 บาท/คืน รวมอาหารเช้าพร้อมหมอน+ผ้าห่ม+ผ้าเช็ดตัว เสริมได้สูงสุด 1 ท่าน/หลัง</li>
                       </ul>
                     </div>
 
@@ -1543,7 +1532,6 @@ export default function RoomsPage() {
                       <h5 className="font-medium text-gray-800">🏠 กฎการเข้าพัก:</h5>
                       <ul className="list-disc list-inside space-y-1 pl-4 text-sm">
                         <li>อนุญาตให้เข้าพักตามจำนวนที่แจ้งในรายการจองมาเท่านั้น หากเข้าพักเกินจํานวนที่แจ้งหรือนําบุคคลภายนอกเข้ามาพักโดยมิแจ้งให้ทราบ ทางที่พักคิดค่าปรับท่านละ 1,000 บาท</li>
-                        <li>เต็นท์เล็ก ไม่สามารถเพิ่มผู้เข้าพักเสริมได้</li>
                       </ul>
                     </div>
 
@@ -1580,7 +1568,7 @@ export default function RoomsPage() {
                   onClick={() => setShowInfoModal(false)}
                   className="px-8 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium"
                 >
-                  เข้าใจแล้ว เริ่มจองห้องพัก
+                  ตรวจสอบห้องว่าง
                 </button>
               </div>
             </div>
@@ -1747,7 +1735,7 @@ export default function RoomsPage() {
                   <p className="text-sm text-gray-600 mb-2">คลิกที่จุดบนแผนผังเพื่อดูห้องพักในอาคารนั้น หรือเลือกห้องพักจากรายการด้านล่าง</p>
                   <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
                     <Calendar size={14} />
-                    <span>💡 สามารถเลือกจองหลายห้องพร้อมกันโดยคลิก checkbox ที่มุมขวาบนของแต่ละห้อง</span>
+                    <span>💡 สามารถเลือกจองหลายห้องพร้อมกันโดยคลิกปุ่ม "จอง" ของแต่ละห้อง</span>
                   </div>
                 </div>
                 
@@ -1798,24 +1786,6 @@ export default function RoomsPage() {
                         onMouseEnter={() => setHoveredRoom(room)}
                         onMouseLeave={() => setHoveredRoom(null)}
                       >
-                        {/* Multi-select Checkbox */}
-                        <div className="absolute top-[-6px] right-0 z-10 ">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleRoomToggle(room)
-                            }}
-                            className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
-                              isRoomSelected(room.id)
-                                ? 'bg-green-600 border-green-600'
-                                : 'border-gray-300 hover:border-primary-500 bg-white'
-                            }`}
-                          >
-                            {isRoomSelected(room.id) && (
-                              <CheckCircle size={18} className="text-white" />
-                            )}
-                          </button>
-                        </div>
                         <div className="flex gap-4">
                           <div className="w-20 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                             <Image
@@ -1861,12 +1831,16 @@ export default function RoomsPage() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    handleRoomBook(room.id)
+                                    handleRoomToggle(room)
                                   }}
-                                  className="px-2 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-xs font-medium flex items-center gap-1"
+                                  className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors ${
+                                    isRoomSelected(room.id)
+                                      ? 'bg-green-600 text-white hover:bg-green-700'
+                                      : 'bg-primary-600 text-white hover:bg-primary-700'
+                                  }`}
                                 >
                                   <Calendar size={10} />
-                                  จองเดี่ยว
+                                  {isRoomSelected(room.id) ? 'ยกเลิก' : 'จอง'}
                                 </button>
                               </div>
                             </div>
@@ -2019,24 +1993,6 @@ export default function RoomsPage() {
                                 onMouseEnter={() => setHoveredRoom(room)}
                                 onMouseLeave={() => setHoveredRoom(null)}
                               >
-                                {/* Multi-select Checkbox */}
-                                <div className="absolute top-[-6px] right-0 z-10">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleRoomToggle(room)
-                                    }}
-                                    className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
-                                      isRoomSelected(room.id)
-                                        ? 'bg-green-600 border-green-600'
-                                        : 'border-gray-300 hover:border-primary-500 bg-white'
-                                    }`}
-                                  >
-                                    {isRoomSelected(room.id) && (
-                                      <CheckCircle size={18} className="text-white" />
-                                    )}
-                                  </button>
-                                </div>
                                 <div className="flex gap-4">
                                   <div className="w-20 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                                     <Image
@@ -2082,12 +2038,16 @@ export default function RoomsPage() {
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
-                                            handleRoomBook(room.id)
+                                            handleRoomToggle(room)
                                           }}
-                                          className="px-2 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-xs font-medium flex items-center gap-1"
+                                          className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors ${
+                                            isRoomSelected(room.id)
+                                              ? 'bg-green-600 text-white hover:bg-green-700'
+                                              : 'bg-primary-600 text-white hover:bg-primary-700'
+                                          }`}
                                         >
                                           <Calendar size={10} />
-                                          จองเดี่ยว
+                                          {isRoomSelected(room.id) ? 'ยกเลิก' : 'จอง'}
                                         </button>
                                       </div>
                                     </div>

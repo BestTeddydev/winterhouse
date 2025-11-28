@@ -22,7 +22,8 @@ spec:
       containers:
       - name: baanlomnow-app
         # Production: Use Artifact Registry image
-        image: asia-southeast1-docker.pkg.dev/project-14a6d9ab-7aaf-49a0-92d/baanlomnow-repository/baanlomnow:1.0.0
+        # Using digest instead of tag to avoid platform mismatch issues
+        image: asia-southeast1-docker.pkg.dev/project-14a6d9ab-7aaf-49a0-92d/baanlomnow-repository/baanlomnow@sha256:001dd5ab6a59a02538804e45093328f41381c7cd2c984653124bd856a4405111
         ports:
         - containerPort: 3000
         env:
@@ -72,6 +73,11 @@ spec:
               name: baanlomnow-secrets
               key: GOOGLE_CLOUD_PROJECT_ID
         - name: GOOGLE_CLOUD_STORAGE_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: baanlomnow-secrets
+              key: GOOGLE_CLOUD_BUCKET_NAME
+        - name: GOOGLE_CLOUD_BUCKET_NAME
           valueFrom:
             secretKeyRef:
               name: baanlomnow-secrets
@@ -145,6 +151,7 @@ spec:
             port: 3000
           initialDelaySeconds: 5
           periodSeconds: 5
-      # Production: Enable image pull secrets for Artifact Registry
+      # Production: Using imagePullSecrets for Artifact Registry authentication
+      # Note: Can switch to Workload Identity after node pool fully updates
       imagePullSecrets:
       - name: artifact-registry-json-key

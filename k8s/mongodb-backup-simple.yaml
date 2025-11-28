@@ -1,0 +1,100 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mongodb-backup
+  namespace: baanlomnow
+spec:
+  # รันทุกวันเวลา 02:00 UTC (09:00 เวลาไทย)
+  schedule: "0 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: mongodb-backup
+            image: mongo:7.0
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              
+              # ตั้งค่า GCS bucket (แก้ไขตาม environment variable)
+              GCS_BUCKET=${GCS_BACKUP_BUCKET:-"baanlomnow-mongodb-backups"}
+              
+              # วันที่และเวลาสำหรับ backup
+              TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              BACKUP_DIR="/tmp/backup"
+              BACKUP_FILE="mongodb-backup-${TIMESTAMP}"
+              
+              # ติดตั้ง gsutil
+              apt-get update && apt-get install -y python3 python3-pip curl && \
+              pip3 install gsutil || echo "⚠️  ไม่สามารถติดตั้ง gsutil ได้"
+              
+              echo "🔄 เริ่ม backup MongoDB..."
+              
+              # สร้าง backup directory
+              mkdir -p ${BACKUP_DIR}
+              
+              # mongodump จาก MongoDB service
+              echo "📦 กำลัง backup ข้อมูล..."
+              mongodump \
+                --uri="mongodb://admin:${MONGODB_ROOT_PASSWORD}@mongodb-service:27017/baanlomnow?authSource=admin" \
+                --out=${BACKUP_DIR} \
+                --quiet || {
+                echo "❌ Backup ล้มเหลว"
+                exit 1
+              }
+              
+              # บีบอัด backup
+              echo "🗜️  กำลังบีบอัด..."
+              cd ${BACKUP_DIR}
+              tar -czf ${BACKUP_FILE}.tar.gz baanlomnow || {
+                echo "❌ การบีบอัดล้มเหลว"
+                exit 1
+              }
+              
+              # อัปโหลดไปยัง GCS (ใช้ gcloud CLI ที่ติดตั้งใน cluster)
+              echo "☁️  กำลังอัปโหลดไปยัง GCS..."
+              
+              # ใช้ Workload Identity (แนะนำ) หรือ Service Account key
+              if [ -f /var/secrets/google/key.json ]; then
+                export GOOGLE_APPLICATION_CREDENTIALS=/var/secrets/google/key.json
+              fi
+              
+              gsutil cp ${BACKUP_FILE}.tar.gz gs://${GCS_BUCKET}/ || {
+                echo "❌ การอัปโหลดล้มเหลว"
+                echo "💡 ตรวจสอบว่า:"
+                echo "   1. GCS bucket ถูกสร้างแล้ว"
+                echo "   2. Service Account มีสิทธิ์เข้าถึง bucket"
+                exit 1
+              }
+              
+              # ลบ backup เก่าที่เก็บไว้เกิน 30 วัน
+              echo "🧹 กำลังลบ backup เก่า (เกิน 30 วัน)..."
+              gsutil -m rm -r gs://${GCS_BUCKET}/mongodb-backup-$(date -d '30 days ago' +%Y%m%d)* 2>/dev/null || true
+              
+              echo "✅ Backup สำเร็จ: gs://${GCS_BUCKET}/${BACKUP_FILE}.tar.gz"
+              
+              # Cleanup
+              rm -rf ${BACKUP_DIR}
+              
+              echo "✅ เสร็จสิ้น"
+            env:
+            - name: MONGODB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: baanlomnow-secrets
+                  key: MONGODB_ROOT_PASSWORD
+            - name: GCS_BACKUP_BUCKET
+              value: "baanlomnow-mongodb-backups"
+            volumeMounts:
+            - name: gcp-key
+              mountPath: /var/secrets/google
+              readOnly: true
+          volumes:
+          - name: gcp-key
+            secret:
+              secretName: gcp-service-account-key
+          restartPolicy: OnFailure
+

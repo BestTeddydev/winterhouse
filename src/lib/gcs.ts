@@ -5,17 +5,30 @@ let storageConfig: any = {
   projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
 }
 
-// Use service account key file or JSON credentials
+// Use service account key file or JSON credentials if provided
+// Otherwise, use Application Default Credentials (ADC) which works with:
+// - Workload Identity in GKE
+// - gcloud auth application-default login (local dev)
+// - Service account attached to compute instance
 if (process.env.GOOGLE_CLOUD_KEY_FILE) {
   storageConfig.keyFilename = process.env.GOOGLE_CLOUD_KEY_FILE
 } else if (process.env.GOOGLE_CLOUD_CREDENTIALS) {
-  storageConfig.credentials = JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS)
+  try {
+    storageConfig.credentials = JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS)
+  } catch (error) {
+    console.warn('Failed to parse GOOGLE_CLOUD_CREDENTIALS, using Application Default Credentials')
+  }
 }
+// If neither is set, Storage will use Application Default Credentials automatically
 
 const storage = new Storage(storageConfig)
 
 // Get bucket instance
-const bucket = storage.bucket(process.env.GOOGLE_CLOUD_BUCKET_NAME || 'winterhouse-uploads')
+// Support both GOOGLE_CLOUD_BUCKET_NAME and GOOGLE_CLOUD_STORAGE_BUCKET
+const bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME || 
+                   process.env.GOOGLE_CLOUD_STORAGE_BUCKET || 
+                   'winterhouse-uploads'
+const bucket = storage.bucket(bucketName)
 
 export { storage, bucket }
 

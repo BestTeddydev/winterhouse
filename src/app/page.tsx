@@ -102,6 +102,7 @@ export default function Home() {
   const campingSection = useIntersectionObserver(0.1)
   const whyChooseUsSection = useIntersectionObserver(0.1)
   const contactSection = useIntersectionObserver(0.1)
+  const nearbyAttractionsSection = useIntersectionObserver(0.1)
 
   // Use static rooms data
   const featuredRooms = staticRooms
@@ -237,11 +238,11 @@ export default function Home() {
                 คาเฟ่ วังน้ำเขียว
               </Link>
               <Link
-                href="#camping"
+                href="#atv"
                 className="group bg-white/20 hover:bg-white/30 text-white px-8 py-4 rounded-xl text-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 backdrop-blur-sm hover:scale-105 hover:shadow-xl border border-white/30"
               >
-                <Tent size={24} className="group-hover:rotate-12 transition-transform duration-300" />
-                ลานกางเต้นท์
+                <Car size={24} className="group-hover:rotate-12 transition-transform duration-300" />
+                ATV ชมกระทิง
               </Link>
             </div>
           </div>
@@ -306,6 +307,75 @@ export default function Home() {
           </div>
         </div>
 
+          {/* Room Video Section */}
+          <div className={`mb-20 transition-all duration-1000 delay-500 ${featuredRoomsSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
+            <div className="max-w-6xl mx-auto px-4">
+              {/* Video Title */}
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 px-6 py-2 rounded-full text-sm font-semibold mb-4 shadow-md">
+                  <HomeIcon size={16} />
+                  วิดีโอแนะนำห้องพัก
+                </div>
+                <h3 className="text-3xl md:text-4xl font-bold text-gray-800 mb-3">
+                  <span className="bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                    ชมบรรยากาศห้องพัก
+                  </span>
+                </h3>
+                <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                  ดูวิดีโอแนะนำห้องพักของเราในบรรยากาศธรรมชาติที่สวยงาม
+                </p>
+              </div>
+
+              {/* Video Container */}
+              <div className="relative group">
+                {/* Glowing border effect */}
+                <div className="absolute -inset-1 bg-gradient-to-r from-green-400 via-emerald-500 to-green-400 rounded-3xl opacity-20 group-hover:opacity-40 blur-xl transition-opacity duration-500"></div>
+                
+                {/* Video wrapper with border */}
+                <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-black border-4 border-white/20 group-hover:border-white/40 transition-all duration-500">
+                  {/* Decorative corner elements */}
+                  <div className="absolute top-0 left-0 w-20 h-20 bg-gradient-to-br from-green-400/20 to-transparent rounded-br-full z-10"></div>
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-emerald-400/20 to-transparent rounded-bl-full z-10"></div>
+                  <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-tr from-green-400/20 to-transparent rounded-tr-full z-10"></div>
+                  <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-emerald-400/20 to-transparent rounded-tl-full z-10"></div>
+                  
+                  <video
+                    src="https://storage.googleapis.com/baanlomnow/public/room1.mp4"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                    className="w-full h-auto max-h-[650px] object-contain relative z-0"
+                    style={{ 
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden',
+                      willChange: 'transform'
+                    } as React.CSSProperties}
+                    controls
+                    controlsList="nodownload"
+                  >
+                    <source src="https://storage.googleapis.com/baanlomnow/public/room.mp4" type="video/mp4" />
+                    เบราว์เซอร์ของคุณไม่รองรับการเล่นวิดีโอ
+                  </video>
+                  
+                  {/* Gradient overlay for depth */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none z-10"></div>
+                  
+                  {/* Play button overlay (optional, shows when paused) */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-4 border-white/30">
+                      <div className="w-0 h-0 border-l-[16px] border-l-white border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent ml-1"></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom decorative line */}
+                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-32 h-1 bg-gradient-to-r from-transparent via-green-400 to-transparent rounded-full opacity-50"></div>
+              </div>
+          </div>
+        </div>
+
           <div className={`text-center transition-all duration-1000 delay-700 ${featuredRoomsSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
             <Link
               href="/rooms"
@@ -346,115 +416,328 @@ export default function Home() {
           <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20 transition-all duration-1000 delay-300 ${cafeSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
             <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '400ms' }}>
               <Image
-                src="/cafe/cafe.jpg"
+                src="https://storage.googleapis.com/baanlomnow/public/cafe1.jpg"
                 alt="คาเฟ่ วังน้ำเขียว - บ้านลมหนาว"
                 fill
                 className="object-cover group-hover:scale-110 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              {/* <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
-                <h3 className="text-2xl font-bold mb-2">คาเฟ่ในบรรยากาศธรรมชาติ</h3>
-                <p className="text-gray-200 text-sm">กาแฟสดและเครื่องดื่มหลากหลาย</p>
-              </div> */}
+            </div>
+
+            <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '500ms' }}>
+              <Image
+                src="https://storage.googleapis.com/baanlomnow/public/cafe2.jpg"
+                alt="บรรยากาศคาเฟ่ - บ้านลมหนาว"
+                fill
+                className="object-cover group-hover:scale-110 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
             </div>
 
             <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '600ms' }}>
               <Image
-                src="/cafe/cafe2.JPG"
-                alt="เมนูอาหาร - บ้านลมหนาว คาเฟ่"
+                src="https://storage.googleapis.com/baanlomnow/public/cafe3.jpg"
+                alt="คาเฟ่ บ้านลมหนาว - วังน้ำเขียว"
                 fill
                 className="object-cover group-hover:scale-110 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              {/* <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
-                <h3 className="text-2xl font-bold mb-2">อาหารอร่อยหลากหลาย</h3>
-                <p className="text-gray-200 text-sm">เมนูไทยและสากล</p>
-              </div> */}
+            </div>
+          </div>
+
+          {/* Menu Section */}
+          <div className={`mb-20 transition-all duration-1000 delay-500 ${cafeSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-200 to-orange-200 text-amber-900 px-6 py-2 rounded-full text-sm font-semibold mb-6 shadow-md">
+                <Utensils size={16} />
+                เมนูน้ำและอาหาร
+              </div>
+              <h3 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
+                <span className="bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                  เมนูแนะนำ
+                </span>
+              </h3>
+              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                เลือกเมนูที่คุณชื่นชอบจากเมนูของเรา
+              </p>
             </div>
 
-            <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 md:col-span-2 lg:col-span-1 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '800ms' }}>
-              <Image
-                src="/cafe/cafe3.jpg"
-                alt="บรรยากาศคาเฟ่ - วังน้ำเขียว"
-                fill
-                className="object-cover group-hover:scale-110 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              {/* <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
-                <h3 className="text-2xl font-bold mb-2">บรรยากาศสบายๆ</h3>
-                <p className="text-gray-200 text-sm">พร้อม WiFi ฟรี</p>
-              </div> */}
+            {/* Menu Gallery */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              {/* Menu A4 - Main Menu */}
+              <div className={`group relative rounded-3xl overflow-hidden shadow-2xl hover:shadow-3xl transition-all duration-500 hover:-translate-y-2 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'} md:col-span-2 lg:col-span-1`} style={{ animationDelay: '600ms' }}>
+                <div className="relative aspect-[3/4] bg-white">
+                  <Image
+                    src="https://storage.googleapis.com/baanlomnow/public/MENU-A4.jpg"
+                    alt="เมนูอาหารและเครื่องดื่ม - บ้านลมหนาว คาเฟ่"
+                    fill
+                    className="object-contain p-4 group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 via-black/60 to-transparent">
+                  <h4 className="text-xl font-bold text-white mb-2">เมนูอาหารและเครื่องดื่ม</h4>
+                  <p className="text-sm text-white/90">เมนูครบครันพร้อมราคา</p>
+                </div>
+              </div>
+
+              {/* Menu Water 1 */}
+              <div className={`group relative rounded-3xl overflow-hidden shadow-2xl hover:shadow-3xl transition-all duration-500 hover:-translate-y-2 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '700ms' }}>
+                <div className="relative aspect-[3/4] bg-white">
+                  <Image
+                    src="https://storage.googleapis.com/baanlomnow/public/menu_water1.jpg"
+                    alt="เมนูเครื่องดื่ม 1 - บ้านลมหนาว คาเฟ่"
+                    fill
+                    className="object-contain p-4 group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 via-black/60 to-transparent">
+                  <h4 className="text-xl font-bold text-white mb-2">เมนูเครื่องดื่ม</h4>
+                  <p className="text-sm text-white/90">เครื่องดื่มหลากหลาย</p>
+                </div>
+              </div>
+
+              {/* Menu Water 2 */}
+              <div className={`group relative rounded-3xl overflow-hidden shadow-2xl hover:shadow-3xl transition-all duration-500 hover:-translate-y-2 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '800ms' }}>
+                <div className="relative aspect-[3/4] bg-white">
+                  <Image
+                    src="https://storage.googleapis.com/baanlomnow/public/menu_water2.jpg"
+                    alt="เมนูเครื่องดื่ม 2 - บ้านลมหนาว คาเฟ่"
+                    fill
+                    className="object-contain p-4 group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 via-black/60 to-transparent">
+                  <h4 className="text-xl font-bold text-white mb-2">เมนูเครื่องดื่ม</h4>
+                  <p className="text-sm text-white/90">เครื่องดื่มเย็นและร้อน</p>
+                </div>
+              </div>
             </div>
           </div>
 
         </div>
       </section>
 
-      {/* Camping Gallery Section */}
-      <section ref={campingSection.ref} id="camping" className="py-24 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 relative overflow-hidden">
+      {/* ATV Activity Section */}
+      <section ref={campingSection.ref} id="atv" className="py-24 bg-gradient-to-br from-orange-50 via-red-50 to-amber-50 relative overflow-hidden">
         {/* Background Decorations */}
         <div className="absolute top-0 left-0 w-full h-full opacity-5">
-          <div className="absolute top-20 left-10 w-32 h-32 bg-green-400 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 right-10 w-48 h-48 bg-emerald-400 rounded-full blur-3xl animate-pulse delay-1000"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-teal-300 rounded-full blur-3xl animate-pulse delay-500"></div>
+          <div className="absolute top-20 left-10 w-32 h-32 bg-orange-400 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-20 right-10 w-48 h-48 bg-red-400 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-amber-300 rounded-full blur-3xl animate-pulse delay-500"></div>
         </div>
         
         <div className="container mx-auto px-6 relative z-10">
           <div className={`text-center mb-20 transition-all duration-1000 ${campingSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
-            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 px-6 py-3 rounded-full text-sm font-semibold mb-8 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-              <Tent size={16} className="animate-bounce" />
-              ลานกางเต้นท์วังน้ำเขียว
+            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-100 to-red-100 text-orange-800 px-6 py-3 rounded-full text-sm font-semibold mb-8 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+              <Car size={16} className="animate-bounce" />
+              กิจกรรม ATV ชมกระทิง
             </div>
             <h2 className="text-5xl md:text-6xl font-bold text-gray-800 mb-8 leading-tight">
-              บ้านลมหนาว <span className="bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">แคมป์ปิ้ง</span>
+              บริการ <span className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">ATV ชมกระทิง</span>
+            </h2>
+            <p className="text-xl md:text-2xl text-gray-600 max-w-4xl mx-auto leading-relaxed mb-6">
+              สนุกสนานไปกับการขับ ATV ชมกระทิงในธรรมชาติที่สวยงาม
+            </p>
+            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-4 rounded-2xl text-2xl font-bold shadow-xl">
+              <Star size={24} className="fill-white" />
+              ราคา: 650฿/ชม. ต่อคัน
+            </div>
+          </div>
+
+          {/* ATV Video Section */}
+          <div className={`mb-16 transition-all duration-1000 delay-300 ${campingSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
+            <div className="max-w-6xl mx-auto">
+              <div className="relative group">
+                {/* Glowing border effect */}
+                <div className="absolute -inset-1 bg-gradient-to-r from-orange-400 via-red-500 to-orange-400 rounded-3xl opacity-20 group-hover:opacity-40 blur-xl transition-opacity duration-500"></div>
+                
+                {/* Video wrapper */}
+                <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-black border-4 border-white/20 group-hover:border-white/40 transition-all duration-500">
+                  {/* Decorative corner elements */}
+                  <div className="absolute top-0 left-0 w-20 h-20 bg-gradient-to-br from-orange-400/20 to-transparent rounded-br-full z-10"></div>
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-red-400/20 to-transparent rounded-bl-full z-10"></div>
+                  <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-tr from-orange-400/20 to-transparent rounded-tr-full z-10"></div>
+                  <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-red-400/20 to-transparent rounded-tl-full z-10"></div>
+                  
+                  <video
+                    src="https://storage.googleapis.com/baanlomnow/public/atv.mp4"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                    className="w-full h-auto max-h-[600px] object-contain relative z-0"
+                    style={{ 
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden',
+                      willChange: 'transform'
+                    } as React.CSSProperties}
+                    controls
+                    controlsList="nodownload"
+                  >
+                    <source src="https://storage.googleapis.com/baanlomnow/public/atv.mp4" type="video/mp4" />
+                    เบราว์เซอร์ของคุณไม่รองรับการเล่นวิดีโอ
+                  </video>
+                  
+                  {/* Gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none z-10"></div>
+                </div>
+              </div>
+            </div>
+            </div>
+
+          {/* ATV Image Gallery */}
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 mb-16 transition-all duration-1000 delay-500 ${campingSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
+            <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 ${campingSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '600ms' }}>
+              <Image
+                src="https://storage.googleapis.com/baanlomnow/public/atv_pic2.jpg"
+                alt="ATV ชมกระทิง - บ้านลมหนาว"
+                fill
+                className="object-cover group-hover:scale-110 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+            </div>
+
+            {/* Booking Schedule Card */}
+            <div className={`group relative rounded-3xl overflow-hidden shadow-xl bg-gradient-to-br from-orange-500 to-red-600 p-8 flex flex-col justify-center ${campingSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '700ms' }}>
+              <div className="text-white">
+                <h3 className="text-3xl font-bold mb-6 flex items-center gap-3">
+                  <Clock size={32} />
+                  รอบเวลาให้จอง ATV
+                </h3>
+                <div className="space-y-4">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-semibold">รอบที่ 1</span>
+                      <span className="text-xl font-bold">8.00 - 9.00 น.</span>
+                    </div>
+                  </div>
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-semibold">รอบที่ 2</span>
+                      <span className="text-xl font-bold">16.00 - 17.00 น.</span>
+                    </div>
+                  </div>
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-semibold">รอบที่ 3</span>
+                      <span className="text-xl font-bold">17.00 - 18.00 น.</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-6 pt-6 border-t border-white/30">
+                  <p className="text-sm text-white/90">
+                    💡 กรุณาจองล่วงหน้าเพื่อความสะดวก
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Nearby Attractions Section */}
+      <section ref={nearbyAttractionsSection.ref} className="py-24 bg-gradient-to-br from-purple-50 via-pink-50 to-indigo-50 relative overflow-hidden">
+        {/* Background Decorations */}
+        <div className="absolute top-0 left-0 w-full h-full opacity-5">
+          <div className="absolute top-20 right-10 w-32 h-32 bg-purple-400 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-20 left-10 w-48 h-48 bg-pink-400 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          <div className="absolute top-1/2 right-1/2 transform translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-300 rounded-full blur-3xl animate-pulse delay-500"></div>
+        </div>
+        
+        <div className="container mx-auto px-6 relative z-10">
+          <div className={`text-center mb-20 transition-all duration-1000 ${nearbyAttractionsSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
+            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 px-6 py-3 rounded-full text-sm font-semibold mb-8 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+              <Compass size={16} className="animate-bounce" />
+              สถานที่ท่องเที่ยวใกล้ๆ
+            </div>
+            <h2 className="text-5xl md:text-6xl font-bold text-gray-800 mb-8 leading-tight">
+              <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                สถานที่ท่องเที่ยว
+              </span> วังน้ำเขียว
             </h2>
             <p className="text-xl md:text-2xl text-gray-600 max-w-4xl mx-auto leading-relaxed">
-              ลานกางเต้นท์สุดพิเศษที่วังน้ำเขียว พร้อมสิ่งอำนวยความสะดวกครบครันและบรรยากาศธรรมชาติที่สวยงาม
+              สำรวจสถานที่ท่องเที่ยวสวยงามรอบๆ บ้านลมหนาว ที่จะทำให้การพักผ่อนของคุณสมบูรณ์แบบ
             </p>
           </div>
 
-          {/* Camping Gallery */}
-          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20 transition-all duration-1000 delay-300 ${campingSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
-            <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 md:col-span-2 lg:col-span-1 ${campingSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '400ms' }}>
-              <Image
-                src="/camping/camping1.JPG"
-                alt="ลานกางเต้นท์วังน้ำเขียว - บ้านลมหนาว"
-                fill
-                className="object-cover group-hover:scale-110 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              {/* <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
-                <h3 className="text-2xl font-bold mb-2">ลานกางเต้นท์กว้างขวาง</h3>
-                <p className="text-gray-200 text-sm">พื้นที่กางเต้นท์ในบรรยากาศธรรมชาติ</p>
-              </div> */}
+          {/* Attractions Content */}
+          <div className={`grid grid-cols-1 lg:grid-cols-2 gap-12 items-center transition-all duration-1000 delay-300 ${nearbyAttractionsSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
+            {/* Image */}
+            <div className={`group relative rounded-3xl overflow-hidden shadow-2xl hover:shadow-3xl transition-all duration-500 hover:-translate-y-2 ${nearbyAttractionsSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '400ms' }}>
+              <div className="relative h-[500px] lg:h-[600px]">
+                <Image
+                  src="https://storage.googleapis.com/baanlomnow/public/near.jpg"
+                  alt="สถานที่ท่องเที่ยวใกล้ๆ บ้านลมหนาว - วังน้ำเขียว"
+                  fill
+                  className="object-cover group-hover:scale-110 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                
+                {/* Decorative corner elements */}
+                <div className="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-purple-400/30 to-transparent rounded-br-full z-10"></div>
+                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-pink-400/30 to-transparent rounded-bl-full z-10"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-purple-400/30 to-transparent rounded-tr-full z-10"></div>
+                <div className="absolute bottom-0 right-0 w-24 h-24 bg-gradient-to-tl from-pink-400/30 to-transparent rounded-tl-full z-10"></div>
+              </div>
             </div>
 
-            <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 ${campingSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '600ms' }}>
-              <Image
-                src="/camping/camping2.JPG"
-                alt="บรรยากาศธรรมชาติ - วังน้ำเขียว"
-                fill
-                className="object-cover group-hover:scale-110 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              {/* <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
-                <h3 className="text-2xl font-bold mb-2">บรรยากาศธรรมชาติ</h3>
-                <p className="text-gray-200 text-sm">ล้อมรอบด้วยป่าไม้และธรรมชาติ</p>
-              </div> */}
-            </div>
+            {/* Content */}
+            <div className={`space-y-6 ${nearbyAttractionsSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`} style={{ animationDelay: '600ms' }}>
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/50">
+                <h3 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                  <Mountain size={32} className="text-purple-600" />
+                  สำรวจวังน้ำเขียว
+                </h3>
+                <p className="text-lg text-gray-700 leading-relaxed mb-6">
+                  วังน้ำเขียวเป็นสถานที่ท่องเที่ยวที่สวยงาม มีอากาศเย็นสบายตลอดปี และมีสถานที่ท่องเที่ยวที่น่าสนใจมากมายรอบๆ บ้านลมหนาว
+                </p>
+                
+                <div className="space-y-4">
+                  <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
+                    <div className="bg-gradient-to-br from-purple-500 to-pink-500 w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <TreePine size={24} className="text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800 mb-1">Flora Park</h4>
+                      <p className="text-gray-600 text-sm">ทุ่งกุหลาบสไตล์อังกฤษหลากหลายสายพันธุ์ </p>
+                    </div>
+                  </div>
 
-            <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 ${campingSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '800ms' }}>
-              <Image
-                src="/rooms/room3.jpeg"
-                alt="กิจกรรมแคมป์ปิ้ง - บ้านลมหนาว"
-                fill
-                className="object-cover group-hover:scale-110 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-              {/* <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
-                <h3 className="text-2xl font-bold mb-2">กิจกรรมสนุกๆ</h3>
-                <p className="text-gray-200 text-sm">เดินป่า ดูดาว และกิจกรรมกลุ่ม</p>
-              </div> */}
+                  <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
+                    <div className="bg-gradient-to-br from-purple-500 to-pink-500 w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Mountain size={24} className="text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800 mb-1">Khaoyai art tree</h4>
+                      <p className="text-gray-600 text-sm">ตั้งอยู่ท่ามกลางธรรมชาติ ให้ความรู้สึกเหมือนหมู่บ้านในสวิตเซอร์แลนด์</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
+                    <div className="bg-gradient-to-br from-purple-500 to-pink-500 w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Compass size={24} className="text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800 mb-1">K Hmong Alpaca Khaoyai</h4>
+                      <p className="text-gray-600 text-sm">คาเฟ่บนเนินเขาที่รายล้อมด้วยวิวภูเขาแบบพาโนราม่า</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl p-6 text-white shadow-xl">
+                <div className="flex items-center gap-3 mb-3">
+                  <Sparkles size={24} className="text-yellow-300" />
+                  <h4 className="text-xl font-bold">คำแนะนำ</h4>
+                </div>
+                <p className="text-white/90 leading-relaxed">
+                วิธีที่สะดวกที่สุดคือการ ขับรถส่วนตัว มายังบ้านลมหนาว ซึ่งจะช่วยให้ท่านสามารถเดินทางไปท่องเที่ยวสถานที่ต่างๆ ได้อย่างอิสระ
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -472,7 +755,7 @@ export default function Home() {
               ทำไมต้องเลือก <span className="text-blue-600">บ้านลมหนาว วังน้ำเขียว</span>
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              ประสบการณ์การพักผ่อนที่สมบูรณ์แบบที่วังน้ำเขียว พร้อมคาเฟ่และลานกางเต้นท์ในบรรยากาศธรรมชาติ
+            บ้านลมหนาว คาเฟ่ แอนด์ แคมป์ปิ้งเป็นคาเฟ่และที่พักแห่งใหม่ของวังน้ำเขียว เขาแผงม้า จังหวัดนครราชสีมา ซึ่งเป็น คาเฟ่ และที่พักไม้ไผ่สไตล์บาหลี แห่งเดียวของวังน้ำเขียว ซึ่งลูกค้าสามารถชมกระทิงได้จากที่พัก ชิวๆจิบกาแฟชมกระทิงยามเช้าตรู่ และยามเย็นจะเห็นกระทิงออกมา บริเวณเนินเขาด้านหน้าที่พัก มีกิจกรรมบริการขับ ATV ชมกระทิง ชมทะเลหมอก และยามเย็นชมพระอาทิตย์ตก บนยอดเขาอุทยาน ที่พักและคาเฟ่ เอาใจสายครอบครัว ด้วยสนามเด็กเล่น มีลานกางเต็นท์เอาใจ สายแคมป์ปิ้ง ด้วยห้องน้ำที่สะอาดและมีเครื่องทำน้ำอุ่น มื้อเย็นมีบริการปิ้งย่างและหมูกะทะ
             </p>
           </div>
 
@@ -542,7 +825,7 @@ export default function Home() {
             <div className={`relative transition-all duration-1000 delay-500 ${whyChooseUsSection.isIntersecting ? 'animate-fade-in-right' : 'opacity-0 translate-x-8'}`}>
               <div className="relative h-96 rounded-3xl overflow-hidden shadow-2xl">
               <Image
-                src="/atv/atv1.jpg"
+                src="https://storage.googleapis.com/baanlomnow/public/atv_pic.jpg"
                   alt="บ้านลมหนาว คาเฟ่ แอนด์ แคมป์ปิ้ง วังน้ำเขียว"
                 fill
                 className="object-cover"
@@ -599,7 +882,7 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-bold mb-3 text-gray-800">โทรศัพท์</h3>
               <p className="text-gray-600 leading-relaxed">
-                064-553-5691<br />
+                064-553-5691 , 064-554-6591<br />
                 <span className="text-sm text-gray-500">พร้อมให้บริการตลอด 24 ชั่วโมง</span>
               </p>
             </div>
@@ -610,7 +893,7 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-bold mb-3 text-gray-800">เวลาทำการ</h3>
               <p className="text-gray-600 leading-relaxed">
-                คาเฟ่: 07:00 - 22:00<br />
+                คาเฟ่: 08:00 - 18:00<br />
                 ที่พัก: 24 ชั่วโมง<br />
                 แคมป์ปิ้ง: 24 ชั่วโมง
               </p>
@@ -732,7 +1015,7 @@ export default function Home() {
                     </div>
                     <div>
                       <p className="text-gray-300 text-sm font-medium group-hover:text-white transition-colors duration-300">
-                        064-553-5691
+                        064-553-5691, 064-554-6591
                       </p>
                     </div>
                   </div>
