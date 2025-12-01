@@ -48,7 +48,7 @@ export default function EditBooking() {
   useEffect(() => {
     if (session === undefined) return
 
-    if (!session || session.user?.role !== 'ADMIN') {
+    if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'OWNER')) {
       router.push('/auth/signin')
       return
     }
@@ -135,7 +135,7 @@ export default function EditBooking() {
     )
   }
 
-  if (!session || session.user?.role !== 'ADMIN') {
+  if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'OWNER')) {
     return null
   }
 

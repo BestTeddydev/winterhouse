@@ -58,7 +58,7 @@ export async function GET(
       })
       .populate({
         path: 'paymentId',
-        select: 'status amount totalAmount paidAmount remainingAmount'
+        select: 'status amount totalAmount paidAmount remainingAmount paymentType paymentSlipUrl'
       })
       .populate({
         path: 'userId',
@@ -130,8 +130,8 @@ export async function PUT(
       return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
     }
 
-    // Only ADMIN can update bookings
-    if (session.user.role !== 'ADMIN') {
+    // Only ADMIN and OWNER can update bookings
+    if (session.user.role !== 'ADMIN' && session.user.role !== 'OWNER') {
       return NextResponse.json({ error: 'ไม่มีสิทธิ์แก้ไขการจอง' }, { status: 403 })
     }
 
@@ -205,7 +205,7 @@ export async function PUT(
       select: 'name description price capacity imageUrls'
     }).populate({
       path: 'paymentId',
-      select: 'status amount totalAmount paidAmount remainingAmount'
+      select: 'status amount totalAmount paidAmount remainingAmount paymentType paymentSlipUrl'
     }).populate({
       path: 'userId',
       select: 'name email lineUserId'

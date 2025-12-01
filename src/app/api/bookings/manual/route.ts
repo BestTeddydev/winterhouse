@@ -14,8 +14,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
     }
 
-    if (session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'ต้องเป็นแอดมินเท่านั้น' }, { status: 403 })
+    if (session.user.role !== 'ADMIN' && session.user.role !== 'OWNER') {
+      return NextResponse.json({ error: 'ต้องเป็นแอดมินหรือเจ้าของเท่านั้น' }, { status: 403 })
     }
 
     const body = await request.json()

@@ -18,7 +18,9 @@ import {
   ArrowLeft,
   CreditCard,
   Mail,
-  Phone
+  Phone,
+  Receipt,
+  ExternalLink
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -354,6 +356,33 @@ export default function BookingDetail() {
                         <span className="font-bold text-green-600">
                           {formatCurrency(booking.paymentId.paidAmount)}
                         </span>
+                      </div>
+                    )}
+                    {booking.paymentId.paymentSlipUrl && (
+                      <div className="pt-3 border-t">
+                        <p className="text-sm text-gray-600 mb-2 flex items-center gap-2">
+                          <Receipt size={16} />
+                          สลิปโอนเงิน
+                        </p>
+                        <div className="relative w-full h-48 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 group">
+                          <Image
+                            src={booking.paymentId.paymentSlipUrl}
+                            alt="สลิปโอนเงิน"
+                            fill
+                            className="object-contain p-2"
+                          />
+                          <a
+                            href={booking.paymentId.paymentSlipUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                          >
+                            <div className="flex items-center gap-2 text-white bg-primary-600 px-4 py-2 rounded-lg">
+                              <ExternalLink size={18} />
+                              <span className="font-medium">เปิดดูขนาดเต็ม</span>
+                            </div>
+                          </a>
+                        </div>
                       </div>
                     )}
                   </>

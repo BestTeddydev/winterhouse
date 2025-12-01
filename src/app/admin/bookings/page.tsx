@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import { formatCurrency, formatDateTime } from '@/lib/utils'
+import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils'
 import { 
   Calendar, 
   User, 
@@ -34,7 +34,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  X
+  X,
+  Download
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -42,12 +43,28 @@ export default function AdminBookings() {
   const { data: session } = useSession()
   const [bookings, setBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
+  const [searchInput, setSearchInput] = useState('') // Input field value
+  const [searchTerm, setSearchTerm] = useState('') // Actual search term sent to API
   const [statusFilter, setStatusFilter] = useState('all')
   const [paymentFilter, setPaymentFilter] = useState('all')
+  const [dateFilterType, setDateFilterType] = useState<'createdAt' | 'checkIn'>('createdAt')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [viewMode, setViewMode] = useState<'table' | 'timeline' | 'cards'>('table')
+
+  // Pre-compute date range bounds for BETWEEN filter (inclusive)
+  // dateFromObj: start of day (00:00:00) - for >= comparison
+  // dateToObj: end of day (23:59:59.999) - for <= comparison
+  const dateFromObj = dateFrom ? (() => {
+    const d = new Date(dateFrom)
+    d.setHours(0, 0, 0, 0)
+    return d
+  })() : null
+  
+  const dateToObj = dateTo ? (() => {
+    const d = new Date(dateTo)
+    d.setHours(23, 59, 59, 999)
+    return d
+  })() : null
   const [sortBy, setSortBy] = useState<'checkIn' | 'createdAt' | 'totalPrice'>('checkIn')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [currentPage, setCurrentPage] = useState(1)
@@ -63,25 +80,47 @@ export default function AdminBookings() {
 
   useEffect(() => {
     // Middleware already handles authentication and authorization
-    // Just fetch the bookings data
+    // Just fetch the bookings data on initial load and when pagination/sorting changes
     if (session && session.user) {
       console.log('✅ Admin bookings - User authenticated')
       fetchBookings()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, currentPage, sortBy, sortOrder])
+  }, [session, currentPage, sortBy, sortOrder, searchTerm, statusFilter, paymentFilter, dateFrom, dateTo, dateFilterType])
 
   const fetchBookings = async () => {
     try {
       setLoading(true)
-      const response = await axios.get('/api/bookings', {
-        params: {
-          page: currentPage,
-          limit: 20,
-          sortBy,
-          sortOrder
-        }
-      })
+      const params: any = {
+        page: currentPage,
+        limit: 20,
+        sortBy,
+        sortOrder
+      }
+      
+      // Add date filter params if both dates are selected
+      if (dateFrom && dateTo) {
+        params.dateFrom = dateFrom
+        params.dateTo = dateTo
+        params.dateFilterType = dateFilterType
+      }
+      
+      // Add search param if provided
+      if (searchTerm && searchTerm.trim()) {
+        params.search = searchTerm.trim()
+      }
+      
+      // Add status filter if not 'all'
+      if (statusFilter && statusFilter !== 'all') {
+        params.status = statusFilter
+      }
+      
+      // Add payment status filter if not 'all'
+      if (paymentFilter && paymentFilter !== 'all') {
+        params.paymentStatus = paymentFilter
+      }
+      
+      const response = await axios.get('/api/bookings', { params })
       
       if (response.data.bookings && response.data.pagination) {
         // New API format with pagination
@@ -117,6 +156,29 @@ export default function AdminBookings() {
       setSortOrder('asc')
     }
     setCurrentPage(1) // Reset to first page when sorting changes
+  }
+
+  const handleApplyFilters = () => {
+    // Apply all filters and reset to first page
+    setSearchTerm(searchInput)
+    setCurrentPage(1) // Reset to first page when applying filters
+    // fetchBookings will be called automatically via useEffect when currentPage and filters change
+  }
+
+  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleApplyFilters()
+    }
+  }
+  
+  // Count active filters for UI display
+  const getActiveFiltersCount = () => {
+    let count = 0
+    if (searchInput.trim()) count++
+    if (statusFilter !== 'all') count++
+    if (paymentFilter !== 'all') count++
+    if (dateFrom && dateTo) count++
+    return count
   }
 
   const handleStatusUpdate = async (id: string, status: string) => {
@@ -159,58 +221,16 @@ export default function AdminBookings() {
     }
   }
 
-  // Filter bookings (filtering is now done on frontend for search/filters)
-  // Sorting is done on backend, but we still apply filters here
+  // All filtering is now done on backend via API
+  // No need to filter in frontend
   const filteredBookings = bookings
-    .filter(booking => {
-      // Get all room names for search
-      const allRoomNames = (booking.rooms && booking.rooms.length > 0)
-        ? booking.rooms.map((r: any) => r?.name || '').join(' ')
-        : (booking.room?.name || '')
-      
-      const matchesSearch = 
-        booking.guestName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.guestEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        allRoomNames.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.id?.toLowerCase().includes(searchTerm.toLowerCase())
-      
-      const matchesStatus = statusFilter === 'all' || booking.status === statusFilter
-      const matchesPayment = paymentFilter === 'all' || booking.payment?.status === paymentFilter
-      
-      // Date range filter for booking creation date
-      let matchesDateRange = true
-      if (dateFrom || dateTo) {
-        const bookingDate = new Date(booking.createdAt)
-        bookingDate.setHours(0, 0, 0, 0)
-        
-        if (dateFrom) {
-          const fromDate = new Date(dateFrom)
-          fromDate.setHours(0, 0, 0, 0)
-          if (bookingDate < fromDate) {
-            matchesDateRange = false
-          }
-        }
-        
-        if (dateTo) {
-          const toDate = new Date(dateTo)
-          toDate.setHours(23, 59, 59, 999)
-          if (bookingDate > toDate) {
-            matchesDateRange = false
-          }
-        }
-      }
-      
-      return matchesSearch && matchesStatus && matchesPayment && matchesDateRange
-    })
 
-  // Calculate pagination for filtered results
-  const hasActiveFilters = searchTerm || statusFilter !== 'all' || paymentFilter !== 'all' || dateFrom || dateTo
+  // All filtering and pagination is done on backend via API
+  // Always use server-side pagination
+  const paginatedBookings = filteredBookings
   
-  // When filters are active, show all filtered results (no pagination on client)
-  // When no filters, use server-side pagination
-  const paginatedBookings = hasActiveFilters 
-    ? filteredBookings  // Show all filtered results when filters are active
-    : filteredBookings  // Server already paginated, but we still have all bookings in current page
+  // Check if any filters are active (for UI display)
+  const hasActiveFilters = searchTerm.trim() || statusFilter !== 'all' || paymentFilter !== 'all' || (dateFrom && dateTo)
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -241,6 +261,284 @@ export default function AdminBookings() {
     }
   }
 
+  const handleDownloadBookings = async () => {
+    try {
+      // Show loading toast
+      const loadingToast = toast.loading('กำลังดึงข้อมูลการจองทั้งหมด...')
+      
+      // Fetch all bookings from API (use a very large limit to get all)
+      const params: any = {
+        page: 1,
+        limit: 10000, // Large limit to get all bookings
+        sortBy,
+        sortOrder
+      }
+      
+      // Add date filter params if both dates are selected
+      if (dateFrom && dateTo) {
+        params.dateFrom = dateFrom
+        params.dateTo = dateTo
+        params.dateFilterType = dateFilterType
+      }
+      
+      // Add search param if provided
+      if (searchInput && searchInput.trim()) {
+        params.search = searchInput.trim()
+      }
+      
+      // Add status filter if not 'all'
+      if (statusFilter && statusFilter !== 'all') {
+        params.status = statusFilter
+      }
+      
+      // Add payment status filter if not 'all'
+      if (paymentFilter && paymentFilter !== 'all') {
+        params.paymentStatus = paymentFilter
+      }
+      
+      const response = await axios.get('/api/bookings', { params })
+      
+      let allBookings: any[] = []
+      
+      if (response.data.bookings) {
+        // New API format with pagination
+        allBookings = response.data.bookings
+        
+        // If there are more pages, fetch them
+        const totalPages = response.data.pagination?.totalPages || 1
+        if (totalPages > 1) {
+          const remainingPages: Promise<any>[] = []
+          for (let page = 2; page <= totalPages; page++) {
+            remainingPages.push(
+              (() => {
+                const pageParams: any = {
+                  page,
+                  limit: 10000,
+                  sortBy,
+                  sortOrder
+                }
+                
+                // Add date filter params if both dates are selected
+                if (dateFrom && dateTo) {
+                  pageParams.dateFrom = dateFrom
+                  pageParams.dateTo = dateTo
+                  pageParams.dateFilterType = dateFilterType
+                }
+                
+                // Add search param if provided
+                if (searchTerm && searchTerm.trim()) {
+                  pageParams.search = searchTerm.trim()
+                }
+                
+                // Add status filter if not 'all'
+                if (statusFilter && statusFilter !== 'all') {
+                  pageParams.status = statusFilter
+                }
+                
+                // Add payment status filter if not 'all'
+                if (paymentFilter && paymentFilter !== 'all') {
+                  pageParams.paymentStatus = paymentFilter
+                }
+                
+                return axios.get('/api/bookings', { params: pageParams })
+              })()
+            )
+          }
+          
+          const remainingResponses = await Promise.all(remainingPages)
+          remainingResponses.forEach(res => {
+            if (res.data.bookings) {
+              allBookings = [...allBookings, ...res.data.bookings]
+            }
+          })
+        }
+      } else {
+        // Fallback for old API format
+        allBookings = Array.isArray(response.data) ? response.data : []
+      }
+
+      // Apply filters if any are active (search and date filtering is done on backend)
+      let bookingsToDownload = allBookings
+      
+      // Only apply frontend filters (status and payment)
+      if (statusFilter !== 'all' || paymentFilter !== 'all') {
+        bookingsToDownload = allBookings.filter((booking: any) => {
+          const matchesStatus = statusFilter === 'all' || booking.status === statusFilter
+          const matchesPayment = paymentFilter === 'all' || booking.payment?.status === paymentFilter
+          
+          // Date and search filtering is now done on backend via API query
+          // No need to filter dates or search here
+          
+          return matchesStatus && matchesPayment
+        })
+      }
+
+      if (bookingsToDownload.length === 0) {
+        toast.dismiss(loadingToast)
+        toast.error('ไม่มีข้อมูลการจองให้ดาวน์โหลด')
+        return
+      }
+
+      // Sort bookings by check-in date for grouping
+      const sortedBookings = [...bookingsToDownload].sort((a: any, b: any) => {
+        const dateA = a.checkIn ? new Date(a.checkIn).getTime() : 0
+        const dateB = b.checkIn ? new Date(b.checkIn).getTime() : 0
+        return dateA - dateB
+      })
+
+      // Group bookings by check-in date
+      const groupedBookings = new Map<string, any[]>()
+      sortedBookings.forEach((booking: any) => {
+        const checkInDate = booking.checkIn 
+          ? new Date(booking.checkIn).toISOString().split('T')[0]
+          : 'N/A'
+        
+        if (!groupedBookings.has(checkInDate)) {
+          groupedBookings.set(checkInDate, [])
+        }
+        groupedBookings.get(checkInDate)!.push(booking)
+      })
+
+      // Format bookings data as text
+      let textContent = 'รายละเอียดการจองทั้งหมด\n'
+      textContent += '='.repeat(80) + '\n'
+      textContent += `จำนวนทั้งหมด: ${bookingsToDownload.length} รายการ\n`
+      textContent += `วันที่ดาวน์โหลด: ${formatDate(new Date())}\n`
+      textContent += '='.repeat(80) + '\n\n'
+
+      let globalIndex = 1
+      let totalRevenue = 0
+      let totalDiscount = 0
+
+      // Iterate through grouped bookings
+      Array.from(groupedBookings.entries())
+        .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+        .forEach(([checkInDateStr, groupBookings]) => {
+          // Group header
+          const checkInDateFormatted = checkInDateStr !== 'N/A'
+            ? formatDate(new Date(checkInDateStr))
+            : 'วันที่ไม่ระบุ'
+          
+          textContent += `\n${'='.repeat(80)}\n`
+          textContent += `วันที่เช็คอิน: ${checkInDateFormatted}\n`
+          textContent += `จำนวนการจอง: ${groupBookings.length} รายการ\n`
+          textContent += `${'='.repeat(80)}\n\n`
+
+          // Group totals
+          let groupTotalRevenue = 0
+          let groupTotalDiscount = 0
+
+          // Display bookings in this group
+          groupBookings.forEach((booking: any) => {
+            // Get room name(s)
+            const roomNames = booking.rooms && booking.rooms.length > 0
+              ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
+              : booking.room?.name || 'N/A'
+            
+            // Format dates
+            const checkInDate = booking.checkIn ? formatDate(booking.checkIn) : 'N/A'
+            const checkOutDate = booking.checkOut ? formatDate(booking.checkOut) : 'N/A'
+            
+            // Get guest information
+            const guestName = booking.guestName || 'N/A'
+            const guestEmail = booking.guestEmail || 'N/A'
+            const guestPhone = booking.guestPhone || 'N/A'
+
+            // Get payment type
+            const paymentType = booking.paymentType || booking.payment?.paymentType || 'FULL'
+            const paymentTypeText = paymentType === 'PARTIAL' ? 'จ่ายบางส่วน' : 'จ่ายเต็มจำนวน'
+
+            // Get paid amount
+            const paidAmount = booking.payment?.paidAmount || 0
+
+            // Calculate discount and prices
+            const totalPrice = booking.totalPrice || 0
+            const discountPercent = booking.discount || 0
+            const discountAmount = booking.discountAmount || 0
+            
+            // Calculate original price before discount
+            let originalPrice = totalPrice
+            if (discountAmount > 0) {
+              originalPrice = totalPrice + discountAmount
+            } else if (discountPercent > 0) {
+              originalPrice = Math.round(totalPrice / (1 - discountPercent / 100))
+            }
+            
+            const totalDiscountForBooking = originalPrice - totalPrice
+
+            // Update totals
+            groupTotalRevenue += totalPrice
+            groupTotalDiscount += totalDiscountForBooking
+            totalRevenue += totalPrice
+            totalDiscount += totalDiscountForBooking
+
+            textContent += `การจองที่ ${globalIndex}\n`
+            textContent += '-'.repeat(80) + '\n'
+            textContent += `ห้องพัก: ${roomNames}\n`
+            textContent += `ชื่อลูกค้า: ${guestName}\n`
+            textContent += `เบอร์ติดต่อ: ${guestPhone}\n`
+            textContent += `อีเมล: ${guestEmail}\n`
+            textContent += `วันที่เช็คอิน: ${checkInDate}\n`
+            textContent += `วันที่เช็คเอ้าท์: ${checkOutDate}\n`
+            textContent += `ประเภทการจ่าย: ${paymentTypeText}\n`
+            
+            // Display pricing information
+            if (totalDiscountForBooking > 0) {
+              textContent += `ยอดก่อนส่วนลด: ${formatCurrency(originalPrice)}\n`
+              if (discountPercent > 0) {
+                textContent += `ส่วนลด: ${discountPercent}% (${formatCurrency(totalDiscountForBooking)})\n`
+              } else if (discountAmount > 0) {
+                textContent += `ส่วนลด: ${formatCurrency(discountAmount)}\n`
+              }
+            }
+            textContent += `ยอดทั้งหมด: ${formatCurrency(totalPrice)}\n`
+            textContent += `เงินที่ชำระมาแล้ว: ${formatCurrency(paidAmount)}\n`
+            textContent += '\n'
+
+            globalIndex++
+          })
+
+          // Group summary
+          textContent += `${'-'.repeat(80)}\n`
+          textContent += `สรุปรวมสำหรับวันที่เช็คอิน ${checkInDateFormatted}:\n`
+          if (groupTotalDiscount > 0) {
+            textContent += `ยอดรวมก่อนส่วนลด: ${formatCurrency(groupTotalRevenue + groupTotalDiscount)}\n`
+            textContent += `ส่วนลดรวม: ${formatCurrency(groupTotalDiscount)}\n`
+          }
+          textContent += `ยอดรวมทั้งหมด: ${formatCurrency(groupTotalRevenue)}\n`
+          textContent += `${'-'.repeat(80)}\n\n`
+        })
+
+      // Overall summary
+      textContent += `\n${'='.repeat(80)}\n`
+      textContent += 'สรุปรวมทั้งหมด\n'
+      textContent += `${'='.repeat(80)}\n`
+      if (totalDiscount > 0) {
+        textContent += `ยอดรวมก่อนส่วนลด: ${formatCurrency(totalRevenue + totalDiscount)}\n`
+        textContent += `ส่วนลดรวมทั้งหมด: ${formatCurrency(totalDiscount)}\n`
+      }
+      textContent += `ยอดรวมทั้งหมด: ${formatCurrency(totalRevenue)}\n`
+      textContent += `${'='.repeat(80)}\n`
+
+      // Create a blob and download
+      const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `bookings_all_${new Date().toISOString().split('T')[0]}.txt`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      
+      toast.dismiss(loadingToast)
+      toast.success(`ดาวน์โหลดข้อมูลการจอง ${bookingsToDownload.length} รายการสำเร็จ`)
+    } catch (error) {
+      console.error('Error downloading bookings:', error)
+      toast.error('ไม่สามารถดาวน์โหลดข้อมูลการจองได้')
+    }
+  }
+
   if (session === undefined) {
     // Session is still loading
     return (
@@ -253,7 +551,7 @@ export default function AdminBookings() {
     )
   }
 
-  if (!session || !session.user || session.user.role !== 'ADMIN') {
+  if (!session || !session.user || (session.user.role !== 'ADMIN' && session.user.role !== 'OWNER')) {
     return null
   }
 
@@ -286,6 +584,13 @@ export default function AdminBookings() {
             </div>
             <div className="flex gap-3">
               <button
+                onClick={handleDownloadBookings}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 font-medium"
+              >
+                <Download size={20} />
+                ดาวน์โหลดข้อมูล
+              </button>
+              <button
                 onClick={() => router.push('/admin/bookings/upcoming')}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-medium"
               >
@@ -310,11 +615,14 @@ export default function AdminBookings() {
             <div className="px-6 py-3 bg-primary-50 border-b border-primary-100 flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-medium text-primary-700">การกรองที่เปิดอยู่:</span>
-                {searchTerm && (
+                {searchInput.trim() && (
                   <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-medium flex items-center gap-1">
-                    ค้นหา: {searchTerm}
+                    ค้นหา: {searchInput}
                     <button
-                      onClick={() => setSearchTerm('')}
+                      onClick={() => {
+                        setSearchInput('')
+                        setCurrentPage(1)
+                      }}
                       className="ml-1 hover:bg-primary-200 rounded-full p-0.5"
                     >
                       <X size={12} />
@@ -343,9 +651,9 @@ export default function AdminBookings() {
                     </button>
                   </span>
                 )}
-                {(dateFrom || dateTo) && (
+                {dateFrom && dateTo && (
                   <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-medium flex items-center gap-1">
-                    วันที่: {dateFrom || 'ทั้งหมด'} ถึง {dateTo || 'ทั้งหมด'}
+                    {dateFilterType === 'checkIn' ? 'วันที่เช็คอิน' : 'วันที่สร้าง'}: {dateFrom} ถึง {dateTo}
                     <button
                       onClick={() => {
                         setDateFrom('')
@@ -359,13 +667,18 @@ export default function AdminBookings() {
                 )}
               </div>
               <button
-                onClick={() => {
-                  setSearchTerm('')
+                onClick={async () => {
+                  setSearchInput('')
                   setStatusFilter('all')
                   setPaymentFilter('all')
+                  setDateFilterType('createdAt')
                   setDateFrom('')
                   setDateTo('')
                   setCurrentPage(1)
+                  // Fetch bookings after clearing filters
+                  setTimeout(() => {
+                    fetchBookings()
+                  }, 0)
                 }}
                 className="text-xs text-primary-700 hover:text-primary-800 font-medium flex items-center gap-1"
               >
@@ -376,137 +689,130 @@ export default function AdminBookings() {
           )}
 
           <div className="p-6">
-            {/* Main Filters Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              {/* Search */}
-              <div className="relative lg:col-span-2">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  type="text"
-                  placeholder="ค้นหาการจอง (ชื่อ, อีเมล, รหัส...) ..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                />
+            {/* All Filters in One Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Filter className="text-primary-600" size={20} />
+                <h3 className="text-lg font-semibold text-gray-900">กรองข้อมูล</h3>
               </div>
-
-              {/* Status Filter */}
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <CheckCircle className="text-gray-400" size={18} />
-                </div>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent appearance-none bg-white cursor-pointer"
-                >
-                  <option value="all">ทุกสถานะ</option>
-                  <option value="PENDING">รอดำเนินการ</option>
-                  <option value="CONFIRMED">ยืนยันแล้ว</option>
-                  <option value="COMPLETED">เสร็จสิ้น</option>
-                  <option value="CANCELLED">ยกเลิก</option>
-                </select>
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <ChevronDown className="text-gray-400" size={16} />
-                </div>
-              </div>
-
-              {/* Payment Filter */}
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <CreditCard className="text-gray-400" size={18} />
-                </div>
-                <select
-                  value={paymentFilter}
-                  onChange={(e) => setPaymentFilter(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent appearance-none bg-white cursor-pointer"
-                >
-                  <option value="all">ทุกสถานะการชำระ</option>
-                  <option value="COMPLETED">ชำระแล้ว</option>
-                  <option value="PENDING">รอชำระ</option>
-                  <option value="PROCESSING">กำลังดำเนินการ</option>
-                  <option value="FAILED">ชำระไม่สำเร็จ</option>
-                </select>
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <ChevronDown className="text-gray-400" size={16} />
-                </div>
-              </div>
-            </div>
-
-            {/* Date Range and View Mode Row */}
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between pt-4 border-t border-gray-200">
-              {/* Date Range Filter */}
-              <div className="flex items-center gap-3 flex-1">
-                <Calendar className="text-gray-500 flex-shrink-0" size={18} />
-                <span className="text-sm font-medium text-gray-700 whitespace-nowrap">วันที่สร้าง:</span>
-                <div className="flex items-center gap-2 flex-1">
+              
+              {/* First Row: Search, Status, Payment, Search Button */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                   <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => {
-                      setDateFrom(e.target.value)
-                      setCurrentPage(1)
-                    }}
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                    type="text"
+                    placeholder="ค้นหา (ชื่อ, อีเมล, รหัส...)"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyPress={handleSearchKeyPress}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                   />
-                  <span className="text-gray-400 text-sm">ถึง</span>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => {
-                      setDateTo(e.target.value)
-                      setCurrentPage(1)
-                    }}
-                    min={dateFrom}
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                  />
-                  {(dateFrom || dateTo) && (
-                    <button
-                      onClick={() => {
-                        setDateFrom('')
-                        setDateTo('')
-                        setCurrentPage(1)
-                      }}
-                      className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1 text-sm"
-                      title="ล้างการกรองวันที่"
-                    >
-                      <X size={14} />
-                    </button>
+                </div>
+
+                {/* Status Filter */}
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <CheckCircle className="text-gray-400" size={18} />
+                  </div>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent appearance-none bg-white cursor-pointer"
+                  >
+                    <option value="all">ทุกสถานะ</option>
+                    <option value="PENDING">รอดำเนินการ</option>
+                    <option value="CONFIRMED">ยืนยันแล้ว</option>
+                    <option value="COMPLETED">เสร็จสิ้น</option>
+                    <option value="CANCELLED">ยกเลิก</option>
+                  </select>
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <ChevronDown className="text-gray-400" size={16} />
+                  </div>
+                </div>
+
+                {/* Payment Filter */}
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <CreditCard className="text-gray-400" size={18} />
+                  </div>
+                  <select
+                    value={paymentFilter}
+                    onChange={(e) => setPaymentFilter(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent appearance-none bg-white cursor-pointer"
+                  >
+                    <option value="all">ทุกสถานะการชำระ</option>
+                    <option value="COMPLETED">ชำระแล้ว</option>
+                    <option value="PENDING">รอชำระ</option>
+                    <option value="PROCESSING">กำลังดำเนินการ</option>
+                    <option value="FAILED">ชำระไม่สำเร็จ</option>
+                  </select>
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <ChevronDown className="text-gray-400" size={16} />
+                  </div>
+                </div>
+
+                {/* Search Button */}
+                <button
+                  onClick={handleApplyFilters}
+                  className="px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all flex items-center justify-center gap-2 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  <Search size={20} />
+                  <span>ค้นหา</span>
+                  {getActiveFiltersCount() > 0 && (
+                    <span className="bg-white/30 px-2 py-0.5 rounded-full text-xs font-bold min-w-[20px] text-center">
+                      {getActiveFiltersCount()}
+                    </span>
                   )}
-                </div>
+                </button>
               </div>
 
-              {/* View Mode Toggle */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 font-medium">มุมมอง:</span>
-                <div className="flex bg-gray-100 rounded-lg p-1">
-                  <button
-                    onClick={() => setViewMode('table')}
-                    className={`px-3 py-1.5 rounded-md transition-all text-sm font-medium flex items-center gap-1 ${
-                      viewMode === 'table' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    <Settings size={14} />
-                    Table
-                  </button>
-                  <button
-                    onClick={() => setViewMode('timeline')}
-                    className={`px-3 py-1.5 rounded-md transition-all text-sm font-medium flex items-center gap-1 ${
-                      viewMode === 'timeline' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    <Calendar size={14} />
-                    Timeline
-                  </button>
-                  <button
-                    onClick={() => setViewMode('cards')}
-                    className={`px-3 py-1.5 rounded-md transition-all text-sm font-medium flex items-center gap-1 ${
-                      viewMode === 'cards' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    <Eye size={14} />
-                    Cards
-                  </button>
+              {/* Second Row: Date Range Filter */}
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center pt-4 border-t border-gray-200">
+                <div className="flex items-center gap-3 flex-1 w-full">
+                  <Calendar className="text-gray-500 flex-shrink-0" size={18} />
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">กรองตาม:</span>
+                    <select
+                      value={dateFilterType}
+                      onChange={(e) => {
+                        setDateFilterType(e.target.value as 'createdAt' | 'checkIn')
+                      }}
+                      className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white cursor-pointer"
+                    >
+                      <option value="createdAt">วันที่สร้าง</option>
+                      <option value="checkIn">วันที่เช็คอิน</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="flex-1 min-w-0 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                    />
+                    <span className="text-gray-400 text-sm whitespace-nowrap">ถึง</span>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      min={dateFrom}
+                      className="flex-1 min-w-0 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                    />
+                    {(dateFrom || dateTo) && (
+                      <button
+                        onClick={() => {
+                          setDateFrom('')
+                          setDateTo('')
+                        }}
+                        className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1 text-sm flex-shrink-0"
+                        title="ล้างการกรองวันที่"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -519,9 +825,9 @@ export default function AdminBookings() {
             <span className="text-gray-700 font-semibold">
               แสดงผล {paginatedBookings.length} {hasActiveFilters ? 'จากการกรอง' : ''} จาก {hasActiveFilters ? filteredBookings.length : pagination.total} การจอง
             </span>
-            {(dateFrom || dateTo) && (
+            {dateFrom && dateTo && (
               <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                {dateFrom && dateTo ? `${dateFrom} ถึง ${dateTo}` : dateFrom ? `ตั้งแต่ ${dateFrom}` : `ถึง ${dateTo}`}
+                {dateFilterType === 'checkIn' ? 'เช็คอิน' : 'สร้าง'}: {dateFrom} ถึง {dateTo}
               </span>
             )}
             {!hasActiveFilters && (
@@ -594,7 +900,7 @@ export default function AdminBookings() {
             <h3 className="text-xl font-semibold text-gray-900 mb-2">ไม่พบการจอง</h3>
             <p className="text-gray-500">ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p>
           </div>
-        ) : viewMode === 'table' ? (
+        ) : (
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -751,359 +1057,10 @@ export default function AdminBookings() {
               </table>
             </div>
           </div>
-        ) : viewMode === 'timeline' ? (
-          <div className="space-y-6">
-            {paginatedBookings.map((booking, index) => (
-              <div 
-                key={booking.id} 
-                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer"
-                onClick={() => {
-                  if (booking.id) {
-                    router.push(`/bookings/${booking.id}`)
-                  }
-                }}
-              >
-                <div className="p-6">
-                    <div className="flex items-start justify-between mb-6">
-                      <div className="flex items-center gap-4">
-                        <div className="flex-shrink-0">
-                          <div className="w-16 h-16 relative rounded-lg overflow-hidden">
-                            <Image
-                              src={booking.room?.imageUrls?.[0] || booking.rooms?.[0]?.imageUrls?.[0] || '/placeholder-room.jpg'}
-                              alt={booking.room?.name || booking.rooms?.[0]?.name || 'Room'}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-bold text-gray-900 mb-1">
-                            {booking.rooms && booking.rooms.length > 0
-                              ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
-                              : booking.room?.name || 'N/A'}
-                          </h3>
-                        <p className="text-sm text-gray-500 mb-2">
-                          รหัสการจอง: <span className="font-mono">{booking.id?.slice(0, 8) || 'N/A'}</span>
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(booking.status)}`}>
-                            {getStatusIcon(booking.status)}
-                            {booking.status}
-                          </span>
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getPaymentStatusColor(booking.payment.status)}`}>
-                            {getPaymentIcon(booking.payment.status)}
-                            {booking.payment.status}
-                          </span>
-                          {/* Booking Source Badge */}
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
-                            booking.isManualBooking 
-                              ? 'bg-purple-100 text-purple-800 border border-purple-300' 
-                              : 'bg-blue-100 text-blue-800 border border-blue-300'
-                          }`}>
-                            {booking.isManualBooking ? (
-                              <>
-                                <UserCog size={12} />
-                                Admin สร้าง
-                              </>
-                            ) : (
-                              <>
-                                <ShoppingCart size={12} />
-                                ลูกค้าสร้าง
-                              </>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-primary-600">{formatCurrency(booking.totalPrice)}</p>
-                      <p className="text-sm text-gray-500">{formatDateTime(booking.createdAt)}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Guest Info */}
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        <User size={18} />
-                        ข้อมูลลูกค้า
-                      </h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2 text-gray-700">
-                          <User size={16} />
-                          <span>{booking.guestName}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-gray-700">
-                          <Mail size={16} />
-                          <span>{booking.guestEmail}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-gray-700">
-                          <Phone size={16} />
-                          <span>{booking.guestPhone}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Booking Details */}
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        <Calendar size={18} />
-                        รายละเอียดการจอง
-                      </h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2 text-gray-700">
-                          <Calendar size={16} />
-                          <span>เช็คอิน: {formatDateTime(booking.checkIn)}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-gray-700">
-                          <Calendar size={16} />
-                          <span>เช็คเอาท์: {formatDateTime(booking.checkOut)}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-gray-700">
-                          <User size={16} />
-                          <span>จำนวนคน: {booking.guestCount || 1} คน</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <h4 className="font-semibold text-gray-900 mb-3">จัดการการจอง</h4>
-                      <div className="space-y-2">
-                        <button
-                          onClick={() => {
-                            if (booking.id) {
-                              router.push(`/admin/bookings/${booking.id}/edit`)
-                            } else {
-                              toast.error('ไม่พบรหัสการจอง')
-                            }
-                          }}
-                          className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Edit size={16} />
-                          แก้ไขการจอง
-                        </button>
-                        {booking.status === 'PENDING' && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (booking.id) {
-                                handleStatusUpdate(booking.id, 'CONFIRMED')
-                              } else {
-                                toast.error('ไม่พบรหัสการจอง')
-                              }
-                            }}
-                            className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                          >
-                            <CheckCircle size={16} />
-                            ยืนยันการจอง
-                          </button>
-                        )}
-                        {booking.status === 'CONFIRMED' && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (booking.id) {
-                                handleStatusUpdate(booking.id, 'COMPLETED')
-                              } else {
-                                toast.error('ไม่พบรหัสการจอง')
-                              }
-                            }}
-                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                          >
-                            <CheckCircle size={16} />
-                            เสร็จสิ้น
-                          </button>
-                        )}
-                        {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (booking.id) {
-                                handleStatusUpdate(booking.id, 'CANCELLED')
-                              } else {
-                                toast.error('ไม่พบรหัสการจอง')
-                              }
-                            }}
-                            className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                          >
-                            <XCircle size={16} />
-                            ยกเลิกการจอง
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {(booking.specialRequests || booking.manualBookingNotes) && (
-                    <div className="mt-6 space-y-4">
-                      {booking.specialRequests && (
-                        <div className="p-4 bg-gray-50 rounded-lg">
-                          <h5 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                            <MessageSquare size={16} />
-                            ความต้องการพิเศษ
-                          </h5>
-                          <p className="text-sm text-gray-700">{booking.specialRequests}</p>
-                        </div>
-                      )}
-                      {booking.manualBookingNotes && (
-                        <div className="p-4 bg-purple-50 rounded-lg">
-                          <h5 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                            <Settings size={16} />
-                            หมายเหตุการจองด้วยตนเอง
-                          </h5>
-                          <p className="text-sm text-gray-700">{booking.manualBookingNotes}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {paginatedBookings.map((booking) => (
-              <div 
-                key={booking.id} 
-                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
-                onClick={() => {
-                  if (booking.id) {
-                    router.push(`/bookings/${booking.id}`)
-                  }
-                }}
-              >
-                <div className="relative h-48">
-                  <Image
-                    src={booking.room?.imageUrls?.[0] || booking.rooms?.[0]?.imageUrls?.[0] || '/placeholder-room.jpg'}
-                    alt={booking.room?.name || booking.rooms?.[0]?.name || 'Room'}
-                    fill
-                    className="object-cover"
-                  />
-                  <div className="absolute top-4 right-4 flex gap-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm ${getStatusColor(booking.status)}`}>
-                      {booking.status}
-                    </span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm flex items-center gap-1 ${
-                      booking.isManualBooking 
-                        ? 'bg-purple-500/90 text-white' 
-                        : 'bg-blue-500/90 text-white'
-                    }`}>
-                      {booking.isManualBooking ? (
-                        <>
-                          <UserCog size={12} />
-                          Admin
-                        </>
-                      ) : (
-                        <>
-                          <ShoppingCart size={12} />
-                          Customer
-                        </>
-                      )}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">
-                    {booking.rooms && booking.rooms.length > 0
-                      ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
-                      : booking.room?.name || 'N/A'}
-                  </h3>
-                  <p className="text-sm text-gray-500 mb-4 font-mono">{booking.id?.slice(0, 8) || 'N/A'}</p>
-
-                  <div className="space-y-3 mb-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <User size={16} />
-                      <span>{booking.guestName}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <Calendar size={16} />
-                      <span>{formatDateTime(booking.checkIn)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <Calendar size={16} />
-                      <span>{formatDateTime(booking.checkOut)}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2 text-sm">
-                      {getPaymentIcon(booking.payment.status)}
-                      <span className="text-gray-600">{booking.payment.status}</span>
-                    </div>
-                    <div className="text-lg font-bold text-primary-600">
-                      {formatCurrency(booking.totalPrice)}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => {
-                        if (booking.id) {
-                          router.push(`/admin/bookings/${booking.id}/edit`)
-                        } else {
-                          toast.error('ไม่พบรหัสการจอง')
-                        }
-                      }}
-                      className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium transition-colors"
-                    >
-                      แก้ไขการจอง
-                    </button>
-                    {booking.status === 'PENDING' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (booking.id) {
-                            handleStatusUpdate(booking.id, 'CONFIRMED')
-                          } else {
-                            toast.error('ไม่พบรหัสการจอง')
-                          }
-                        }}
-                        className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors"
-                      >
-                        ยืนยันการจอง
-                      </button>
-                    )}
-                    {booking.status === 'CONFIRMED' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (booking.id) {
-                            handleStatusUpdate(booking.id, 'COMPLETED')
-                          } else {
-                            toast.error('ไม่พบรหัสการจอง')
-                          }
-                        }}
-                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
-                      >
-                        เสร็จสิ้น
-                      </button>
-                    )}
-                    {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (booking.id) {
-                            handleStatusUpdate(booking.id, 'CANCELLED')
-                          } else {
-                            toast.error('ไม่พบรหัสการจอง')
-                          }
-                        }}
-                        className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium transition-colors"
-                      >
-                        ยกเลิกการจอง
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         )}
 
         {/* Pagination */}
-        {!hasActiveFilters && pagination.totalPages > 1 && (
+        {pagination.totalPages > 1 && (
           <div className="mt-8 flex justify-center items-center gap-2">
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}

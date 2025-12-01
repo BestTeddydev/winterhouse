@@ -46,14 +46,15 @@ export async function middleware(req: NextRequest) {
   }
   
   // Admin page protection - check authentication
+  // Allow both ADMIN and OWNER roles to access admin pages
   if (isAdminPage) {
     if (!isAuth) {
       console.log('❌ Admin page - Not authenticated, redirecting to signin')
       return NextResponse.redirect(new URL('/', req.url))
     }
     
-    if (token?.role !== 'ADMIN') {
-      console.log('❌ Admin page - Not admin role, redirecting to home')
+    if (token?.role !== 'ADMIN' && token?.role !== 'OWNER') {
+      console.log('❌ Admin page - Not admin or owner role, redirecting to home')
       return NextResponse.redirect(new URL('/', req.url))
     }
     

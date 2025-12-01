@@ -21,15 +21,34 @@ import {
   Bed,
   ChevronLeft,
   ChevronRight,
-  Eye
+  Eye,
+  Plus,
+  Settings,
+  TrendingUp,
+  FileText,
+  Users,
+  MapPin
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+
+interface DashboardStats {
+  totalBookings: number
+  pendingBookings: number
+  confirmedBookings: number
+  completedBookings: number
+  cancelledBookings: number
+  totalRevenue: number
+  monthlyRevenue: number
+  todayRevenue: number
+}
 
 export default function OwnerDashboard() {
   const { data: session } = useSession()
   const [bookings, setBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [dateFilterType, setDateFilterType] = useState<'createdAt' | 'checkIn'>('createdAt')
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     // Default to today
     const today = new Date()
@@ -40,8 +59,9 @@ export default function OwnerDashboard() {
     if (session && session.user) {
       // Middleware handles authentication and authorization
       fetchBookings()
+      fetchDashboardStats()
     }
-  }, [session, selectedDate])
+  }, [session, selectedDate, dateFilterType])
 
   const fetchBookings = async () => {
     try {
@@ -74,7 +94,67 @@ export default function OwnerDashboard() {
     }
   }
 
-  // Get all bookings created on selected date
+  const fetchDashboardStats = async () => {
+    try {
+      const response = await axios.get('/api/bookings', {
+        params: {
+          page: 1,
+          limit: 1000,
+          sortBy: 'createdAt',
+          sortOrder: 'desc'
+        }
+      })
+
+      const bookingsRaw = response.data
+      const allBookings = Array.isArray(bookingsRaw) ? bookingsRaw : (bookingsRaw.bookings || [])
+
+      const totalBookings = allBookings.length
+      const pendingBookings = allBookings.filter((b: any) => b.status === 'PENDING').length
+      const confirmedBookings = allBookings.filter((b: any) => b.status === 'CONFIRMED').length
+      const completedBookings = allBookings.filter((b: any) => b.status === 'COMPLETED').length
+      const cancelledBookings = allBookings.filter((b: any) => b.status === 'CANCELLED').length
+
+      const totalRevenue = allBookings
+        .filter((b: any) => b?.status === 'CONFIRMED' || b.paymentId?.status === 'COMPLETED')
+        .reduce((sum: number, b: any) => sum + (b.totalPrice || 0), 0)
+
+      const currentMonth = new Date().getMonth()
+      const currentYear = new Date().getFullYear()
+      const monthlyRevenue = allBookings
+        .filter((b: any) => {
+          const bookingDate = new Date(b.createdAt)
+          return (b?.status === 'CONFIRMED' || b.paymentId?.status === 'COMPLETED') && 
+                 bookingDate.getMonth() === currentMonth && 
+                 bookingDate.getFullYear() === currentYear
+        })
+        .reduce((sum: number, b: any) => sum + (b.totalPrice || 0), 0)
+
+      const today = new Date()
+      const todayStr = today.toDateString()
+      const todayRevenue = allBookings
+        .filter((b: any) => {
+          const bookingDate = new Date(b.createdAt)
+          return (b?.status === 'CONFIRMED' || b.paymentId?.status === 'COMPLETED') && 
+                 bookingDate.toDateString() === todayStr
+        })
+        .reduce((sum: number, b: any) => sum + (b.totalPrice || 0), 0)
+
+      setStats({
+        totalBookings,
+        pendingBookings,
+        confirmedBookings,
+        completedBookings,
+        cancelledBookings,
+        totalRevenue,
+        monthlyRevenue,
+        todayRevenue
+      })
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error)
+    }
+  }
+
+  // Get all bookings based on selected date filter type
   const getBookingsForDate = () => {
     if (!Array.isArray(bookings)) return []
     
@@ -83,18 +163,28 @@ export default function OwnerDashboard() {
     const selectedStr = selected.toDateString()
     
     return bookings.filter(booking => {
-      if (!booking.createdAt) return false
-      
-      const createdAt = new Date(booking.createdAt)
-      const createdAtStr = createdAt.toDateString()
-      
-      // Filter by creation date
-      return createdAtStr === selectedStr
+      if (dateFilterType === 'checkIn') {
+        // Filter by check-in date
+        if (!booking.checkIn) return false
+        const checkIn = new Date(booking.checkIn)
+        return checkIn.toDateString() === selectedStr
+      } else {
+        // Filter by creation date (default)
+        if (!booking.createdAt) return false
+        const createdAt = new Date(booking.createdAt)
+        return createdAt.toDateString() === selectedStr
+      }
     }).sort((a, b) => {
-      // Sort by creation time (newest first)
-      const aCreated = new Date(a.createdAt).getTime()
-      const bCreated = new Date(b.createdAt).getTime()
-      return bCreated - aCreated
+      // Sort by the selected filter type
+      if (dateFilterType === 'checkIn') {
+        const aCheckIn = new Date(a.checkIn).getTime()
+        const bCheckIn = new Date(b.checkIn).getTime()
+        return bCheckIn - aCheckIn
+      } else {
+        const aCreated = new Date(a.createdAt).getTime()
+        const bCreated = new Date(b.createdAt).getTime()
+        return bCreated - aCreated
+      }
     })
   }
 
@@ -209,15 +299,116 @@ export default function OwnerDashboard() {
       <main className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">แดชบอร์ด</h1>
-          <p className="text-gray-700 text-lg">ดูข้อมูลการจองตามวันที่เลือก</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">แดชบอร์ดเจ้าของ</h1>
+          <p className="text-gray-700 text-lg">ภาพรวมการจัดการและการจองทั้งหมด</p>
         </div>
+
+        {/* Quick Access Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
+        
+
+          <Link
+            href="/admin/bookings/new"
+            className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all transform hover:scale-105"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <Plus size={32} />
+              <FileText size={20} />
+            </div>
+            <h3 className="text-xl font-bold mb-2">สร้างการจองใหม่</h3>
+            <p className="text-blue-100 text-sm">เพิ่มการจองด้วยตนเอง</p>
+          </Link>
+
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+            <div className="flex items-center justify-between mb-4">
+              <TrendingUp size={32} />
+              <DollarSign size={20} />
+            </div>
+            <h3 className="text-xl font-bold mb-2">รายได้รวม</h3>
+            <p className="text-purple-100 text-sm mb-2">รายได้ทั้งหมด</p>
+            {stats ? (
+              <p className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</p>
+            ) : (
+              <p className="text-2xl font-bold">-</p>
+            )}
+          </div>
+        </div>
+
+        {/* Statistics Cards */}
+        {stats && (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+            <div className="bg-white rounded-lg shadow-md p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Calendar className="text-blue-600" size={20} />
+                <span className="text-xs text-gray-500">ทั้งหมด</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalBookings}</p>
+              <p className="text-xs text-gray-600 mt-1">การจอง</p>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Clock className="text-yellow-600" size={20} />
+                <span className="text-xs text-gray-500">รอ</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{stats.pendingBookings}</p>
+              <p className="text-xs text-gray-600 mt-1">รอการยืนยัน</p>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-4">
+              <div className="flex items-center justify-between mb-2">
+                <CheckCircle className="text-green-600" size={20} />
+                <span className="text-xs text-gray-500">ยืนยัน</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{stats.confirmedBookings}</p>
+              <p className="text-xs text-gray-600 mt-1">ยืนยันแล้ว</p>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-4">
+              <div className="flex items-center justify-between mb-2">
+                <CheckCircle className="text-blue-600" size={20} />
+                <span className="text-xs text-gray-500">เสร็จ</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{stats.completedBookings}</p>
+              <p className="text-xs text-gray-600 mt-1">เสร็จสิ้น</p>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-4">
+              <div className="flex items-center justify-between mb-2">
+                <DollarSign className="text-green-600" size={20} />
+                <span className="text-xs text-gray-500">เดือนนี้</span>
+              </div>
+              <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.monthlyRevenue)}</p>
+              <p className="text-xs text-gray-600 mt-1">รายได้เดือนนี้</p>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-4">
+              <div className="flex items-center justify-between mb-2">
+                <TrendingUp className="text-purple-600" size={20} />
+                <span className="text-xs text-gray-500">วันนี้</span>
+              </div>
+              <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.todayRevenue)}</p>
+              <p className="text-xs text-gray-600 mt-1">รายได้วันนี้</p>
+            </div>
+          </div>
+        )}
 
         {/* Date Picker */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-gray-900">เลือกวันที่</h2>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700 whitespace-nowrap">กรองตาม:</label>
+                <select
+                  value={dateFilterType}
+                  onChange={(e) => setDateFilterType(e.target.value as 'createdAt' | 'checkIn')}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                >
+                  <option value="createdAt">วันที่สร้าง</option>
+                  <option value="checkIn">วันที่เช็คอิน</option>
+                </select>
+              </div>
               <button
                 onClick={() => changeDate(-1)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -249,7 +440,14 @@ export default function OwnerDashboard() {
               </button>
             </div>
           </div>
-          <p className="text-lg text-gray-700 font-medium">{formatSelectedDate()}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-lg text-gray-700 font-medium">
+              {formatSelectedDate()}
+            </p>
+            <p className="text-sm text-gray-500">
+              กรองตาม: {dateFilterType === 'createdAt' ? 'วันที่สร้าง' : 'วันที่เช็คอิน'}
+            </p>
+          </div>
         </div>
 
         {/* Summary Cards */}
@@ -415,12 +613,14 @@ export default function OwnerDashboard() {
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                 <Bed className="text-blue-600" size={24} />
-                รายการการจองที่สร้างในวันที่ {formatSelectedDate()} ({allBookings.length})
+                รายการการจอง{dateFilterType === 'createdAt' ? 'ที่สร้าง' : 'ที่เช็คอิน'}ในวันที่ {formatSelectedDate()} ({allBookings.length})
               </h2>
               {allBookings.length === 0 ? (
                 <div className="text-center py-12">
                   <Calendar className="mx-auto text-gray-400 mb-4" size={48} />
-                  <p className="text-gray-500 text-lg">ไม่มีการจองที่ถูกสร้างในวันที่เลือก</p>
+                  <p className="text-gray-500 text-lg">
+                    ไม่มีการจอง{dateFilterType === 'createdAt' ? 'ที่ถูกสร้าง' : 'ที่เช็คอิน'}ในวันที่เลือก
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-4">

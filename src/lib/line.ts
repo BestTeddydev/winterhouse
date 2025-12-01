@@ -35,15 +35,60 @@ export async function sendLineNotification({ userId, message }: LineNotification
 }
 
 export function formatBookingNotification(booking: any) {
+  // Get room names (support both single and multiple rooms)
+  let roomNames = 'N/A'
+  if (booking.roomIds && booking.roomIds.length > 0) {
+    roomNames = booking.roomIds.map((r: any) => r?.name || 'N/A').join(', ')
+  } else if (booking.roomId) {
+    roomNames = booking.roomId?.name || 'N/A'
+  }
+  
+  const checkInDate = new Date(booking.checkIn).toLocaleDateString('th-TH', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+  const checkOutDate = new Date(booking.checkOut).toLocaleDateString('th-TH', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+  
+  const nights = Math.ceil((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / (1000 * 60 * 60 * 24))
+  
+  // Format payment type
+  const paymentTypeText = booking.paymentType === 'PARTIAL' ? 'จ่ายบางส่วน' : 'จ่ายเต็มจำนวน'
+  
+  // Format booking source
+  const bookingSource = booking.isManualBooking ? '📝 Admin สร้าง' : '🌐 ลูกค้าสร้าง'
+  
   return `
 🏠 การจองห้องพักใหม่
 
-ห้อง: ${booking.roomId?.name || 'Room'}
+${bookingSource}
+
+📋 รายละเอียดการจอง:
+ห้อง: ${roomNames}
 ผู้จอง: ${booking.guestName}
-เช็คอิน: ${new Date(booking.checkIn).toLocaleDateString('th-TH')}
-เช็คเอาท์: ${new Date(booking.checkOut).toLocaleDateString('th-TH')}
-ราคารวม: ฿${booking.totalPrice}
-สถานะ: ${booking.status}
+📧 อีเมล: ${booking.guestEmail || 'N/A'}
+📱 เบอร์โทร: ${booking.guestPhone || 'N/A'}
+
+📅 วันที่เข้าพัก:
+เช็คอิน: ${checkInDate}
+เช็คเอาท์: ${checkOutDate}
+จำนวนคืน: ${nights} คืน
+
+💰 ราคา:
+ราคารวม: ฿${booking.totalPrice?.toLocaleString() || '0'}
+ประเภทการชำระ: ${paymentTypeText}
+${booking.discount > 0 ? `ส่วนลด: ${booking.discount}%` : ''}
+${booking.discountAmount > 0 ? `ส่วนลด: ฿${booking.discountAmount.toLocaleString()}` : ''}
+
+📊 สถานะ: ${booking.status === 'CONFIRMED' ? '✅ ยืนยันแล้ว' : booking.status === 'PENDING' ? '⏳ รอดำเนินการ' : booking.status}
+
+🆔 เลขที่การจอง: ${booking._id?.toString().slice(-8) || 'N/A'}
+
+
   `.trim()
 }
 

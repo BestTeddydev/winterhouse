@@ -24,6 +24,12 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const sortBy = searchParams.get('sortBy') || 'checkIn' // Default sort by checkIn
     const sortOrder = searchParams.get('sortOrder') || 'asc' // Default ascending
+    const dateFrom = searchParams.get('dateFrom')
+    const dateTo = searchParams.get('dateTo')
+    const dateFilterType = searchParams.get('dateFilterType') || 'createdAt' // 'checkIn' or 'createdAt'
+    const search = searchParams.get('search') || ''
+    const status = searchParams.get('status') || ''
+    const paymentStatus = searchParams.get('paymentStatus') || ''
 
     await connectDB()
     
@@ -48,6 +54,24 @@ export async function GET(request: NextRequest) {
     }
 
     let query: any = {}
+    
+    // Add date range filter if provided
+    if (dateFrom && dateTo) {
+      const dateField = dateFilterType === 'checkIn' ? 'checkIn' : 'createdAt'
+      
+      // Create date objects for range query
+      const fromDate = new Date(dateFrom)
+      fromDate.setHours(0, 0, 0, 0)
+      
+      const toDate = new Date(dateTo)
+      toDate.setHours(23, 59, 59, 999)
+      
+      // Add date range filter: dateField >= fromDate AND dateField <= toDate
+      query[dateField] = {
+        $gte: fromDate,
+        $lte: toDate
+      }
+    }
     
     if (session.user.role === 'CUSTOMER') {
       // Query user based on session.user.id
@@ -74,6 +98,27 @@ export async function GET(request: NextRequest) {
       query.userId = new mongoose.Types.ObjectId(userId)
     }
 
+    // Add search filter if provided
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), 'i') // Case-insensitive
+      query.$or = [
+        { guestName: searchRegex },
+        { guestEmail: searchRegex },
+        { guestPhone: searchRegex }
+      ]
+      
+      // Also search by booking ID if it looks like an ObjectId
+      if (mongoose.Types.ObjectId.isValid(search.trim())) {
+        if (!query.$or) query.$or = []
+        query.$or.push({ _id: new mongoose.Types.ObjectId(search.trim()) })
+      }
+    }
+    
+    // Add status filter if provided
+    if (status && status !== 'all') {
+      query.status = status
+    }
+    
     // Build sort object
     const sortObject: any = {}
     if (sortBy === 'checkIn') {
@@ -86,14 +131,9 @@ export async function GET(request: NextRequest) {
       sortObject.checkIn = 1 // Default to checkIn ascending
     }
 
-    // Get total count for pagination
-    const totalBookings = await Booking.countDocuments(query)
-
-    // Calculate pagination
-    const skip = (page - 1) * limit
-    const totalPages = Math.ceil(totalBookings / limit)
-
-    const bookings = await Booking.find(query)
+    // Fetch all bookings matching the query (before payment status filter)
+    // We need to fetch all to filter by payment status, then paginate
+    const allBookings = await Booking.find(query)
       .populate({
         path: 'roomId',
         model: 'Room',
@@ -107,7 +147,7 @@ export async function GET(request: NextRequest) {
       .populate({
         path: 'paymentId',
         model: 'Payment',
-        select: 'status amount totalAmount paidAmount remainingAmount'
+        select: 'status amount totalAmount paidAmount remainingAmount paymentType'
       })
       .populate({
         path: 'userId',
@@ -115,11 +155,9 @@ export async function GET(request: NextRequest) {
         select: 'name email lineUserId'
       })
       .sort(sortObject)
-      .skip(skip)
-      .limit(limit)
 
     // Transform the data to match frontend expectations
-    const transformedBookings = bookings.map(booking => {
+    let transformedBookings = allBookings.map(booking => {
       const bookingObj = booking.toObject()
       // Get all rooms: use roomIds if available, otherwise use roomId
       const allRooms = (booking.roomIds && booking.roomIds.length > 0) 
@@ -134,9 +172,24 @@ export async function GET(request: NextRequest) {
         payment: booking.paymentId || { status: 'PENDING', amount: 0 }
       }
     })
+    
+    // Filter by payment status if provided (after populate)
+    if (paymentStatus && paymentStatus !== 'all') {
+      transformedBookings = transformedBookings.filter(booking => {
+        return booking.payment?.status === paymentStatus
+      })
+    }
 
+    // Calculate pagination after payment status filter
+    const totalBookings = transformedBookings.length
+    const skip = (page - 1) * limit
+    const totalPages = Math.ceil(totalBookings / limit)
+    
+    // Apply pagination
+    const paginatedBookings = transformedBookings.slice(skip, skip + limit)
+    
     return NextResponse.json({
-      bookings: transformedBookings,
+      bookings: paginatedBookings,
       pagination: {
         page,
         limit,
@@ -191,6 +244,7 @@ export async function POST(request: NextRequest) {
       discountAmount,
       bookingStatus,
       isManualBooking = false,
+      paymentSlipUrl, // URL of payment slip image
     } = body
 
     // Handle discount values - use nullish coalescing to allow 0 values
@@ -310,8 +364,8 @@ export async function POST(request: NextRequest) {
         ],
         status: { $in: ['CONFIRMED'] }, // Only check against confirmed bookings to prevent duplicate bookings
         $and: [
-          { checkIn: { $lt: checkOutDate } },
-          { checkOut: { $gt: checkInDate } }
+          { checkIn: { $lte: checkOutDate } },
+          { checkOut: { $gte: checkInDate } }
         ]
       })
 
@@ -420,6 +474,7 @@ export async function POST(request: NextRequest) {
       paidAmount: paidAmount,
       remainingAmount: remainingAmount,
       paymentType: paymentType,
+      paymentSlipUrl: paymentSlipUrl || undefined, // Add payment slip URL if provided
     })
     await payment.save()
 
@@ -429,6 +484,44 @@ export async function POST(request: NextRequest) {
 
     // Populate payment for response
     await booking.populate('paymentId', 'status amount totalAmount paidAmount remainingAmount')
+    
+    // Populate room data for notification
+    await booking.populate('roomId', 'name')
+    if (booking.roomIds && booking.roomIds.length > 0) {
+      await booking.populate('roomIds', 'name')
+    }
+
+    // Send LINE notification to OWNER users
+    try {
+      const ownerUsers = await User.find({ 
+        role: 'OWNER',
+        lineUserId: { $exists: true, $ne: null }
+      }).select('lineUserId name')
+      
+      if (ownerUsers.length > 0) {
+        // Format booking notification message
+        const notificationMessage = formatBookingNotification(booking)
+        
+        // Send notification to all OWNER users
+        const notificationPromises = ownerUsers
+          .filter(owner => owner.lineUserId)
+          .map(owner => 
+            sendLineNotification({
+              userId: owner.lineUserId!,
+              message: notificationMessage
+            }).catch(error => {
+              console.error(`Error sending LINE notification to owner ${owner.name} (${owner.lineUserId}):`, error)
+              // Don't throw error, just log it so booking creation still succeeds
+            })
+          )
+        
+        await Promise.allSettled(notificationPromises)
+        console.log(`Sent booking notification to ${ownerUsers.length} OWNER user(s)`)
+      }
+    } catch (error) {
+      // Log error but don't fail the booking creation
+      console.error('Error sending LINE notifications to OWNER:', error)
+    }
 
     // Transform the data to match frontend expectations
     const bookingObj = booking.toObject()

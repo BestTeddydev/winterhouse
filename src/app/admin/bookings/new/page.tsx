@@ -21,7 +21,9 @@ import {
   CreditCard,
   AlertCircle,
   CheckCircle,
-  X
+  X,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -50,6 +52,9 @@ export default function NewBooking() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [selectedRooms, setSelectedRooms] = useState<Room[]>([]) // For multi-room booking
+  const [paymentSlipFile, setPaymentSlipFile] = useState<File | null>(null)
+  const [paymentSlipPreview, setPaymentSlipPreview] = useState<string | null>(null)
+  const [uploadingSlip, setUploadingSlip] = useState(false)
   
   // Form data
   const [formData, setFormData] = useState({
@@ -73,7 +78,7 @@ export default function NewBooking() {
   useEffect(() => {
     if (session === undefined) return
 
-    if (!session || session.user?.role !== 'ADMIN') {
+    if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'OWNER')) {
       router.push('/auth/signin')
       return
     }
@@ -196,6 +201,16 @@ export default function NewBooking() {
     setLoading(true)
 
     try {
+      // Upload payment slip if provided
+      let paymentSlipUrl: string | null = null
+      if (paymentSlipFile) {
+        paymentSlipUrl = await uploadPaymentSlip()
+        if (!paymentSlipUrl) {
+          setLoading(false)
+          return // Stop if upload failed
+        }
+      }
+
       // For multi-room booking
       if (selectedRooms.length > 0) {
         const bookingData = {
@@ -205,9 +220,10 @@ export default function NewBooking() {
           discount: Number(formData.discount) || 0, // Ensure it's a number
           discountAmount: Number(formData.discountAmount) || 0, // Ensure it's a number
           isManualBooking: true,
-          isManualPayment:true,
+          isManualPayment: true,
           createdBy: session?.user?.id,
-          bookingStatus: 'CONFIRMED' // Always CONFIRMED for admin manual bookings
+          bookingStatus: 'CONFIRMED', // Always CONFIRMED for admin manual bookings
+          paymentSlipUrl: paymentSlipUrl // Add payment slip URL
         }
         console.log('Sending booking data:', bookingData) // Debug log
         const response = await axios.post('/api/bookings', bookingData)
@@ -222,9 +238,10 @@ export default function NewBooking() {
           discount: Number(formData.discount) || 0, // Ensure it's a number
           discountAmount: Number(formData.discountAmount) || 0, // Ensure it's a number
           isManualBooking: true,
-          isManualPayment:true,
+          isManualPayment: true,
           createdBy: session?.user?.id,
-          bookingStatus: 'CONFIRMED' // Always CONFIRMED for admin manual bookings
+          bookingStatus: 'CONFIRMED', // Always CONFIRMED for admin manual bookings
+          paymentSlipUrl: paymentSlipUrl // Add payment slip URL
         }
         console.log('Sending booking data:', bookingData) // Debug log
         const response = await axios.post('/api/bookings', bookingData)
@@ -246,6 +263,71 @@ export default function NewBooking() {
     }))
   }
 
+  const handleSlipFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      toast.error('กรุณาอัปโหลดไฟล์รูปภาพเท่านั้น (JPEG, PNG, GIF, WebP)')
+      return
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024 // 10MB
+    if (file.size > maxSize) {
+      toast.error('ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 10MB)')
+      return
+    }
+
+    setPaymentSlipFile(file)
+    
+    // Create preview
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setPaymentSlipPreview(reader.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemoveSlip = () => {
+    if (paymentSlipPreview && paymentSlipPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(paymentSlipPreview)
+    }
+    setPaymentSlipFile(null)
+    setPaymentSlipPreview(null)
+  }
+
+  const uploadPaymentSlip = async (): Promise<string | null> => {
+    if (!paymentSlipFile) return null
+
+    setUploadingSlip(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', paymentSlipFile)
+
+      const response = await axios.post('/api/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+
+      // Clean up preview URL
+      if (paymentSlipPreview && paymentSlipPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(paymentSlipPreview)
+      }
+
+      return response.data.url
+    } catch (error) {
+      console.error('Error uploading payment slip:', error)
+      toast.error('ไม่สามารถอัปโหลดรูปภาพสลิปโอนเงินได้')
+      return null
+    } finally {
+      setUploadingSlip(false)
+    }
+  }
+
   if (session === undefined) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -257,7 +339,7 @@ export default function NewBooking() {
     )
   }
 
-  if (!session || session.user?.role !== 'ADMIN') {
+  if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'OWNER')) {
     return null
   }
 
@@ -505,7 +587,7 @@ export default function NewBooking() {
                   การชำระเงินและสถานะ
                 </h2>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       ประเภทการชำระ
@@ -549,6 +631,87 @@ export default function NewBooking() {
                       <option value="CONFIRMED">ยืนยันแล้ว (ได้รับมัดจำแล้ว)</option>
                     </select>
                     <p className="mt-1 text-xs text-gray-500">การจองจากแอดมินจะเป็น CONFIRMED เสมอ เพราะได้รับมัดจำแล้ว</p>
+                  </div>
+                </div>
+
+                {/* Payment Slip Upload */}
+                <div className="border-t pt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    รูปภาพสลิปโอนเงิน
+                  </label>
+                  <div className="space-y-4">
+                    {!paymentSlipPreview ? (
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-500 transition-colors">
+                        <input
+                          type="file"
+                          id="paymentSlip"
+                          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                          onChange={handleSlipFileSelect}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="paymentSlip"
+                          className="cursor-pointer flex flex-col items-center gap-2"
+                        >
+                          <Upload className="text-gray-400" size={32} />
+                          <span className="text-sm text-gray-600">
+                            คลิกเพื่ออัปโหลดรูปภาพสลิปโอนเงิน
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            รองรับไฟล์: JPEG, PNG, GIF, WebP (สูงสุด 10MB)
+                          </span>
+                        </label>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <div className="flex items-center gap-4">
+                            <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-white border border-gray-200">
+                              <Image
+                                src={paymentSlipPreview}
+                                alt="Payment slip preview"
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-900 mb-1">
+                                {paymentSlipFile?.name || 'รูปภาพสลิปโอนเงิน'}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {(paymentSlipFile?.size || 0) / 1024 / 1024 < 1
+                                  ? `${((paymentSlipFile?.size || 0) / 1024).toFixed(2)} KB`
+                                  : `${((paymentSlipFile?.size || 0) / 1024 / 1024).toFixed(2)} MB`}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleRemoveSlip}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              title="ลบรูปภาพ"
+                            >
+                              <X size={20} />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-2">
+                          <label
+                            htmlFor="paymentSlipChange"
+                            className="inline-flex items-center gap-2 px-4 py-2 text-sm text-primary-600 hover:text-primary-700 cursor-pointer border border-primary-300 rounded-lg hover:bg-primary-50 transition-colors"
+                          >
+                            <ImageIcon size={16} />
+                            เปลี่ยนรูปภาพ
+                          </label>
+                          <input
+                            type="file"
+                            id="paymentSlipChange"
+                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                            onChange={handleSlipFileSelect}
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -18,6 +18,7 @@ export interface IPayment extends Document {
   stripeChargeId?: string
   isManualPayment?: boolean
   manualPaymentNotes?: string
+  paymentSlipUrl?: string // URL of payment slip image
   createdAt: Date
   updatedAt: Date
 }
@@ -45,6 +46,7 @@ const PaymentSchema = new Schema<IPayment>({
   stripeChargeId: { type: String, unique: true, sparse: true },
   isManualPayment: { type: Boolean, default: false },
   manualPaymentNotes: { type: String },
+  paymentSlipUrl: { type: String }, // URL of payment slip image
 }, {
   timestamps: true,
 })

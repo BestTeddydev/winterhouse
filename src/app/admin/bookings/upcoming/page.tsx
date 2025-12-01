@@ -220,7 +220,7 @@ export default function UpcomingBookings() {
     )
   }
 
-  if (!session || !session.user || session.user.role !== 'ADMIN') {
+  if (!session || !session.user || (session.user.role !== 'ADMIN' && session.user.role !== 'OWNER')) {
     return null
   }
 
