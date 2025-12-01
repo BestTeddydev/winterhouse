@@ -88,7 +88,11 @@ ${booking.discountAmount > 0 ? `ส่วนลด: ฿${booking.discountAmount.
 
 🆔 เลขที่การจอง: ${booking._id?.toString().slice(-8) || 'N/A'}
 
+📞 หากมีคำถาม กรุณาติดต่อเราได้ที่:
+📧 ${process.env.ADMIN_EMAIL || 'baanlomnowcafeandcamping@gmail.com'}
+📱 ${process.env.ADMIN_PHONE || '064-553-5691, 064-554-6591'}
 
+เราหวังว่าจะได้ต้อนรับคุณในเร็วๆ นี้! 🏡✨
   `.trim()
 }
 
