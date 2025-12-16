@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { X, Plus, Edit, Trash2, Upload, Building2, MapPin } from 'lucide-react'
 import axios from 'axios'
@@ -13,6 +13,7 @@ interface BuildingHotspot {
   buildingName: string
   buildingType: string
   rooms: string[] // Array of room IDs
+  campingBlocks?: string[] // Array of camping block IDs
   description: string
   facilities: string[]
 }
@@ -21,36 +22,46 @@ interface SiteMapEditorProps {
   imageUrl: string
   hotspots: BuildingHotspot[]
   availableRooms: { id: string; name: string }[]
+  availableCampingBlocks?: { id: string; name: string }[]
   onChange: (hotspots: BuildingHotspot[]) => void
   onImageUpload: (file: File) => Promise<string>
+  mapType?: 'accommodation' | 'camping' // ประเภทแผนผัง
 }
 
 export default function SiteMapEditor({
   imageUrl,
   hotspots,
   availableRooms,
+  availableCampingBlocks = [],
   onChange,
   onImageUpload,
+  mapType = 'accommodation',
 }: SiteMapEditorProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [isAddingHotspot, setIsAddingHotspot] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null)
   const imageRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleImageClick = async (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isAddingHotspot) return
+    // ไม่ให้เพิ่ม hotspot ถ้ากำลังลาก hotspot อยู่
+    if (!isAddingHotspot || draggingIndex !== null) return
 
     const rect = e.currentTarget.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
 
     try {
-      // สร้าง Building จริงในฐานข้อมูล
+      // สร้าง Building/Camping Spot จริงในฐานข้อมูล
+      const defaultName = mapType === 'camping' ? 'จุดกางเต๊นท์ใหม่' : 'อาคารใหม่'
+      const defaultBuildingType = mapType === 'camping' ? 'camping' : 'accommodation'
+      
       const buildingResponse = await axios.post('/api/buildings', {
-        name: 'อาคารใหม่',
+        name: defaultName,
         description: 'คลิกเพื่อแก้ไข',
-        buildingType: 'accommodation',
+        buildingType: defaultBuildingType,
         facilities: [],
         x,
         y,
@@ -65,6 +76,7 @@ export default function SiteMapEditor({
         buildingName: newBuilding.name,
         buildingType: newBuilding.buildingType,
         rooms: [],
+        campingBlocks: mapType === 'camping' ? [] : undefined, // Initialize empty array for camping
         description: newBuilding.description,
         facilities: newBuilding.facilities,
       }
@@ -73,10 +85,16 @@ export default function SiteMapEditor({
       setSelectedIndex(hotspots.length)
       setIsAddingHotspot(false)
       
-      toast.success('สร้างอาคารใหม่สำเร็จ')
+      const successMessage = mapType === 'camping' 
+        ? 'สร้างจุดกางเต๊นท์ใหม่สำเร็จ' 
+        : 'สร้างอาคารใหม่สำเร็จ'
+      toast.success(successMessage)
     } catch (error) {
       console.error('Error creating building:', error)
-      toast.error('ไม่สามารถสร้างอาคารใหม่ได้')
+      const errorMessage = mapType === 'camping' 
+        ? 'ไม่สามารถสร้างจุดกางเต๊นท์ใหม่ได้' 
+        : 'ไม่สามารถสร้างอาคารใหม่ได้'
+      toast.error(errorMessage)
     }
   }
 
@@ -101,6 +119,87 @@ export default function SiteMapEditor({
       toast.error('ไม่สามารถอัปเดตอาคารได้')
     }
   }
+
+  // Handle hotspot drag and drop
+  const handleHotspotMouseDown = (e: React.MouseEvent<HTMLButtonElement>, index: number) => {
+    e.stopPropagation()
+    setSelectedIndex(index)
+    setDraggingIndex(index)
+    
+    const hotspot = hotspots[index]
+    const rect = imageRef.current?.getBoundingClientRect()
+    if (!rect) return
+    
+    // คำนวณ offset จากจุดคลิกไปยังตำแหน่ง hotspot
+    const hotspotX = (hotspot.x / 100) * rect.width
+    const hotspotY = (hotspot.y / 100) * rect.height
+    const offsetX = e.clientX - rect.left - hotspotX
+    const offsetY = e.clientY - rect.top - hotspotY
+    
+    setDragOffset({ x: offsetX, y: offsetY })
+  }
+
+  // Add event listeners for drag and drop
+  useEffect(() => {
+    if (draggingIndex === null || dragOffset === null) return
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!imageRef.current) return
+      
+      const rect = imageRef.current.getBoundingClientRect()
+      const x = ((e.clientX - rect.left - dragOffset.x) / rect.width) * 100
+      const y = ((e.clientY - rect.top - dragOffset.y) / rect.height) * 100
+      
+      // จำกัดตำแหน่งให้อยู่ในขอบเขต
+      const clampedX = Math.max(0, Math.min(100, x))
+      const clampedY = Math.max(0, Math.min(100, y))
+      
+      // อัปเดตตำแหน่ง hotspot แบบ real-time
+      const newHotspots = [...hotspots]
+      newHotspots[draggingIndex] = {
+        ...newHotspots[draggingIndex],
+        x: clampedX,
+        y: clampedY,
+      }
+      onChange(newHotspots)
+    }
+
+    const handleMouseUp = async () => {
+      // อัปเดตตำแหน่งในฐานข้อมูล
+      const currentHotspot = hotspots[draggingIndex]
+      const currentHotspots = [...hotspots]
+      
+      try {
+        // อัปเดต state ก่อน
+        await onChange(currentHotspots)
+        
+        // อัปเดตในฐานข้อมูล
+        await axios.put(`/api/buildings/${currentHotspot.id}`, {
+          name: currentHotspot.buildingName,
+          description: currentHotspot.description,
+          buildingType: currentHotspot.buildingType,
+          facilities: currentHotspot.facilities,
+          x: currentHotspot.x,
+          y: currentHotspot.y,
+        })
+        toast.success('ย้ายตำแหน่งสำเร็จ')
+      } catch (error) {
+        console.error('Error updating hotspot position:', error)
+        toast.error('ไม่สามารถย้ายตำแหน่งได้')
+      }
+      
+      setDraggingIndex(null)
+      setDragOffset(null)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [draggingIndex, dragOffset, hotspots, onChange])
 
   const handleDeleteHotspot = async (index: number) => {
     if (!confirm('ต้องการลบจุดนี้ใช่หรือไม่?')) return
@@ -188,14 +287,67 @@ export default function SiteMapEditor({
     }
   }
 
-  const buildingTypes = [
-    { value: 'accommodation', label: 'ที่พัก', icon: '🏠' },
-    { value: 'cafe', label: 'คาเฟ่', icon: '☕' },
-    { value: 'restaurant', label: 'ร้านอาหาร', icon: '🍽️' },
-    { value: 'facility', label: 'สิ่งอำนวยความสะดวก', icon: '🏢' },
-    { value: 'parking', label: 'ที่จอดรถ', icon: '🚗' },
-    { value: 'garden', label: 'สวน', icon: '🌳' },
-  ]
+  const handleCampingBlockToggle = async (hotspotIndex: number, blockId: string) => {
+    const hotspot = hotspots[hotspotIndex]
+    const currentBlocks = hotspot.campingBlocks || []
+    const isCurrentlyLinked = currentBlocks.includes(blockId)
+    
+    try {
+      if (isCurrentlyLinked) {
+        // Unlink camping block from building
+        const response = await axios.put(`/api/camping-blocks/${blockId}`, {
+          buildingId: null
+        })
+        
+        if (response.data) {
+          toast.success('ยกเลิกการผูกบล็อคกางเต๊นท์กับจุดสำเร็จ')
+        } else {
+          toast.error('ไม่สามารถยกเลิกการผูกบล็อคกางเต๊นท์ได้')
+          return
+        }
+      } else {
+        // Link camping block to building
+        const response = await axios.put(`/api/camping-blocks/${blockId}`, {
+          buildingId: hotspot.id
+        })
+        
+        if (response.data) {
+          toast.success('ผูกบล็อคกางเต๊นท์กับจุดสำเร็จ')
+        } else {
+          toast.error('ไม่สามารถผูกบล็อคกางเต๊นท์ได้')
+          return
+        }
+      }
+      
+      // Update local state
+      const newBlocks = isCurrentlyLinked
+        ? currentBlocks.filter((id) => id !== blockId)
+        : [...currentBlocks, blockId]
+      
+      handleHotspotUpdate(hotspotIndex, { campingBlocks: newBlocks })
+      
+    } catch (error) {
+      console.error('Error toggling camping block link:', error)
+      toast.error('ไม่สามารถอัปเดตการผูกบล็อคกางเต๊นท์ได้')
+    }
+  }
+
+  const buildingTypes = mapType === 'camping' 
+    ? [
+        { value: 'camping', label: 'จุดกางเต๊นท์', icon: '🏕️' },
+        { value: 'facility', label: 'สิ่งอำนวยความสะดวก', icon: '🏢' },
+        { value: 'bathroom', label: 'ห้องน้ำ', icon: '🚿' },
+        { value: 'parking', label: 'ที่จอดรถ', icon: '🚗' },
+        { value: 'garden', label: 'สวน', icon: '🌳' },
+      ]
+    : [
+        { value: 'accommodation', label: 'ที่พัก', icon: '🏠' },
+        { value: 'cafe', label: 'คาเฟ่', icon: '☕' },
+        { value: 'restaurant', label: 'ร้านอาหาร', icon: '🍽️' },
+        { value: 'facility', label: 'สิ่งอำนวยความสะดวก', icon: '🏢' },
+        { value: 'parking', label: 'ที่จอดรถ', icon: '🚗' },
+        { value: 'garden', label: 'สวน', icon: '🌳' },
+      ]
 
   return (
     <div className="space-y-6">
@@ -232,7 +384,7 @@ export default function SiteMapEditor({
             ) : (
               <>
                 <Plus size={16} />
-                เพิ่มอาคาร
+                เพิ่ม{mapType === 'camping' ? 'จุดกางเต๊นท์' : 'อาคาร'}
               </>
             )}
           </button>
@@ -251,14 +403,16 @@ export default function SiteMapEditor({
         {/* Map Image with Hotspots */}
         <div
           ref={imageRef}
-          className={`relative w-full h-[600px] border-4 rounded-xl overflow-hidden shadow-lg`}
+          className={`relative w-full border-4 rounded-xl overflow-hidden shadow-lg ${
+            mapType === 'camping' ? 'aspect-[16/9] max-h-[500px]' : 'h-[600px]'
+          }`}
           onClick={handleImageClick}
         >
           <Image 
             src={imageUrl || '/placeholder-map.jpg'} 
-            alt="Site Map" 
+            alt={mapType === 'camping' ? 'แผนผังลานกางเต๊นท์' : 'แผนผังอาคาร'}
             fill 
-            className="object-contain bg-gray-100" 
+            className={mapType === 'camping' ? 'object-cover bg-gray-100' : 'object-contain bg-gray-100'}
           />
 
           {/* Building Hotspots */}
@@ -276,16 +430,29 @@ export default function SiteMapEditor({
                 type="button"
                 className={`relative group ${
                   selectedIndex === index ? 'z-20' : 'z-10'
-                }`}
+                } ${draggingIndex === index ? 'cursor-move' : 'cursor-pointer'}`}
+                onMouseDown={(e) => {
+                  if (!isAddingHotspot) {
+                    handleHotspotMouseDown(e, index)
+                  }
+                }}
                 onClick={(e) => {
+                  // ไม่ให้ trigger ถ้ากำลังลากอยู่
+                  if (draggingIndex === index) {
+                    e.stopPropagation()
+                    return
+                  }
                   e.stopPropagation()
                   setSelectedIndex(index)
                 }}
+                title="ลากเพื่อย้ายตำแหน่ง หรือคลิกเพื่อเลือก"
               >
                 {/* Building Marker - Simple Dot */}
                 <div
                   className={`w-4 h-4 rounded-full border-2 border-white shadow-lg transition-all duration-300 ${
-                    selectedIndex === index
+                    draggingIndex === index
+                      ? 'bg-yellow-500 scale-150 ring-4 ring-yellow-300 animate-pulse'
+                      : selectedIndex === index
                       ? 'bg-red-500 scale-150 ring-4 ring-red-200'
                       : 'bg-primary-500 hover:scale-125 hover:ring-4 hover:ring-primary-200'
                   }`}
@@ -319,7 +486,7 @@ export default function SiteMapEditor({
               <div className="bg-white px-6 py-3 rounded-xl shadow-lg border-2 border-primary-500 animate-pulse">
                 <p className="font-semibold text-gray-900 flex items-center gap-2">
                   <MapPin size={20} className="text-primary-600 animate-bounce" />
-                  คลิกจุดใดๆ บนแผนผังเพื่อเพิ่มอาคารใหม่
+                  คลิกจุดใดๆ บนแผนผังเพื่อเพิ่ม{mapType === 'camping' ? 'จุดกางเต๊นท์' : 'อาคาร'}ใหม่
                 </p>
               </div>
             </div>
@@ -342,7 +509,7 @@ export default function SiteMapEditor({
             <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center text-gray-500">
               <Building2 className="mx-auto mb-4 text-gray-400" size={48} />
               <p className="font-semibold">ยังไม่มีอาคาร</p>
-              <p className="text-sm mt-2">คลิกปุ่ม "เพิ่มอาคาร" เพื่อเริ่มต้น</p>
+              <p className="text-sm mt-2">คลิกปุ่ม "เพิ่ม{mapType === 'camping' ? 'จุดกางเต๊นท์' : 'อาคาร'}" เพื่อเริ่มต้น</p>
             </div>
           ) : (
             hotspots.map((hotspot, index) => (
@@ -466,6 +633,41 @@ export default function SiteMapEditor({
                       </div>
                     )}
 
+                    {/* Camping Blocks Selection */}
+                    {hotspot.buildingType === 'camping' && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          บล็อคกางเต๊นท์ในจุดนี้
+                        </label>
+                        <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
+                          {availableCampingBlocks.length === 0 ? (
+                            <p className="text-sm text-gray-500 text-center py-2">
+                              ยังไม่มีบล็อคกางเต๊นท์ กรุณาสร้างบล็อคกางเต๊นท์ก่อน
+                            </p>
+                          ) : (
+                            <div className="space-y-2">
+                              {availableCampingBlocks.map((block) => (
+                                <label
+                                  key={block.id}
+                                  className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={(hotspot.campingBlocks || []).includes(block.id)}
+                                    onChange={() => handleCampingBlockToggle(index, block.id)}
+                                    className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                                  />
+                                  <span className="text-sm font-medium text-gray-700">
+                                    {block.name}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Position Info */}
                     <div className="text-xs text-gray-500 bg-gray-100 p-3 rounded-lg">
                       <p>📍 ตำแหน่ง: X: {hotspot.x.toFixed(2)}%, Y: {hotspot.y.toFixed(2)}%</p>
@@ -485,6 +687,21 @@ export default function SiteMapEditor({
                               className="px-2 py-1 bg-primary-100 text-primary-700 text-xs rounded-full font-medium"
                             >
                               {room.name}
+                            </span>
+                          ) : null
+                        })}
+                      </div>
+                    )}
+                    {hotspot.campingBlocks && hotspot.campingBlocks.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {hotspot.campingBlocks.map((blockId) => {
+                          const block = availableCampingBlocks.find((b) => b.id === blockId)
+                          return block ? (
+                            <span
+                              key={blockId}
+                              className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium"
+                            >
+                              {block.name}
                             </span>
                           ) : null
                         })}

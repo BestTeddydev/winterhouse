@@ -36,11 +36,34 @@ export async function sendLineNotification({ userId, message }: LineNotification
 
 export function formatBookingNotification(booking: any) {
   // Get room names (support both single and multiple rooms)
-  let roomNames = 'N/A'
+  let roomNames = ''
   if (booking.roomIds && booking.roomIds.length > 0) {
     roomNames = booking.roomIds.map((r: any) => r?.name || 'N/A').join(', ')
   } else if (booking.roomId) {
     roomNames = booking.roomId?.name || 'N/A'
+  }
+  
+  // Get camping block names with guest counts (support both single and multiple blocks)
+  let campingBlockNames = ''
+  if (booking.campingBlockIds && booking.campingBlockIds.length > 0) {
+    const blockNames = booking.campingBlockIds.map((block: any, index: number) => {
+      const guestCount = booking.guestCounts && booking.guestCounts[index]
+        ? booking.guestCounts[index]
+        : booking.guestCount || block.minCapacity || 1
+      return `${block?.name || 'N/A'} (${guestCount} คน)`
+    })
+    campingBlockNames = blockNames.join(', ')
+  } else if (booking.campingBlockId) {
+    const guestCount = booking.guestCount || booking.campingBlockId.minCapacity || 1
+    campingBlockNames = `${booking.campingBlockId?.name || 'N/A'} (${guestCount} คน)`
+  }
+  
+  // Determine booking type for header
+  let bookingTypeHeader = '🏠 การจองห้องพักใหม่'
+  if (roomNames && campingBlockNames) {
+    bookingTypeHeader = '🏠 การจองห้องพักและบล็อคกางเต๊นท์ใหม่'
+  } else if (campingBlockNames && !roomNames) {
+    bookingTypeHeader = '🏕️ การจองบล็อคกางเต๊นท์ใหม่'
   }
   
   const checkInDate = new Date(booking.checkIn).toLocaleDateString('th-TH', {
@@ -57,25 +80,32 @@ export function formatBookingNotification(booking: any) {
   const nights = Math.ceil((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / (1000 * 60 * 60 * 24))
   
   // Format payment type
-  const paymentTypeText = booking.paymentType === 'PARTIAL' ? 'จ่ายบางส่วน' : 'จ่ายเต็มจำนวน'
+  const paymentTypeText = booking.paymentType === 'PARTIAL' ? 'จ่ายบางส่วน(50%)' : 'จ่ายเต็มจำนวน'
   
   // Format booking source
   const bookingSource = booking.isManualBooking ? '📝 Admin สร้าง' : '🌐 ลูกค้าสร้าง'
   
+  // Build booking details section
+  let bookingDetails = '📋 รายละเอียดการจอง:\n'
+  if (roomNames) {
+    bookingDetails += `🏠 ห้อง: ${roomNames}\n`
+  }
+  if (campingBlockNames) {
+    bookingDetails += `🏕️ บล็อคกางเต๊นท์: ${campingBlockNames}\n`
+  }
+  
   return `
-🏠 การจองห้องพักใหม่
+${bookingTypeHeader}
 
 ${bookingSource}
 
-📋 รายละเอียดการจอง:
-ห้อง: ${roomNames}
-ผู้จอง: ${booking.guestName}
+${bookingDetails}ผู้จอง: ${booking.guestName}
 📧 อีเมล: ${booking.guestEmail || 'N/A'}
 📱 เบอร์โทร: ${booking.guestPhone || 'N/A'}
 
 📅 วันที่เข้าพัก:
-เช็คอิน: ${checkInDate}
-เช็คเอาท์: ${checkOutDate}
+เช็คอิน: ${checkInDate} เวลา 14:00 น.
+เช็คเอาท์: ${checkOutDate} เวลา 12:00 น.
 จำนวนคืน: ${nights} คืน
 
 💰 ราคา:

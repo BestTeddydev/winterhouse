@@ -35,7 +35,8 @@ import {
   ChevronRight,
   ChevronDown,
   X,
-  Download
+  Download,
+  Tent
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -435,9 +436,32 @@ export default function AdminBookings() {
               ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
               : booking.room?.name || 'N/A'
             
+            // Get camping block name(s) with guest counts
+            let campingBlockNames = ''
+            if (booking.campingBlocks && booking.campingBlocks.length > 0) {
+              const blockNames = booking.campingBlocks.map((block: any, index: number) => {
+                const guestCount = booking.guestCounts && booking.guestCounts[index] 
+                  ? booking.guestCounts[index] 
+                  : booking.guestCount || block.minCapacity || 1
+                return `${block?.name || 'N/A'} (${guestCount} คน)`
+              })
+              campingBlockNames = blockNames.join(', ')
+            } else if (booking.campingBlock) {
+              const guestCount = booking.guestCount || booking.campingBlock.minCapacity || 1
+              campingBlockNames = `${booking.campingBlock?.name || 'N/A'} (${guestCount} คน)`
+            }
+            
+            // Combine room and camping block names
+            const allNames = [roomNames !== 'N/A' ? `🏠 ${roomNames}` : null, campingBlockNames ? `🏕️ ${campingBlockNames}` : null]
+              .filter(Boolean)
+              .join(' | ') || 'N/A'
+            
             // Format dates
             const checkInDate = booking.checkIn ? formatDate(booking.checkIn) : 'N/A'
             const checkOutDate = booking.checkOut ? formatDate(booking.checkOut) : 'N/A'
+            
+            // Use combined names for display
+            const displayNames = allNames
             
             // Get guest information
             const guestName = booking.guestName || 'N/A'
@@ -474,7 +498,14 @@ export default function AdminBookings() {
 
             textContent += `การจองที่ ${globalIndex}\n`
             textContent += '-'.repeat(80) + '\n'
-            textContent += `ห้องพัก: ${roomNames}\n`
+            if (roomNames !== 'N/A' && campingBlockNames) {
+              textContent += `ห้องพัก: ${roomNames}\n`
+              textContent += `บล็อคกางเต๊นท์: ${campingBlockNames}\n`
+            } else if (roomNames !== 'N/A') {
+              textContent += `ห้องพัก: ${roomNames}\n`
+            } else if (campingBlockNames) {
+              textContent += `บล็อคกางเต๊นท์: ${campingBlockNames}\n`
+            }
             textContent += `ชื่อลูกค้า: ${guestName}\n`
             textContent += `เบอร์ติดต่อ: ${guestPhone}\n`
             textContent += `อีเมล: ${guestEmail}\n`
@@ -907,7 +938,7 @@ export default function AdminBookings() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสการจอง</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ห้องพัก</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ห้องพัก / บล็อคกางเต๊นท์</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ลูกค้า</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เช็คอิน</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เช็คเอาท์</th>
@@ -931,35 +962,68 @@ export default function AdminBookings() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm font-mono text-gray-900">{booking.id?.slice(0, 8) || 'N/A'}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 relative rounded-lg overflow-hidden flex-shrink-0">
-                            <Image
-                              src={booking.room?.imageUrls?.[0] || '/placeholder-room.jpg'}
-                              alt={booking.room?.name || 'Room'}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {booking.rooms && booking.rooms.length > 0
-                                ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
-                                : booking.room?.name || 'N/A'}
+                      <td className="px-6 py-4">
+                        <div className="space-y-2">
+                          {/* Rooms */}
+                          {((booking.rooms && booking.rooms.length > 0) || booking.room) && (
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 relative rounded-lg overflow-hidden flex-shrink-0">
+                                <Image
+                                  src={booking.room?.imageUrls?.[0] || booking.rooms?.[0]?.imageUrls?.[0] || '/placeholder-room.jpg'}
+                                  alt={booking.room?.name || booking.rooms?.[0]?.name || 'Room'}
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-gray-900 flex items-center gap-1">
+                                  <MapPin size={14} />
+                                  {booking.rooms && booking.rooms.length > 0
+                                    ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
+                                    : booking.room?.name || 'N/A'}
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                              {booking.isManualBooking ? (
-                                <>
-                                  <UserCog size={12} />
-                                  Admin
-                                </>
-                              ) : (
-                                <>
-                                  <ShoppingCart size={12} />
-                                  Customer
-                                </>
-                              )}
+                          )}
+                          
+                          {/* Camping Blocks */}
+                          {((booking.campingBlocks && booking.campingBlocks.length > 0) || booking.campingBlock) && (
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 relative rounded-lg overflow-hidden flex-shrink-0 bg-green-100 flex items-center justify-center">
+                                <Tent size={24} className="text-green-600" />
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-gray-900 flex items-center gap-1">
+                                  <Tent size={14} />
+                                  {booking.campingBlocks && booking.campingBlocks.length > 0
+                                    ? booking.campingBlocks.map((block: any, index: number) => {
+                                        const guestCount = booking.guestCounts && booking.guestCounts[index]
+                                          ? booking.guestCounts[index]
+                                          : booking.guestCount || block.minCapacity || 1
+                                        return `${block?.name || 'N/A'} (${guestCount} คน)`
+                                      }).join(', ')
+                                    : (() => {
+                                        const guestCount = booking.guestCount || booking.campingBlock?.minCapacity || 1
+                                        return `${booking.campingBlock?.name || 'N/A'} (${guestCount} คน)`
+                                      })()}
+                                </div>
+                              </div>
                             </div>
+                          )}
+                          
+                          {/* Booking Source */}
+                          <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                            {booking.isManualBooking ? (
+                              <>
+                                <UserCog size={12} />
+                                Admin
+                              </>
+                            ) : (
+                              <>
+                                <ShoppingCart size={12} />
+                                Customer
+                              </>
+                            )}
                           </div>
                         </div>
                       </td>

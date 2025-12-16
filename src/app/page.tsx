@@ -207,19 +207,19 @@ export default function Home() {
           <div className="animate-fade-in-up">
             <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white px-6 py-3 rounded-full text-sm font-semibold mb-6 animate-bounce">
               <Sparkles size={16} />
-              วังน้ำเขียว • คาเฟ่ แอนด์ แคมป์ปิ้ง
+              วังน้ำเขียว • เขาแผงม้า • นครราชสีมา
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight animate-fade-in-up delay-300">
-              <span className="bg-gradient-to-r from-white via-green-100 to-white bg-clip-text text-transparent">
+            <h1 className=" font-bold mb-6 leading-tight animate-fade-in-up delay-300">
+              <span className="text-5xl md:text-7xl bg-gradient-to-r from-white via-green-100 to-white bg-clip-text text-transparent">
                 บ้านลมหนาว
               </span>
               <br />
-              <span className="text-white">คาเฟ่ แอนด์ แคมป์ปิ้ง</span>
+              <span className="text-white text-2xl md:text-4xl">คาเฟ่ แอนด์ แคมป์ปิ้ง</span>
             </h1>
             
-            <p className="text-xl md:text-2xl mb-8 text-gray-100 font-medium animate-fade-in-up delay-500 max-w-3xl mx-auto">
-              คาเฟ่และห้องพักสุดพิเศษที่วังน้ำเขียว พร้อมลานกางเต้นท์ในบรรยากาศธรรมชาติ
+            <p className="text-lg md:text-xl mb-8 text-gray-100 font-medium animate-fade-in-up delay-500 max-w-3xl mx-auto">
+              คาเฟ่และห้องพักออกแบบด้วยไม้ไผ่ให้ความอบอุ่นของธรรมชาติในสไตล์บาหลีซึ่งตั้งอยู่เนินเขาเห็นวิว 360• และ สามารถเห็นกระทิงได้จากที่พัก
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-up delay-700">
@@ -228,14 +228,14 @@ export default function Home() {
                 className="group bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-8 py-4 rounded-xl text-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 hover:scale-105 hover:shadow-2xl"
               >
                 <HomeIcon size={24} className="group-hover:rotate-12 transition-transform duration-300" />
-                ดูห้องพัก
+                ห้องพัก
               </Link>
               <Link
                 href="#cafe"
                 className="group bg-white/20 hover:bg-white/30 text-white px-8 py-4 rounded-xl text-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 backdrop-blur-sm hover:scale-105 hover:shadow-xl border border-white/30"
               >
                 <Coffee size={24} className="group-hover:rotate-12 transition-transform duration-300" />
-                คาเฟ่ วังน้ำเขียว
+                คาเฟ่
               </Link>
               <Link
                 href="#atv"
@@ -382,7 +382,7 @@ export default function Home() {
               className="inline-flex items-center gap-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-8 py-4 rounded-2xl text-lg font-semibold transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
             >
               <HomeIcon size={24} />
-              ดูห้องพักทั้งหมด วังน้ำเขียว
+              ดูห้องพักทั้งหมด
               <ArrowRight size={20} />
             </Link>
           </div>
@@ -402,13 +402,13 @@ export default function Home() {
           <div className={`text-center mb-20 transition-all duration-1000 ${cafeSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
             <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 px-6 py-3 rounded-full text-sm font-semibold mb-8 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
               <Coffee size={16} className="animate-bounce" />
-              คาเฟ่ วังน้ำเขียว
+              คาเฟ่
             </div>
             <h2 className="text-5xl md:text-6xl font-bold text-gray-800 mb-8 leading-tight">
               บ้านลมหนาว <span className="bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">คาเฟ่</span>
             </h2>
-            <p className="text-xl md:text-2xl text-gray-600 max-w-4xl mx-auto leading-relaxed">
-              คาเฟ่สุดพิเศษที่วังน้ำเขียว พร้อมกาแฟสด เครื่องดื่มหลากหลาย และอาหารอร่อยในบรรยากาศธรรมชาติที่สมบูรณ์แบบ
+            <p className="text-lg md:text-xl text-gray-600 max-w-4xl mx-auto leading-relaxed">
+              คาเฟ่ไม้ไผ่  bamboo ที่ตั้งตะหง่านโดดเด่นบนเนินเขาเห็นวิว 360• ที่สามารถจิบกาแฟชมกระทิงยามเย็นและวิวทะเลหมอกยามเช้า
             </p>
           </div>
 
@@ -541,9 +541,11 @@ export default function Home() {
             <p className="text-xl md:text-2xl text-gray-600 max-w-4xl mx-auto leading-relaxed mb-6">
               สนุกสนานไปกับการขับ ATV ชมกระทิงในธรรมชาติที่สวยงาม
             </p>
-            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-4 rounded-2xl text-2xl font-bold shadow-xl">
-              <Star size={24} className="fill-white" />
-              ราคา: 650฿/ชม. ต่อคัน
+            <div className="items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-4 rounded-2xl text-2xl font-bold shadow-xl">
+              <p>รถขนาดเล็ก: 650฿/ชม. ต่อคัน (1 คน)</p>
+              <p>รถขนาดกลาง: 750฿/ชม. ต่อคัน (2 คน)</p>
+              <p>รถขนาดใหญ่: 850฿/ชม. ต่อคัน (2-3 คน)</p>
+            
             </div>
           </div>
 

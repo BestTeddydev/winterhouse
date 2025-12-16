@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Booking from '@/models/Booking'
+import RoomBlock from '@/models/RoomBlock'
 import mongoose from 'mongoose'
 
 export async function GET(
@@ -46,6 +47,16 @@ export async function GET(
       availability[dateStr] = 'available'
     }
     
+    // Get room blocks (locks) for this room
+    const roomBlocks = await RoomBlock.find({
+      roomId: new mongoose.Types.ObjectId(roomId),
+      isActive: true,
+      $and: [
+        { startDate: { $lt: endDate } },
+        { endDate: { $gt: startDate } }
+      ]
+    }).select('startDate endDate')
+    
     // Mark booked dates
     // Mark dates as booked from check-in day to check-out day (exclusive)
     // This allows new guests to check-in on the same day as previous guest's check-out
@@ -60,6 +71,21 @@ export async function GET(
         const dateStr = current.toISOString().split('T')[0]
         if (availability[dateStr]) {
           availability[dateStr] = 'booked'
+        }
+        current.setDate(current.getDate() + 1)
+      }
+    })
+    
+    // Mark blocked dates (room locks)
+    roomBlocks.forEach(block => {
+      const blockStart = new Date(block.startDate)
+      const blockEnd = new Date(block.endDate)
+      
+      const current = new Date(blockStart)
+      while (current < blockEnd) {
+        const dateStr = current.toISOString().split('T')[0]
+        if (availability[dateStr]) {
+          availability[dateStr] = 'booked' // Mark as booked (unavailable)
         }
         current.setDate(current.getDate() + 1)
       }

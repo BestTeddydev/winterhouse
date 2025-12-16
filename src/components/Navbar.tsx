@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useRef } from 'react'
 import { Home, Calendar, User, LogOut, Settings, Coffee, Bed, Phone, Menu, X, Clock, LayoutDashboard } from 'lucide-react'
@@ -50,13 +49,23 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-20 sm:h-24 min-h-[80px]">
           <Link href="/" className="flex items-center hover:opacity-90 transition-opacity duration-200 group">
             <div className="relative overflow-hidden rounded-lg shadow-md group-hover:shadow-lg transition-shadow duration-200">
-              <Image
+              <img
                 src="/logo.jpeg"
                 alt="บ้านลมหนาว คาเฟ่ แอนด์ แคมป์ปิ้ง"
-                width={320}
-                height={80}
                 className="h-14 sm:h-16 md:h-18 w-auto object-cover"
-                priority
+                style={{ maxWidth: '320px' }}
+                onError={(e) => {
+                  console.error('Logo image failed to load')
+                  // Fallback: show text if image fails
+                  const target = e.target as HTMLImageElement
+                  if (target && target.parentElement) {
+                    target.style.display = 'none'
+                    const fallback = document.createElement('div')
+                    fallback.className = 'text-primary-600 font-bold text-xl px-4 py-2 whitespace-nowrap'
+                    fallback.textContent = 'บ้านลมหนาว'
+                    target.parentElement.appendChild(fallback)
+                  }
+                }}
               />
             </div>
           </Link>

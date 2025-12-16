@@ -3,7 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose'
 export interface IBuilding extends Document {
   name: string
   description: string
-  buildingType: 'accommodation' | 'cafe' | 'restaurant' | 'facility' | 'parking' | 'garden'
+  buildingType: 'accommodation' | 'cafe' | 'restaurant' | 'facility' | 'parking' | 'garden' | 'camping'
   facilities: string[]
   x: number
   y: number
@@ -25,7 +25,7 @@ const BuildingSchema = new Schema<IBuilding>({
   },
   buildingType: {
     type: String,
-    enum: ['accommodation', 'cafe', 'restaurant', 'facility', 'parking', 'garden'],
+    enum: ['accommodation', 'cafe', 'restaurant', 'facility', 'parking', 'garden', 'camping'],
     default: 'accommodation',
     required: true
   },

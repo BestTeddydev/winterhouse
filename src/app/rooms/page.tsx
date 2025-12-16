@@ -26,11 +26,13 @@ import {
   ChevronRight,
   Clock,
   CheckCircle,
-  XCircle
+  XCircle,
+  Plus,
+  MinusCircle
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { getRoomPriceForDate, getDayType, formatPrice, getDayTypeLabel } from '@/lib/pricing'
+import { getRoomPriceForDate, getDayType, formatPrice, getDayTypeLabel, parseLocalDate } from '@/lib/pricing'
 
 interface Room {
   id: string
@@ -68,6 +70,7 @@ interface BuildingHotspot {
   buildingName: string
   buildingType: string
   rooms: string[]
+  campingBlocks?: string[]
   description: string
   facilities: string[]
 }
@@ -81,8 +84,15 @@ export default function RoomsPage() {
   const { data: session } = useSession()
   const router = useRouter()
   const [rooms, setRooms] = useState<Room[]>([])
+  const [campingBlocks, setCampingBlocks] = useState<any[]>([])
+  const [roomBlocks, setRoomBlocks] = useState<any[]>([]) // สำหรับเก็บข้อมูลการล็อคห้อง
+  const [campingBlockBlocks, setCampingBlockBlocks] = useState<any[]>([]) // สำหรับเก็บข้อมูลการล็อคบล็อคกางเต๊นท์
   const [siteMap, setSiteMap] = useState<SiteMapData>({ imageUrl: '', hotspots: [] })
+  const [mapType, setMapType] = useState<'accommodation' | 'camping'>('accommodation')
   const [showInfoModal, setShowInfoModal] = useState(false)
+  const [selectedCampingBlock, setSelectedCampingBlock] = useState<any | null>(null)
+  const [selectedGuestCount, setSelectedGuestCount] = useState<{ [blockId: string]: number }>({})
+  const [selectedCampingBlocks, setSelectedCampingBlocks] = useState<Array<{ block: any; guestCount: number }>>([])
   
   // Function to calculate and display price based on selected date
   const getRoomDisplayPrice = (room: Room): { price: number; dayType: string; formattedPrice: string } => {
@@ -97,10 +107,21 @@ export default function RoomsPage() {
     
     // Use the room object with pricing
     const roomWithPricing = room as any
-    const checkIn = new Date(checkInDate)
+    // Use parseLocalDate to avoid timezone issues
+    const checkIn = parseLocalDate(checkInDate)
+    
+    // Debug: Log the date being checked
+    const year = checkIn.getFullYear()
+    const month = String(checkIn.getMonth() + 1).padStart(2, '0')
+    const day = String(checkIn.getDate()).padStart(2, '0')
+    const dateStr = `${year}-${month}-${day}`
+    console.log(`[Price Check] Checking date: ${dateStr}, Day of week: ${checkIn.getDay()}`)
+    
     const price = getRoomPriceForDate(roomWithPricing, checkIn)
     const dayType = getDayType(checkIn)
     const dayTypeLabel = getDayTypeLabel(dayType)
+    
+    console.log(`[Price Check] Day type: ${dayType}, Price: ${price}`)
     
     return {
       price,
@@ -115,7 +136,8 @@ export default function RoomsPage() {
     
     const roomWithPricing = room as any
     let total = 0
-    const checkIn = new Date(checkInDate)
+    // Use parseLocalDate to avoid timezone issues
+    const checkIn = parseLocalDate(checkInDate)
     
     for (let i = 0; i < nights; i++) {
       const currentDate = new Date(checkIn)
@@ -168,6 +190,69 @@ export default function RoomsPage() {
     setShowInfoModal(true)
   }, [])
 
+  // Reload site map and camping blocks when map type changes
+  useEffect(() => {
+    const fetchSiteMap = async () => {
+      try {
+        const apiCalls: Promise<any>[] = [
+          axios.get(`/api/site-map?type=${mapType}`)
+        ]
+        
+        if (mapType === 'camping') {
+          apiCalls.push(axios.get('/api/camping-blocks'))
+          // Fetch camping block blocks (locks)
+          try {
+            const campingBlockBlocksResponse = await axios.get('/api/camping-block-blocks?activeOnly=true')
+            setCampingBlockBlocks(campingBlockBlocksResponse.data || [])
+          } catch (error) {
+            console.log('Could not fetch camping block blocks:', error)
+            setCampingBlockBlocks([])
+          }
+        } else {
+          // Fetch room blocks (locks) for accommodation
+          try {
+            const roomBlocksResponse = await axios.get('/api/room-blocks?activeOnly=true')
+            setRoomBlocks(roomBlocksResponse.data || [])
+          } catch (error) {
+            console.log('Could not fetch room blocks:', error)
+            setRoomBlocks([])
+          }
+        }
+        
+        const responses = await Promise.all(apiCalls)
+        const siteMapResponse = responses[0]
+        const campingBlocksResponse = mapType === 'camping' ? responses[1] : null
+        
+        if (campingBlocksResponse) {
+          console.log('Camping blocks data:', campingBlocksResponse.data)
+          setCampingBlocks(campingBlocksResponse.data || [])
+        } else {
+          setCampingBlocks([])
+        }
+        
+        if (siteMapResponse.data && siteMapResponse.data.imageUrl) {
+          console.log(`Setting site map for type ${mapType}:`, siteMapResponse.data)
+          setSiteMap({
+            imageUrl: siteMapResponse.data.imageUrl,
+            hotspots: siteMapResponse.data.hotspots || [],
+          })
+        } else {
+          console.log(`No site map data found for type ${mapType}, using default`)
+          setSiteMap({ imageUrl: '/placeholder-map.svg', hotspots: [] })
+        }
+      } catch (error) {
+        console.error('Error fetching site map:', error)
+        setSiteMap({ imageUrl: '/placeholder-map.svg', hotspots: [] })
+        if (mapType === 'camping') {
+          setCampingBlocks([])
+        }
+      }
+    }
+    fetchSiteMap()
+    // Reset selected building when switching map types
+    setSelectedBuilding(null)
+  }, [mapType])
+
   // Sync calendar with form date selection
   useEffect(() => {
     if (checkInDate) {
@@ -184,10 +269,21 @@ export default function RoomsPage() {
     try {
       console.log('Fetching rooms and site map data...')
       
-      const [roomsResponse, siteMapResponse] = await Promise.all([
+      // Prepare API calls based on mapType
+      const apiCalls: Promise<any>[] = [
         axios.get('/api/rooms'),
-        axios.get('/api/site-map')
-      ])
+        axios.get(`/api/site-map?type=${mapType}`)
+      ]
+      
+      // If camping map, also fetch camping blocks
+      if (mapType === 'camping') {
+        apiCalls.push(axios.get('/api/camping-blocks'))
+      }
+      
+      const responses = await Promise.all(apiCalls)
+      const roomsResponse = responses[0]
+      const siteMapResponse = responses[1]
+      const campingBlocksResponse = mapType === 'camping' ? responses[2] : null
       
       // Try to fetch bookings for availability checking
       let bookingsData: any[] = []
@@ -198,11 +294,41 @@ export default function RoomsPage() {
         console.log('Could not fetch bookings:', error)
       }
       
+      // Fetch room blocks (locks) if accommodation map
+      let roomBlocksData: any[] = []
+      if (mapType === 'accommodation') {
+        try {
+          const roomBlocksResponse = await axios.get('/api/room-blocks?activeOnly=true')
+          roomBlocksData = roomBlocksResponse.data || []
+        } catch (error) {
+          console.log('Could not fetch room blocks:', error)
+        }
+      }
+      
+      // Fetch camping block blocks (locks) if camping map
+      let campingBlockBlocksData: any[] = []
+      if (mapType === 'camping') {
+        try {
+          const campingBlockBlocksResponse = await axios.get('/api/camping-block-blocks?activeOnly=true')
+          campingBlockBlocksData = campingBlockBlocksResponse.data || []
+        } catch (error) {
+          console.log('Could not fetch camping block blocks:', error)
+        }
+      }
+      
       console.log('Rooms data:', roomsResponse.data)
       console.log('Site map data:', siteMapResponse.data)
+      if (campingBlocksResponse) {
+        console.log('Camping blocks data:', campingBlocksResponse.data)
+        setCampingBlocks(campingBlocksResponse.data || [])
+      }
       console.log('Bookings data:', bookingsData)
+      console.log('Room blocks data:', roomBlocksData)
+      console.log('Camping block blocks data:', campingBlockBlocksData)
       
       setRooms(roomsResponse.data)
+      setRoomBlocks(roomBlocksData)
+      setCampingBlockBlocks(campingBlockBlocksData)
       setAllBookings(bookingsData)
       
       if (siteMapResponse.data && siteMapResponse.data.imageUrl) {
@@ -312,6 +438,101 @@ export default function RoomsPage() {
 
   const handleRoomBook = (roomId: string) => {
     handleBooking(roomId)
+  }
+
+  const handleCampingBlockBook = (block: any) => {
+    if (!session) {
+      toast.error('กรุณาเข้าสู่ระบบก่อนจองบล็อคกางเต๊นท์')
+      const currentUrl = window.location.pathname + window.location.search
+      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(currentUrl)}`)
+      return
+    }
+    
+    if (!checkInDate) {
+      toast.error('กรุณาเลือกวันที่เช็คอินก่อนจองบล็อคกางเต๊นท์')
+      return
+    }
+    
+    const guestCount = selectedGuestCount[block.id] || block.minCapacity || 1
+    const checkOutDate = calculateCheckOutDate()
+    
+    router.push(
+      `/bookings/new?campingBlockId=${block.id}&checkIn=${checkInDate}&checkOut=${checkOutDate}&guestCount=${guestCount}`
+    )
+  }
+
+  const handleCampingBlockToggle = (block: any) => {
+    const guestCount = selectedGuestCount[block.id] || block.minCapacity || 1
+    const existingIndex = selectedCampingBlocks.findIndex(item => item.block.id === block.id)
+    
+    if (existingIndex >= 0) {
+      // Remove from selection
+      setSelectedCampingBlocks(selectedCampingBlocks.filter((_, i) => i !== existingIndex))
+    } else {
+      // Add to selection
+      setSelectedCampingBlocks([...selectedCampingBlocks, { block, guestCount }])
+    }
+  }
+
+  const isCampingBlockSelected = (blockId: string) => {
+    return selectedCampingBlocks.some(item => item.block.id === blockId)
+  }
+
+  const calculateCampingBlocksTotalPrice = (): number => {
+    if (!checkInDate) return 0
+    
+    return selectedCampingBlocks.reduce((total, item) => {
+      const blockPrice = item.block.pricePerPerson * item.guestCount * nights
+      return total + blockPrice
+    }, 0)
+  }
+
+  const calculateCombinedTotalPrice = (): number => {
+    const roomsPrice = calculateMultipleRoomsTotalPrice()
+    const campingPrice = calculateCampingBlocksTotalPrice()
+    return roomsPrice + campingPrice
+  }
+
+  // Handle booking both rooms and camping blocks
+  const handleCombinedBooking = () => {
+    if (selectedRooms.length === 0 && selectedCampingBlocks.length === 0) {
+      toast.error('กรุณาเลือกห้องพักหรือบล็อคกางเต๊นท์ก่อน')
+      return
+    }
+
+    if (!checkInDate) {
+      toast.error('กรุณาเลือกวันที่เช็คอินก่อนจอง')
+      return
+    }
+
+    if (!session) {
+      toast.error('กรุณาเข้าสู่ระบบก่อนจอง')
+      const currentUrl = window.location.pathname + window.location.search
+      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(currentUrl)}`)
+      return
+    }
+
+    const checkOutDate = calculateCheckOutDate()
+    const params = new URLSearchParams({
+      checkIn: checkInDate,
+      checkOut: checkOutDate as string
+    })
+
+    // Add room IDs if any
+    if (selectedRooms.length > 0) {
+      const roomIds = selectedRooms.map(r => r.id).join(',')
+      params.append('roomIds', roomIds)
+    }
+
+    // Add camping block IDs and guest counts
+    if (selectedCampingBlocks.length > 0) {
+      const campingBlockIds = selectedCampingBlocks.map(item => item.block.id).join(',')
+      const guestCounts = selectedCampingBlocks.map(item => item.guestCount).join(',')
+      params.append('campingBlockIds', campingBlockIds)
+      params.append('guestCounts', guestCounts)
+    }
+
+    router.push(`/bookings/new?${params.toString()}`)
   }
 
   // Calculate total price for multiple selected rooms
@@ -648,13 +869,70 @@ export default function RoomsPage() {
     return 'available'
   }
 
+  // Check if room is locked during selected dates
+  const isRoomLocked = (roomId: string): boolean => {
+    if (!checkInDate || roomBlocks.length === 0) return false
+    
+    const checkOutDate = calculateCheckOutDate()
+    if (!checkOutDate) return false
+    
+    const checkIn = new Date(checkInDate)
+    const checkOut = new Date(checkOutDate)
+    
+    return roomBlocks.some(block => {
+      if (!block.isActive) return false
+      
+      // Check roomId - handle both populated and non-populated cases
+      const blockRoomId = block.roomId?._id?.toString() || block.roomId?.toString() || block.roomId
+      if (blockRoomId !== roomId) return false
+      
+      const blockStart = new Date(block.startDate)
+      const blockEnd = new Date(block.endDate)
+      
+      // Check if dates overlap
+      return checkIn < blockEnd && checkOut > blockStart
+    })
+  }
+
+  // Check if camping block is locked during selected dates
+  const isCampingBlockLocked = (blockId: string): boolean => {
+    if (!checkInDate || campingBlockBlocks.length === 0) return false
+    
+    const checkOutDate = calculateCheckOutDate()
+    if (!checkOutDate) return false
+    
+    const checkIn = new Date(checkInDate)
+    const checkOut = new Date(checkOutDate)
+    
+    return campingBlockBlocks.some(block => {
+      if (!block.isActive) return false
+      
+      // Check campingBlockId - handle both populated and non-populated cases
+      const blockCampingBlockId = block.campingBlockId?._id?.toString() || block.campingBlockId?.toString() || block.campingBlockId
+      if (blockCampingBlockId !== blockId) return false
+      
+      const blockStart = new Date(block.startDate)
+      const blockEnd = new Date(block.endDate)
+      
+      // Check if dates overlap
+      return checkIn < blockEnd && checkOut > blockStart
+    })
+  }
+
   // Get filtered rooms based on availability
   const getFilteredRooms = () => {
     let filteredRooms = rooms.filter(room => room.isActive)
     
-    // Apply date-based filtering if date is selected
+    // Filter out locked rooms if date is selected
     if (checkInDate) {
-      filteredRooms = filteredRooms.filter(room => isRoomAvailable(room))
+      filteredRooms = filteredRooms.filter(room => {
+        // Check if room is locked
+        if (isRoomLocked(room.id)) {
+          return false
+        }
+        // Check if room is available (not booked)
+        return isRoomAvailable(room)
+      })
     }
     
     // Apply other filters
@@ -1096,6 +1374,206 @@ export default function RoomsPage() {
             <span>ขัดแย้ง</span>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  // CampingBlocksView Component
+  const CampingBlocksView = ({
+    building,
+    blocks,
+    onBlockSelect,
+    onClose,
+    selectedGuestCount,
+    onGuestCountChange,
+    onBlockToggle,
+    isBlockSelected
+  }: {
+    building: BuildingHotspot
+    blocks: any[]
+    onBlockSelect: (block: any) => void
+    onClose: () => void
+    selectedGuestCount: { [blockId: string]: number }
+    onGuestCountChange: (blockId: string, count: number) => void
+    onBlockToggle: (block: any) => void
+    isBlockSelected: (blockId: string) => boolean
+  }) => {
+    // สำหรับ camping map: แสดง camping blocks ที่เลือกไว้ใน hotspot
+    // ถ้ามี campingBlocks ใน building และมีค่าอย่างน้อย 1 ตัว ให้แสดงเฉพาะที่เลือกไว้
+    // ถ้าไม่มี หรือ array ว่าง ให้แสดงทั้งหมดที่ active (เพื่อให้ลูกค้าสามารถจองได้)
+    const buildingBlocks = blocks.filter(block => {
+      // ถ้ามีการเลือก camping blocks ไว้ใน hotspot และมีค่าอย่างน้อย 1 ตัว ให้แสดงเฉพาะที่เลือกไว้
+      if (building.campingBlocks && Array.isArray(building.campingBlocks) && building.campingBlocks.length > 0) {
+        return building.campingBlocks.includes(block.id)
+      }
+      // ถ้าไม่มี หรือ array ว่าง ให้แสดงทั้งหมดที่ active (เพื่อให้ลูกค้าสามารถจองได้)
+      return block.isActive !== false
+    })
+
+    return (
+      <div className="h-full flex flex-col">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4 lg:mb-6">
+          <div className="flex items-center gap-3 lg:gap-4 flex-1 min-w-0">
+            <div className="w-12 h-12 lg:w-16 lg:h-16 bg-green-500 rounded-full flex items-center justify-center text-2xl lg:text-3xl flex-shrink-0">
+              🏕️
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-lg lg:text-2xl font-bold text-gray-900 truncate">{building.buildingName}</h3>
+              <p className="text-sm lg:text-base text-gray-600 line-clamp-2">{building.description}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 transition-colors flex-shrink-0 ml-2"
+          >
+            <X size={20} className="lg:w-6 lg:h-6" />
+          </button>
+        </div>
+
+        {/* Blocks List */}
+        {buildingBlocks.length > 0 ? (
+          <div className="flex-1 overflow-y-auto">
+            <h4 className="text-base lg:text-lg font-semibold text-gray-900 mb-3 lg:mb-4">
+              บล็อคกางเต๊นท์ ({buildingBlocks.length} บล็อค)
+            </h4>
+            <div className="space-y-4 lg:space-y-6">
+              {buildingBlocks.map((block) => {
+                const guestCount = selectedGuestCount[block.id] || block.minCapacity || 1
+                const totalPrice = block.pricePerPerson * guestCount * nights
+                
+                return (
+                  <div
+                    key={block.id}
+                    className="border rounded-lg p-4 lg:p-6 transition-all hover:shadow-md"
+                  >
+                    {/* Block Header */}
+                    <div className="flex gap-4 mb-4">
+                      <div className="w-24 h-20 lg:w-32 lg:h-24 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                        <Image
+                          src={block.imageUrl || '/placeholder-camping.jpg'}
+                          alt={block.name}
+                          width={128}
+                          height={96}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h5 className="font-bold text-gray-900 mb-1 text-base lg:text-lg">{block.name}</h5>
+                        <p className="text-sm lg:text-base text-gray-600 mb-3 line-clamp-2">{block.description}</p>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-1 text-sm lg:text-base text-gray-600">
+                            <Users size={16} className="lg:w-4 lg:h-4" />
+                            {block.minCapacity} - {block.maxCapacity} คน
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold text-primary-600 text-lg lg:text-xl">
+                              {formatPrice(block.pricePerPerson)} / คน
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Guest Count Selector */}
+                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        จำนวนคน
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newCount = Math.max(block.minCapacity || 1, guestCount - 1)
+                            onGuestCountChange(block.id, newCount)
+                          }}
+                          disabled={guestCount <= (block.minCapacity || 1)}
+                          className="w-10 h-10 rounded-lg bg-white text-gray-900 border border-gray-300 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <MinusCircle size={18} />
+                        </button>
+                        <div className="flex-1 text-center">
+                          <span className="text-2xl font-bold text-gray-900">{guestCount}</span>
+                          <span className="text-sm text-gray-600 ml-2">คน</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newCount = Math.min(block.maxCapacity, guestCount + 1)
+                            onGuestCountChange(block.id, newCount)
+                          }}
+                          disabled={guestCount >= block.maxCapacity}
+                          className="w-10 h-10 rounded-lg bg-white text-gray-900 border border-gray-300 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Plus size={18} />
+                        </button>
+                      </div>
+                      <div className="mt-2 text-sm text-gray-600">
+                        ราคารวม: <span className="font-bold text-primary-600">{formatPrice(totalPrice)}</span>
+                        {nights > 1 && <span className="text-gray-500"> ({nights} คืน)</span>}
+                      </div>
+                    </div>
+
+                    {/* Amenities */}
+                    {block.amenities && block.amenities.length > 0 && (
+                      <div className="mb-4">
+                        <h6 className="text-sm font-semibold text-gray-900 mb-2">สิ่งอำนวยความสะดวก</h6>
+                        <div className="flex flex-wrap gap-2">
+                          {block.amenities.map((amenity: string, index: number) => (
+                            <span
+                              key={index}
+                              className="px-2 py-1 bg-primary-100 text-primary-700 rounded-full text-xs"
+                            >
+                              {amenity}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Toggle Selection Button */}
+                    <button
+                      onClick={() => onBlockToggle(block)}
+                      className={`w-full px-4 py-3 rounded-lg flex items-center justify-center gap-2 font-semibold transition-colors ${
+                        isBlockSelected(block.id)
+                          ? 'bg-green-600 text-white hover:bg-green-700'
+                          : 'bg-primary-600 text-white hover:bg-primary-700'
+                      }`}
+                    >
+                      <Calendar size={18} />
+                      {isBlockSelected(block.id) ? 'ยกเลิกการเลือก' : 'เลือกบล็อคนี้'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-gray-500">
+              <Users className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">ไม่มีบล็อคกางเต๊นท์</h4>
+              <p className="text-gray-600">ยังไม่มีบล็อคกางเต๊นท์ที่เปิดให้บริการ</p>
+            </div>
+          </div>
+        )}
+
+        {/* Facilities */}
+        {building.facilities.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <h4 className="text-lg font-semibold text-gray-900 mb-3">สิ่งอำนวยความสะดวก</h4>
+            <div className="flex flex-wrap gap-2">
+              {building.facilities.map((facility, index) => (
+                <span
+                  key={index}
+                  className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
+                >
+                  {facility}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -1576,54 +2054,107 @@ export default function RoomsPage() {
         </div>
       )}
       
-      {/* Floating Action Button for Multi-Room Booking */}
-      {selectedRooms.length > 0 && (
+      {/* Floating Action Button for Combined Booking */}
+      {(selectedRooms.length > 0 || selectedCampingBlocks.length > 0) && (
         <div className="fixed bottom-6 right-6 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 border-2 border-green-500 min-w-[300px]">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 border-2 border-green-500 min-w-[300px] max-w-[400px]">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-900">ห้องที่เลือกแล้ว</h3>
+              <h3 className="font-bold text-gray-900">รายการที่เลือก</h3>
               <button
-                onClick={() => setSelectedRooms([])}
+                onClick={() => {
+                  setSelectedRooms([])
+                  setSelectedCampingBlocks([])
+                }}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <X size={20} />
               </button>
             </div>
             
-            <div className="space-y-2 mb-4 max-h-32 overflow-y-auto">
-              {selectedRooms.map(room => (
-                <div key={room.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-2">
-                  <span className="text-sm font-medium text-gray-900">{room.name}</span>
-                  <button
-                    onClick={() => handleRoomToggle(room)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <X size={16} />
-                  </button>
+            <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
+              {/* Selected Rooms */}
+              {selectedRooms.length > 0 && (
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold text-gray-600 mb-2">ห้องพัก ({selectedRooms.length})</h4>
+                  {selectedRooms.map(room => (
+                    <div key={room.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-2 mb-1">
+                      <span className="text-sm font-medium text-gray-900">{room.name}</span>
+                      <button
+                        onClick={() => handleRoomToggle(room)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {/* Selected Camping Blocks */}
+              {selectedCampingBlocks.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-600 mb-2">บล็อคกางเต๊นท์ ({selectedCampingBlocks.length})</h4>
+                  {selectedCampingBlocks.map((item, index) => (
+                    <div key={item.block.id} className="flex items-center justify-between bg-green-50 rounded-lg p-2 mb-1">
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-gray-900 block truncate">{item.block.name}</span>
+                        <span className="text-xs text-gray-600">{item.guestCount} คน</span>
+                      </div>
+                      <button
+                        onClick={() => handleCampingBlockToggle(item.block)}
+                        className="text-red-500 hover:text-red-700 ml-2"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {checkInDate && (
               <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">ราคารวม:</span>
-                  <span className="text-lg font-bold text-green-700">
-                    {formatPrice(calculateMultipleRoomsTotalPrice())}
-                  </span>
-                </div>
-                <div className="text-xs text-gray-600 mt-1">
-                  {selectedRooms.length} ห้อง × {nights} คืน
+                <div className="space-y-1">
+                  {selectedRooms.length > 0 && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-700">ห้องพัก:</span>
+                      <span className="font-semibold text-gray-900">
+                        {formatPrice(calculateMultipleRoomsTotalPrice())}
+                      </span>
+                    </div>
+                  )}
+                  {selectedCampingBlocks.length > 0 && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-700">บล็อคกางเต๊นท์:</span>
+                      <span className="font-semibold text-gray-900">
+                        {formatPrice(calculateCampingBlocksTotalPrice())}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-2 border-t border-green-200">
+                    <span className="font-bold text-gray-900">ราคารวม:</span>
+                    <span className="text-lg font-bold text-green-700">
+                      {formatPrice(calculateCombinedTotalPrice())}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    {nights} คืน
+                  </div>
                 </div>
               </div>
             )}
             
             <button
-              onClick={handleMultipleRoomsBooking}
+              onClick={handleCombinedBooking}
               className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
             >
               <Calendar size={20} />
-              จอง {selectedRooms.length} ห้อง
+              {selectedRooms.length > 0 && selectedCampingBlocks.length > 0 
+                ? `จอง ${selectedRooms.length} ห้อง + ${selectedCampingBlocks.length} บล็อค`
+                : selectedRooms.length > 0
+                ? `จอง ${selectedRooms.length} ห้อง`
+                : `จอง ${selectedCampingBlocks.length} บล็อค`
+              }
             </button>
           </div>
         </div>
@@ -1698,8 +2229,41 @@ export default function RoomsPage() {
           {/* Left Side - Site Map */}
           <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6">
             <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">แผนผังอาคาร</h3>
-              <p className="text-sm text-gray-600">คลิกที่จุดบนแผนผังเพื่อดูห้องพักในอาคารนั้น</p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {mapType === 'camping' ? 'แผนผังลานกางเต๊นท์' : 'แผนผังอาคาร'}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {mapType === 'camping' 
+                      ? 'คลิกที่จุดบนแผนผังเพื่อดูรายละเอียดจุดกางเต๊นท์' 
+                      : 'คลิกที่จุดบนแผนผังเพื่อดูห้องพักในอาคารนั้น'}
+                  </p>
+                </div>
+                {/* Map Type Selector */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setMapType('accommodation')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                      mapType === 'accommodation'
+                        ? 'bg-primary-600 text-white shadow-md'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    🏠 ห้องพัก
+                  </button>
+                  <button
+                    onClick={() => setMapType('camping')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                      mapType === 'camping'
+                        ? 'bg-primary-600 text-white shadow-md'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    🏕️ ลานกางเต๊นท์
+                  </button>
+                </div>
+              </div>
             </div>
             <SiteMapViewer
               imageUrl={siteMap.imageUrl}
@@ -1711,6 +2275,10 @@ export default function RoomsPage() {
               roomBookings={allBookings}
               checkInDate={checkInDate}
               checkOutDate={calculateCheckOutDate()}
+              mapType={mapType}
+              campingBlocks={campingBlocks}
+              roomBlocks={roomBlocks}
+              campingBlockBlocks={campingBlockBlocks}
             />
           </div>
 
@@ -1720,34 +2288,79 @@ export default function RoomsPage() {
               <h3 className="text-lg font-semibold text-gray-900">รายละเอียดห้องพัก</h3>
             </div>
             {selectedBuilding ? (
-              <BuildingRoomsView 
-                building={selectedBuilding}
-                rooms={rooms.filter(room => room.isActive)}
-                onRoomBook={handleRoomBook}
-                onClose={() => setSelectedBuilding(null)}
-                onRoomToggle={handleRoomToggle}
-                isRoomSelected={isRoomSelected}
-              />
+              mapType === 'camping' ? (
+                <CampingBlocksView
+                  building={selectedBuilding}
+                  blocks={campingBlocks.filter(block => {
+                    // Filter out inactive blocks
+                    if (!block.isActive) return false
+                    // Filter out locked blocks if date is selected
+                    if (checkInDate && isCampingBlockLocked(block.id)) return false
+                    return true
+                  })}
+                  onBlockSelect={handleCampingBlockBook}
+                  onClose={() => setSelectedBuilding(null)}
+                  selectedGuestCount={selectedGuestCount}
+                  onGuestCountChange={(blockId, count) => {
+                    setSelectedGuestCount(prev => ({ ...prev, [blockId]: count }))
+                    // Update guest count in selectedCampingBlocks if already selected
+                    setSelectedCampingBlocks(prev => 
+                      prev.map(item => 
+                        item.block.id === blockId 
+                          ? { ...item, guestCount: count }
+                          : item
+                      )
+                    )
+                  }}
+                  onBlockToggle={handleCampingBlockToggle}
+                  isBlockSelected={isCampingBlockSelected}
+                />
+              ) : (
+                <BuildingRoomsView 
+                  building={selectedBuilding}
+                  rooms={getFilteredRooms().filter(room => {
+                    // Additional filter: only show rooms in this building
+                    return selectedBuilding.rooms.includes(room.id)
+                  })}
+                  onRoomBook={handleRoomBook}
+                  onClose={() => setSelectedBuilding(null)}
+                  onRoomToggle={handleRoomToggle}
+                  isRoomSelected={isRoomSelected}
+                />
+              )
             ) : (
               <div className="h-full">
                 <div className="mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">รายการห้องพักทั้งหมด</h3>
-                  <p className="text-sm text-gray-600 mb-2">คลิกที่จุดบนแผนผังเพื่อดูห้องพักในอาคารนั้น หรือเลือกห้องพักจากรายการด้านล่าง</p>
-                  <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                    <Calendar size={14} />
-                    <span>💡 สามารถเลือกจองหลายห้องพร้อมกันโดยคลิกปุ่ม "จอง" ของแต่ละห้อง</span>
-                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {mapType === 'camping' ? 'รายละเอียดลานกางเต๊นท์' : 'รายการห้องพักทั้งหมด'}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-2">
+                    {mapType === 'camping' 
+                      ? '' 
+                      : 'คลิกที่จุดบนแผนผังเพื่อดูห้องพักในอาคารนั้น หรือเลือกห้องพักจากรายการด้านล่าง'}
+                  </p>
+                  {mapType === 'accommodation' && (
+                    <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                      <Calendar size={14} />
+                      <span>💡 สามารถเลือกจองหลายห้องพร้อมกันโดยคลิกปุ่ม "จอง" ของแต่ละห้อง</span>
+                    </div>
+                  )}
                 </div>
                 
-                <div className="space-y-6 max-h-[500px] overflow-y-auto">
-                  {filteredRooms.length === 0 ? (
-                    <div className="flex items-center justify-center h-32">
-                      <div className="text-center text-gray-500">
-                        <Calendar className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                        <p className="text-sm">ไม่พบห้องพักที่ตรงกับเงื่อนไข</p>
+                {mapType === 'camping' ? (
+                  <div className="text-center text-gray-500 py-8">
+                    <p className="text-sm">คลิกที่จุดบนแผนผังเพื่อดูรายละเอียดจุดกางเต๊นท์</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6 max-h-[500px] overflow-y-auto">
+                    {filteredRooms.length === 0 ? (
+                      <div className="flex items-center justify-center h-32">
+                        <div className="text-center text-gray-500">
+                          <Calendar className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                          <p className="text-sm">ไม่พบห้องพักที่ตรงกับเงื่อนไข</p>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
+                    ) : (
                     <>
                       {/* Rooms grouped by building */}
                       {Object.entries(groupedRooms).map(([buildingKey, building]) => (
@@ -2144,6 +2757,7 @@ export default function RoomsPage() {
                     </>
                   )}
                 </div>
+              )}
               </div>
             )}
           </div>

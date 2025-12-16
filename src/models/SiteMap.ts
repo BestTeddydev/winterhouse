@@ -4,6 +4,7 @@ export interface ISiteMap extends Document {
   name: string
   description: string
   imageUrl: string
+  type: 'accommodation' | 'camping' // ประเภทแผนผัง: accommodation = ห้องพัก, camping = ลานกางเต๊นท์
   isActive: boolean
   createdAt: Date
   updatedAt: Date
@@ -25,6 +26,12 @@ const SiteMapSchema = new Schema<ISiteMap>({
     type: String,
     required: true,
   },
+  type: {
+    type: String,
+    enum: ['accommodation', 'camping'],
+    default: 'accommodation',
+    required: true
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -34,7 +41,7 @@ const SiteMapSchema = new Schema<ISiteMap>({
 })
 
 // Index for efficient queries
-SiteMapSchema.index({ isActive: 1 })
+SiteMapSchema.index({ isActive: 1, type: 1 })
 
 export default mongoose.models.SiteMap || mongoose.model<ISiteMap>('SiteMap', SiteMapSchema)
 

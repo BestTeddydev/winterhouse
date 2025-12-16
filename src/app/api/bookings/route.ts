@@ -49,8 +49,8 @@ export async function GET(request: NextRequest) {
     if (!mongoose.models.Payment) {
       require('@/models/Payment')
     }
-    if (!mongoose.models.User) {
-      require('@/models/User')
+    if (!mongoose.models.CampingBlock) {
+      require('@/models/CampingBlock')
     }
 
     let query: any = {}
@@ -145,6 +145,16 @@ export async function GET(request: NextRequest) {
         select: 'name description price capacity imageUrls'
       })
       .populate({
+        path: 'campingBlockId',
+        model: 'CampingBlock',
+        select: 'name description pricePerPerson minCapacity maxCapacity imageUrls'
+      })
+      .populate({
+        path: 'campingBlockIds',
+        model: 'CampingBlock',
+        select: 'name description pricePerPerson minCapacity maxCapacity imageUrls'
+      })
+      .populate({
         path: 'paymentId',
         model: 'Payment',
         select: 'status amount totalAmount paidAmount remainingAmount paymentType'
@@ -164,11 +174,18 @@ export async function GET(request: NextRequest) {
         ? booking.roomIds 
         : (booking.roomId ? [booking.roomId] : [])
       
+      // Get all camping blocks: use campingBlockIds if available, otherwise use campingBlockId
+      const allCampingBlocks = (booking.campingBlockIds && booking.campingBlockIds.length > 0)
+        ? booking.campingBlockIds
+        : (booking.campingBlockId ? [booking.campingBlockId] : [])
+      
       return {
         ...bookingObj,
         id: bookingObj._id, // Ensure id is properly set
         room: booking.roomId,
         rooms: allRooms, // Array of all rooms
+        campingBlock: booking.campingBlockId,
+        campingBlocks: allCampingBlocks, // Array of all camping blocks
         payment: booking.paymentId || { status: 'PENDING', amount: 0 }
       }
     })
@@ -232,12 +249,16 @@ export async function POST(request: NextRequest) {
     const {
       roomId,
       roomIds, // สำหรับจองหลายห้อง
+      campingBlockId, // สำหรับจองบล็อคกางเต๊นท์
+      campingBlockIds, // สำหรับจองหลายบล็อคกางเต๊นท์
       checkIn,
       checkOut,
       totalPrice,
       guestName,
       guestEmail,
       guestPhone,
+      guestCount, // จำนวนคนสำหรับบล็อคกางเต๊นท์ (single)
+      guestCounts, // จำนวนคนสำหรับหลายบล็อคกางเต๊นท์
       specialRequests,
       paymentType = 'FULL', // Default to full payment
       discount,
@@ -245,6 +266,7 @@ export async function POST(request: NextRequest) {
       bookingStatus,
       isManualBooking = false,
       paymentSlipUrl, // URL of payment slip image
+      addOns, // อ๊อฟชั่นเสริม
     } = body
 
     // Handle discount values - use nullish coalescing to allow 0 values
@@ -261,27 +283,55 @@ export async function POST(request: NextRequest) {
     })
 
     // Validate required fields
-    // Support both single roomId and multiple roomIds
+    // Support camping block(s) booking, single roomId, or multiple roomIds
     let selectedRoomIds: string[] = []
+    let selectedCampingBlockId: string | null = null
+    let selectedCampingBlockIds: string[] = []
+    let selectedGuestCounts: number[] = []
     
+    // Handle multiple camping blocks
+    if (campingBlockIds && Array.isArray(campingBlockIds) && campingBlockIds.length > 0) {
+      selectedCampingBlockIds = campingBlockIds.filter(id => id && id.trim() !== '' && id !== 'null')
+      if (guestCounts && Array.isArray(guestCounts) && guestCounts.length === selectedCampingBlockIds.length) {
+        selectedGuestCounts = guestCounts.map(count => Number(count)).filter(count => !isNaN(count) && count > 0)
+      }
+    }
+    // Handle single camping block
+    else if (campingBlockId && campingBlockId !== 'null') {
+      selectedCampingBlockId = campingBlockId
+    }
+    
+    // Handle multiple rooms
     if (roomIds && Array.isArray(roomIds) && roomIds.length > 0) {
-      // Filter out null, undefined, and empty strings
       selectedRoomIds = roomIds.filter(id => id && id.trim() !== '' && id !== 'null')
-    } else if (roomId && roomId !== 'null') {
+    }
+    // Handle single room
+    else if (roomId && roomId !== 'null') {
       selectedRoomIds = [roomId]
     }
     
-    if (selectedRoomIds.length === 0) {
-      return NextResponse.json({ error: 'ต้องระบุ Room ID หรือ Room IDs' }, { status: 400 })
+    if (selectedRoomIds.length === 0 && !selectedCampingBlockId && selectedCampingBlockIds.length === 0) {
+      return NextResponse.json({ error: 'ต้องระบุ Room ID, Room IDs, Camping Block ID, หรือ Camping Block IDs' }, { status: 400 })
+    }
+    
+    // Validate guest counts for multiple camping blocks
+    if (selectedCampingBlockIds.length > 0 && selectedGuestCounts.length !== selectedCampingBlockIds.length) {
+      return NextResponse.json({ error: 'จำนวน guestCounts ต้องเท่ากับจำนวน campingBlockIds' }, { status: 400 })
     }
     
     if (!checkIn || !checkOut) {
       return NextResponse.json({ error: 'ต้องระบุวันเช็คอินและเช็คเอาท์' }, { status: 400 })
     }
     
-    if (!guestName || !guestEmail || !guestPhone) {
-      return NextResponse.json({ error: 'ต้องระบุข้อมูลผู้เข้าพัก' }, { status: 400 })
+    // Validate guest information
+    // For manual/admin bookings, guestEmail might have default value, but guestPhone can be optional
+    if (!guestName) {
+      return NextResponse.json({ error: 'ต้องระบุชื่อ-นามสกุลของผู้เข้าพัก' }, { status: 400 })
     }
+    if (!guestEmail) {
+      return NextResponse.json({ error: 'ต้องระบุอีเมลของผู้เข้าพัก' }, { status: 400 })
+    }
+    // guestPhone is optional for admin/manual bookings
     
     if (!totalPrice || totalPrice <= 0) {
       return NextResponse.json({ error: 'ต้องระบุราคารวมที่ถูกต้อง' }, { status: 400 })
@@ -293,6 +343,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate ObjectId formats
+    if (selectedCampingBlockIds.length > 0) {
+      for (const id of selectedCampingBlockIds) {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          return NextResponse.json({ error: `รูปแบบ Camping Block ID ไม่ถูกต้อง: ${id}` }, { status: 400 })
+        }
+      }
+      if (selectedGuestCounts.length !== selectedCampingBlockIds.length) {
+        return NextResponse.json({ error: 'จำนวน guestCounts ต้องเท่ากับจำนวน campingBlockIds' }, { status: 400 })
+      }
+    } else if (selectedCampingBlockId) {
+      if (!mongoose.Types.ObjectId.isValid(selectedCampingBlockId)) {
+        return NextResponse.json({ error: `รูปแบบ Camping Block ID ไม่ถูกต้อง: ${selectedCampingBlockId}` }, { status: 400 })
+      }
+      if (!guestCount || guestCount < 1) {
+        return NextResponse.json({ error: 'ต้องระบุจำนวนคนที่ถูกต้องสำหรับบล็อคกางเต๊นท์' }, { status: 400 })
+      }
+    }
+    
     for (const id of selectedRoomIds) {
       if (!id || typeof id !== 'string') {
         return NextResponse.json({ error: `Room ID ไม่ถูกต้อง: ${id}` }, { status: 400 })
@@ -355,50 +423,173 @@ export async function POST(request: NextRequest) {
     
     const ObjectId = mongoose.Types.ObjectId
 
-    // Check availability for all selected rooms
-    for (const roomIdToCheck of selectedRoomIds) {
-      const existingBookings = await Booking.find({
-        $or: [
-          { roomId: new mongoose.Types.ObjectId(roomIdToCheck) },
-          { roomIds: new mongoose.Types.ObjectId(roomIdToCheck) }
-        ],
-        status: { $in: ['CONFIRMED'] }, // Only check against confirmed bookings to prevent duplicate bookings
+    // Check availability for camping block(s) or rooms
+    const CampingBlock = require('@/models/CampingBlock').default
+    
+    // Validate multiple camping blocks
+    if (selectedCampingBlockIds.length > 0) {
+      const CampingBlockBlock = require('@/models/CampingBlockBlock').default
+      
+      for (let i = 0; i < selectedCampingBlockIds.length; i++) {
+        const blockId = selectedCampingBlockIds[i]
+        const blockGuestCount = selectedGuestCounts[i]
+        const campingBlock = await CampingBlock.findById(blockId)
+        if (!campingBlock) {
+          return NextResponse.json({ error: `ไม่พบบล็อคกางเต๊นท์: ${blockId}` }, { status: 404 })
+        }
+        if (!campingBlock.isActive) {
+          return NextResponse.json({ error: `บล็อคกางเต๊นท์นี้ปิดใช้งาน: ${campingBlock.name}` }, { status: 400 })
+        }
+        if (blockGuestCount < campingBlock.minCapacity || blockGuestCount > campingBlock.maxCapacity) {
+          return NextResponse.json({ 
+            error: `บล็อค ${campingBlock.name}: จำนวนคนต้องอยู่ระหว่าง ${campingBlock.minCapacity} - ${campingBlock.maxCapacity} คน` 
+          }, { status: 400 })
+        }
+        
+        // Check for camping block blocks (locks)
+        const campingBlockBlocks = await CampingBlockBlock.find({
+          campingBlockId: new mongoose.Types.ObjectId(blockId),
+          isActive: true,
+          $and: [
+            { startDate: { $lt: checkOutDate } },
+            { endDate: { $gt: checkInDate } }
+          ]
+        })
+        
+        if (campingBlockBlocks.length > 0) {
+          const blockReason = campingBlockBlocks[0].reason ? ` (${campingBlockBlocks[0].reason})` : ''
+          return NextResponse.json(
+            { error: `บล็อคกางเต๊นท์ ${campingBlock.name} ถูกล็อคไม่ให้จองในช่วงวันที่เลือก${blockReason}` },
+            { status: 400 }
+          )
+        }
+      }
+    }
+    // Validate single camping block
+    else if (selectedCampingBlockId) {
+      const CampingBlockBlock = require('@/models/CampingBlockBlock').default
+      
+      const campingBlock = await CampingBlock.findById(selectedCampingBlockId)
+      if (!campingBlock) {
+        return NextResponse.json({ error: 'ไม่พบบล็อคกางเต๊นท์' }, { status: 404 })
+      }
+      if (!campingBlock.isActive) {
+        return NextResponse.json({ error: 'บล็อคกางเต๊นท์นี้ปิดใช้งาน' }, { status: 400 })
+      }
+      if (guestCount < campingBlock.minCapacity || guestCount > campingBlock.maxCapacity) {
+        return NextResponse.json({ 
+          error: `จำนวนคนต้องอยู่ระหว่าง ${campingBlock.minCapacity} - ${campingBlock.maxCapacity} คน` 
+        }, { status: 400 })
+      }
+      
+      // Check for camping block blocks (locks)
+      const campingBlockBlocks = await CampingBlockBlock.find({
+        campingBlockId: new mongoose.Types.ObjectId(selectedCampingBlockId),
+        isActive: true,
         $and: [
-          { checkIn: { $lte: checkOutDate } },
-          { checkOut: { $gte: checkInDate } }
+          { startDate: { $lt: checkOutDate } },
+          { endDate: { $gt: checkInDate } }
         ]
       })
-
-      if (existingBookings.length > 0) {
-        const room = await Room.findById(roomIdToCheck)
-        const roomName = room?.name || roomIdToCheck
+      
+      if (campingBlockBlocks.length > 0) {
+        const blockReason = campingBlockBlocks[0].reason ? ` (${campingBlockBlocks[0].reason})` : ''
         return NextResponse.json(
-          { error: `ห้องพัก ${roomName} ไม่ว่างในวันที่เลือก` },
+          { error: `บล็อคกางเต๊นท์ ${campingBlock.name} ถูกล็อคไม่ให้จองในช่วงวันที่เลือก${blockReason}` },
           { status: 400 }
         )
       }
     }
+    
+    // Check room availability
+    if (selectedRoomIds.length > 0) {
+      const RoomBlock = require('@/models/RoomBlock').default
+      
+      // Check availability for all selected rooms
+      for (const roomIdToCheck of selectedRoomIds) {
+        // Check for existing bookings
+        const existingBookings = await Booking.find({
+          $or: [
+            { roomId: new mongoose.Types.ObjectId(roomIdToCheck) },
+            { roomIds: new mongoose.Types.ObjectId(roomIdToCheck) }
+          ],
+          status: { $in: ['CONFIRMED'] }, // Only check against confirmed bookings to prevent duplicate bookings
+          $and: [
+            { checkIn: { $lt: checkOutDate } },
+            { checkOut: { $gt: checkInDate } }
+          ]
+        })
+      
+        if (existingBookings.length > 0) {
+          const room = await Room.findById(roomIdToCheck)
+          const roomName = room?.name || roomIdToCheck
+          return NextResponse.json(
+            { error: `ห้องพัก ${roomName} ไม่ว่างในวันที่เลือก` },
+            { status: 400 }
+          )
+        }
+        
+        // Check for room blocks (locks)
+        const roomBlocks = await RoomBlock.find({
+          roomId: new mongoose.Types.ObjectId(roomIdToCheck),
+          isActive: true,
+          $and: [
+            { startDate: { $lt: checkOutDate } },
+            { endDate: { $gt: checkInDate } }
+          ]
+        })
+        
+        if (roomBlocks.length > 0) {
+          const room = await Room.findById(roomIdToCheck)
+          const roomName = room?.name || roomIdToCheck
+          const blockReason = roomBlocks[0].reason ? ` (${roomBlocks[0].reason})` : ''
+          return NextResponse.json(
+            { error: `ห้องพัก ${roomName} ถูกล็อคไม่ให้จองในช่วงวันที่เลือก${blockReason}` },
+            { status: 400 }
+          )
+        }
+      }
+    }
 
-    // Fetch rooms and calculate prices
-    const rooms = await Room.find({
-      _id: { $in: selectedRoomIds.map((id: string) => new mongoose.Types.ObjectId(id)) }
-    })
-
-    // Calculate prices for each room
-    const roomPrices: Array<{ roomId: string; price: number }> = []
+    // Calculate price for camping block(s) and/or rooms
     let calculatedTotalPrice = 0
-
-    for (const room of rooms) {
-      const { totalPrice: roomTotal } = calculateRoomPriceRange(
-        room,
-        checkInDate,
-        checkOutDate
-      )
-      calculatedTotalPrice += roomTotal
-      roomPrices.push({
-        roomId: room._id.toString(),
-        price: roomTotal
+    let roomPrices: Array<{ roomId: string; price: number }> = []
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24))
+    
+    // Calculate price for multiple camping blocks
+    if (selectedCampingBlockIds.length > 0) {
+      for (let i = 0; i < selectedCampingBlockIds.length; i++) {
+        const blockId = selectedCampingBlockIds[i]
+        const blockGuestCount = selectedGuestCounts[i]
+        const campingBlock = await CampingBlock.findById(blockId)
+        calculatedTotalPrice += campingBlock.pricePerPerson * blockGuestCount * nights
+      }
+    }
+    // Calculate price for single camping block
+    else if (selectedCampingBlockId) {
+      const campingBlock = await CampingBlock.findById(selectedCampingBlockId)
+      calculatedTotalPrice += campingBlock.pricePerPerson * guestCount * nights
+    }
+    
+    // Calculate price for rooms (can be combined with camping blocks)
+    if (selectedRoomIds.length > 0) {
+      const rooms = await Room.find({
+        _id: { $in: selectedRoomIds.map((id: string) => new mongoose.Types.ObjectId(id)) }
       })
+
+      // Calculate prices for each room
+      for (const room of rooms) {
+        const { totalPrice: roomTotal } = calculateRoomPriceRange(
+          room,
+          checkInDate,
+          checkOutDate
+        )
+        calculatedTotalPrice += roomTotal
+        roomPrices.push({
+          roomId: room._id.toString(),
+          price: roomTotal
+        })
+      }
     }
 
     // Use calculated price or provided price
@@ -408,28 +599,56 @@ export async function POST(request: NextRequest) {
     // Determine booking status: manual bookings from admin are always CONFIRMED, others are PENDING
     const finalBookingStatus = isManualBooking ? 'CONFIRMED' : (bookingStatus || 'PENDING')
     
+    // Process add-ons if provided
+    const processedAddOns = body.addOns && Array.isArray(body.addOns) ? body.addOns.map((addOn: any) => ({
+      addOnId: new mongoose.Types.ObjectId(addOn.addOnId),
+      name: addOn.name,
+      price: addOn.price,
+      quantity: addOn.quantity || 1,
+      unit: addOn.unit || 'หน่วย'
+    })) : undefined
+
     // Create booking
-    const booking = new Booking({
-      roomId: new mongoose.Types.ObjectId(selectedRoomIds[0]), // Keep first room for backward compatibility
-      roomIds: selectedRoomIds.map((id: string) => new mongoose.Types.ObjectId(id)), // Multiple rooms
-      rooms: roomPrices.map(rp => ({
-        roomId: new mongoose.Types.ObjectId(rp.roomId),
-        price: rp.price
-      })),
+    const bookingData: any = {
       userId: new ObjectId(user?._id),
       checkIn: checkInDate,
       checkOut: checkOutDate,
       totalPrice: finalTotalPrice,
       guestName,
       guestEmail,
-      guestPhone,
-      specialRequests,
+      ...(guestPhone && guestPhone.trim() !== '' ? { guestPhone } : {}), // Only include guestPhone if it has a value
+      ...(specialRequests && specialRequests.trim() !== '' ? { specialRequests } : {}), // Only include specialRequests if it has a value
       paymentType,
       discount: validDiscount,
       discountAmount: validDiscountAmount,
       status: finalBookingStatus, // CONFIRMED for manual bookings, PENDING for regular bookings until payment
       isManualBooking: isManualBooking || false,
-    })
+      addOns: processedAddOns
+    }
+
+    // Add camping block(s) data
+    if (selectedCampingBlockIds.length > 0) {
+      // Multiple camping blocks - store in a custom field (we'll need to add this to the model)
+      bookingData.campingBlockIds = selectedCampingBlockIds.map((id: string) => new mongoose.Types.ObjectId(id))
+      bookingData.guestCounts = selectedGuestCounts
+      // For backward compatibility, also set guestCount to the sum
+      bookingData.guestCount = selectedGuestCounts.reduce((sum, count) => sum + count, 0)
+    } else if (selectedCampingBlockId) {
+      bookingData.campingBlockId = new mongoose.Types.ObjectId(selectedCampingBlockId)
+      bookingData.guestCount = guestCount
+    }
+    
+    // Add room(s) data
+    if (selectedRoomIds.length > 0) {
+      bookingData.roomId = new mongoose.Types.ObjectId(selectedRoomIds[0]) // Keep first room for backward compatibility
+      bookingData.roomIds = selectedRoomIds.map((id: string) => new mongoose.Types.ObjectId(id)) // Multiple rooms
+      bookingData.rooms = roomPrices.map(rp => ({
+        roomId: new mongoose.Types.ObjectId(rp.roomId),
+        price: rp.price
+      }))
+    }
+
+    const booking = new Booking(bookingData)
 
     await booking.save()
     
@@ -533,24 +752,25 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(transformedBooking, { status: 201 })
-  } catch (error) {
-    console.error('Error creating booking:', error)
-    
-    // Handle specific error types
-    if (error instanceof mongoose.Error.CastError) {
-      return NextResponse.json({ 
-        error: `รูปแบบ ID ไม่ถูกต้อง: ${error.path}` 
-      }, { status: 400 })
-    }
-    
-    if (error instanceof mongoose.Error.ValidationError) {
-      return NextResponse.json({ 
-        error: 'ข้อมูลไม่ถูกต้อง', 
-        details: Object.values(error.errors).map(err => err.message)
-      }, { status: 400 })
-    }
-    
-    return NextResponse.json({ error: 'ไม่สามารถสร้างการจองได้' }, { status: 500 })
+  } 
+catch (error) {
+  console.error('Error creating booking:', error)
+  
+  // Handle specific error types
+  if (error instanceof mongoose.Error.CastError) {
+    return NextResponse.json({ 
+      error: `รูปแบบ ID ไม่ถูกต้อง: ${error.path}` 
+    }, { status: 400 })
   }
+  
+  if (error instanceof mongoose.Error.ValidationError) {
+    return NextResponse.json({ 
+      error: 'ข้อมูลไม่ถูกต้อง', 
+      details: Object.values(error.errors).map(err => err.message)
+    }, { status: 400 })
+  }
+  
+  return NextResponse.json({ error: 'ไม่สามารถสร้างการจองได้' }, { status: 500 })
+}
 }
 

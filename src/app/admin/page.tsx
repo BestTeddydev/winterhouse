@@ -20,7 +20,10 @@ import {
   EyeOff,
   MapPin,
   LogOut,
-  UserCheck
+  UserCheck,
+  Package,
+  TentIcon,
+  Lock
 } from 'lucide-react'
 
 interface DashboardStats {
@@ -48,6 +51,10 @@ export default function AdminDashboard() {
     approvedToday: 0,
     totalToday: 0
   })
+  const [addOnsStats, setAddOnsStats] = useState({
+    total: 0,
+    active: 0
+  })
 
   useEffect(() => {
     // Middleware already handles authentication and authorization
@@ -56,6 +63,7 @@ export default function AdminDashboard() {
       console.log('✅ Admin dashboard - User authenticated:', session.user.email, 'Role:', session.user.role)
       fetchDashboardStats()
       fetchAttendanceStats()
+      fetchAddOnsStats()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
@@ -163,6 +171,21 @@ export default function AdminDashboard() {
     }
   }
 
+  const fetchAddOnsStats = async () => {
+    try {
+      const response = await axios.get('/api/addons')
+      const addOns = response.data || []
+      const activeAddOns = addOns.filter((addOn: any) => addOn.isActive)
+      
+      setAddOnsStats({
+        total: addOns.length,
+        active: activeAddOns.length
+      })
+    } catch (error) {
+      console.error('Error fetching add-ons stats:', error)
+    }
+  }
+
   if (session === undefined) {
     // Session is still loading
     return (
@@ -224,6 +247,40 @@ export default function AdminDashboard() {
         : attendanceStats.totalToday > 0 
         ? `${attendanceStats.approvedToday}/${attendanceStats.totalToday} วันนี้`
         : 'จัดการการเช็คอิน'
+    },
+    {
+      title: 'จัดการอ๊อฟชั่นเสริม',
+      description: 'เพิ่ม แก้ไข หรือลบอ๊อฟชั่นเสริม',
+      href: '/admin/addons',
+      icon: Package,
+      color: 'bg-gradient-to-br from-orange-500 to-orange-600',
+      stats: addOnsStats.total > 0 
+        ? `${addOnsStats.active}/${addOnsStats.total} เปิดใช้งาน` 
+        : 'จัดการอ๊อฟชั่นเสริม'
+    },
+    {
+      title: 'จัดการบล็อคกางเต๊นท์',
+      description: 'เพิ่ม แก้ไข หรือลบบล็อคกางเต๊นท์',
+      href: '/admin/camping-blocks',
+      icon: TentIcon,
+      color: 'bg-gradient-to-br from-green-500 to-green-600',
+      stats: 'จัดการบล็อคกางเต๊นท์'
+    },
+    {
+      title: 'ล็อคห้องไม่ให้จอง',
+      description: 'ล็อคห้องไม่ให้จองในช่วงวันที่กำหนด',
+      href: '/admin/room-blocks',
+      icon: Lock,
+      color: 'bg-gradient-to-br from-red-500 to-red-600',
+      stats: 'จัดการการล็อคห้อง'
+    },
+    {
+      title: 'ล็อคบล็อคกางเต๊นท์',
+      description: 'ล็อคบล็อคกางเต๊นท์ไม่ให้จองในช่วงวันที่กำหนด',
+      href: '/admin/camping-block-blocks',
+      icon: TentIcon,
+      color: 'bg-gradient-to-br from-orange-500 to-orange-600',
+      stats: 'จัดการการล็อคบล็อคกางเต๊นท์'
     },
   ]
 

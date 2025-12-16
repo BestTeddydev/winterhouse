@@ -17,6 +17,7 @@ interface BuildingHotspot {
   buildingName: string
   buildingType: string
   rooms: string[]
+  campingBlocks?: string[]
   description: string
   facilities: string[]
 }
@@ -24,16 +25,22 @@ interface BuildingHotspot {
 interface SiteMapData {
   imageUrl: string
   hotspots: BuildingHotspot[]
+  type?: 'accommodation' | 'camping'
+  name?: string
+  description?: string
 }
 
 export default function AdminSiteMapPage() {
   const { data: session } = useSession()
   const router = useRouter()
+  const [mapType, setMapType] = useState<'accommodation' | 'camping'>('accommodation')
   const [siteMap, setSiteMap] = useState<SiteMapData>({
     imageUrl: '/placeholder-map.jpg',
     hotspots: [],
+    type: 'accommodation',
   })
   const [availableRooms, setAvailableRooms] = useState<{ id: string; name: string }[]>([])
+  const [availableCampingBlocks, setAvailableCampingBlocks] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -62,25 +69,56 @@ export default function AdminSiteMapPage() {
 
   const fetchData = async () => {
     try {
-      // Fetch rooms that are not linked to any building
-      const roomsResponse = await axios.get('/api/rooms')
-      const unlinkedRooms = roomsResponse.data.filter((room: any) => !room.buildingId)
-      setAvailableRooms(
-        unlinkedRooms.map((room: any) => ({
-          id: room._id || room.id,
-          name: room.name,
-        }))
-      )
+      // สำหรับแผนผังห้องพัก: Fetch rooms that are not linked to any building
+      if (mapType === 'accommodation') {
+        try {
+          const roomsResponse = await axios.get('/api/rooms')
+          const unlinkedRooms = roomsResponse.data.filter((room: any) => !room.buildingId)
+          setAvailableRooms(
+            unlinkedRooms.map((room: any) => ({
+              id: room._id || room.id,
+              name: room.name,
+            }))
+          )
+        } catch (error) {
+          console.error('Error fetching rooms:', error)
+          setAvailableRooms([])
+        }
+        setAvailableCampingBlocks([])
+      } else {
+        // สำหรับแผนผังลานกางเต๊นท์: Fetch camping blocks
+        setAvailableRooms([])
+        try {
+          const blocksResponse = await axios.get('/api/camping-blocks')
+          setAvailableCampingBlocks(
+            blocksResponse.data.map((block: any) => ({
+              id: block._id || block.id,
+              name: block.name,
+            }))
+          )
+        } catch (error) {
+          console.error('Error fetching camping blocks:', error)
+          setAvailableCampingBlocks([])
+        }
+      }
 
-      // Fetch site map data (you'll need to create this API endpoint)
+      // Fetch site map data ตาม type
       try {
-        const siteMapResponse = await axios.get('/api/site-map')
+        const siteMapResponse = await axios.get(`/api/site-map?type=${mapType}`)
         if (siteMapResponse.data) {
-          setSiteMap(siteMapResponse.data)
+          setSiteMap({
+            ...siteMapResponse.data,
+            type: siteMapResponse.data.type || mapType,
+          })
         }
       } catch (error) {
         // Site map doesn't exist yet, use default
         console.log('No site map found, using default')
+        setSiteMap({
+          imageUrl: '/placeholder-map.jpg',
+          hotspots: [],
+          type: mapType,
+        })
       }
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -89,6 +127,15 @@ export default function AdminSiteMapPage() {
       setLoading(false)
     }
   }
+
+  // Reload data when map type changes
+  useEffect(() => {
+    if (session && session.user && session.user.role === 'ADMIN') {
+      setLoading(true)
+      fetchData()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapType])
 
   const handleImageUpload = async (file: File): Promise<string> => {
     const formData = new FormData()
@@ -115,7 +162,10 @@ export default function AdminSiteMapPage() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      await axios.post('/api/site-map', siteMap)
+      await axios.post('/api/site-map', {
+        ...siteMap,
+        type: mapType,
+      })
       toast.success('บันทึกแผนผังสำเร็จ')
     } catch (error) {
       console.error('Error saving site map:', error)
@@ -161,9 +211,34 @@ export default function AdminSiteMapPage() {
                 จัดการแผนผังที่ดินและอาคาร
               </h1>
               <p className="text-gray-700 text-lg font-medium">
-                อัปโหลดแผนผังที่ดินและระบุตำแหน่งอาคาร/ห้องพักต่างๆ
+                อัปโหลดแผนผังที่ดินและระบุตำแหน่งอาคาร/ห้องพักหรือลานกางเต๊นท์
               </p>
-              {availableRooms.length > 0 && (
+              
+              {/* Tab Selector */}
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={() => setMapType('accommodation')}
+                  className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                    mapType === 'accommodation'
+                      ? 'bg-primary-600 text-white shadow-md'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  🏠 แผนผังห้องพัก
+                </button>
+                <button
+                  onClick={() => setMapType('camping')}
+                  className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                    mapType === 'camping'
+                      ? 'bg-primary-600 text-white shadow-md'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  🏕️ แผนผังลานกางเต๊นท์
+                </button>
+              </div>
+              
+              {mapType === 'accommodation' && availableRooms.length > 0 && (
                 <p className="text-sm text-blue-600 mt-2 font-medium">
                   💡 มีห้องพัก {availableRooms.length} ห้องที่ยังไม่ได้ผูกกับอาคาร
                 </p>
@@ -187,9 +262,10 @@ export default function AdminSiteMapPage() {
             คำแนะนำการใช้งาน
           </h3>
           <ol className="list-decimal list-inside space-y-2 text-blue-800">
-            <li>คลิก "เปลี่ยนรูปแผนผัง" เพื่ออัปโหลดรูปแผนผังที่ดิน/อาคาร</li>
-            <li>คลิก "เพิ่มอาคาร" แล้วคลิกที่ตำแหน่งบนแผนผังที่ต้องการ</li>
-            <li>กรอกข้อมูลอาคาร เลือกประเภท และเชื่อมโยงกับห้องพัก</li>
+            <li>เลือกประเภทแผนผัง: "แผนผังห้องพัก" หรือ "แผนผังลานกางเต๊นท์"</li>
+            <li>คลิก "เปลี่ยนรูปแผนผัง" เพื่ออัปโหลดรูปแผนผังที่ดิน/อาคาร/ลานกางเต๊นท์</li>
+            <li>คลิก "เพิ่ม{mapType === 'camping' ? 'จุดกางเต๊นท์' : 'อาคาร'}" แล้วคลิกที่ตำแหน่งบนแผนผังที่ต้องการ</li>
+            <li>กรอกข้อมูล{mapType === 'camping' ? 'จุดกางเต๊นท์' : 'อาคาร'} เลือกประเภท และ{mapType === 'accommodation' ? 'เชื่อมโยงกับห้องพัก' : 'ระบุรายละเอียด'}</li>
             <li>คลิกที่จุดบนแผนผังเพื่อแก้ไขข้อมูล</li>
             <li>คลิก "บันทึกแผนผัง" เมื่อเสร็จสิ้น</li>
           </ol>
@@ -201,8 +277,10 @@ export default function AdminSiteMapPage() {
             imageUrl={siteMap.imageUrl}
             hotspots={siteMap.hotspots}
             availableRooms={availableRooms}
+            availableCampingBlocks={availableCampingBlocks}
             onChange={(hotspots) => setSiteMap({ ...siteMap, hotspots })}
             onImageUpload={handleImageUpload}
+            mapType={mapType}
           />
         </div>
 
@@ -211,11 +289,22 @@ export default function AdminSiteMapPage() {
           <h3 className="font-bold text-yellow-900 mb-3">💡 เคล็ดลับ</h3>
           <ul className="list-disc list-inside space-y-2 text-yellow-800">
             <li>ใช้รูปแผนผังที่มีความละเอียดสูงเพื่อความชัดเจน</li>
-            <li>ตั้งชื่ออาคารให้เข้าใจง่าย เช่น "อาคาร A", "คาเฟ่ชั้น 1"</li>
-            <li>เชื่อมโยงห้องพักกับอาคารที่ถูกต้องเพื่อให้ลูกค้าค้นหาได้ง่าย</li>
-            <li>กำหนดประเภทอาคารให้ถูกต้องเพื่อแสดง icon ที่เหมาะสม</li>
-            <li>ห้องพักที่ยังไม่ได้ผูกกับอาคารจะแสดงในรายการห้องพักที่ใช้ได้</li>
-            <li>สามารถผูกห้องพักกับอาคารได้โดยการเลือก checkbox ในรายการห้องพัก</li>
+            {mapType === 'accommodation' ? (
+              <>
+                <li>ตั้งชื่ออาคารให้เข้าใจง่าย เช่น "อาคาร A", "คาเฟ่ชั้น 1"</li>
+                <li>เชื่อมโยงห้องพักกับอาคารที่ถูกต้องเพื่อให้ลูกค้าค้นหาได้ง่าย</li>
+                <li>กำหนดประเภทอาคารให้ถูกต้องเพื่อแสดง icon ที่เหมาะสม</li>
+                <li>ห้องพักที่ยังไม่ได้ผูกกับอาคารจะแสดงในรายการห้องพักที่ใช้ได้</li>
+                <li>สามารถผูกห้องพักกับอาคารได้โดยการเลือก checkbox ในรายการห้องพัก</li>
+              </>
+            ) : (
+              <>
+                <li>ตั้งชื่อจุดกางเต๊นท์ให้เข้าใจง่าย เช่น "โซน A", "โซน B", "จุดใกล้ห้องน้ำ"</li>
+                <li>ระบุประเภทจุดกางเต๊นท์ให้ถูกต้อง เช่น จุดกางเต๊นท์, ห้องน้ำ, ที่จอดรถ</li>
+                <li>เพิ่มรายละเอียดและสิ่งอำนวยความสะดวกของแต่ละจุด</li>
+                <li>สามารถระบุตำแหน่งสิ่งอำนวยความสะดวกต่างๆ เช่น ห้องน้ำ, ที่จอดรถ, สวน</li>
+              </>
+            )}
           </ul>
         </div>
       </main>

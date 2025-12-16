@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import connectDB from '@/lib/mongodb'
+import mongoose from 'mongoose'
 import SiteMap from '@/models/SiteMap'
 import Building from '@/models/Building'
 import Room from '@/models/Room'
@@ -11,22 +12,81 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB()
 
-    // ดึงแผนผังล่าสุด (ควรมีแค่ 1 document)
-    let siteMap = await SiteMap.findOne({ isActive: true }).sort({ updatedAt: -1 })
+    // ดึง query parameter สำหรับ type (accommodation หรือ camping)
+    const { searchParams } = new URL(request.url)
+    const type = searchParams.get('type') || 'accommodation' // default เป็น accommodation
+
+    // ดึงแผนผังตาม type
+    let siteMap = await SiteMap.findOne({ 
+      isActive: true, 
+      type: type as 'accommodation' | 'camping' 
+    }).sort({ updatedAt: -1 })
 
     // ถ้าไม่มีข้อมูล ให้สร้างค่า default
     if (!siteMap) {
+      const defaultName = type === 'camping' ? 'แผนผังลานกางเต๊นท์' : 'แผนผังห้องพัก'
+      const defaultDescription = type === 'camping' 
+        ? 'แผนผังลานกางเต๊นท์' 
+        : 'แผนผังหลักของสถานที่'
+      
       siteMap = await SiteMap.create({
-        name: 'แผนผังหลัก',
-        description: 'แผนผังหลักของสถานที่',
+        name: defaultName,
+        description: defaultDescription,
         imageUrl: '/placeholder-map.jpg',
+        type: type as 'accommodation' | 'camping',
       })
     }
 
-    // ดึงข้อมูลอาคารทั้งหมดพร้อมห้องพัก
-    const buildings = await Building.find({ isActive: true })
+    // ดึงข้อมูลอาคาร/จุดทั้งหมดตาม type
+    // สำหรับ accommodation: ดึงอาคารและห้องพัก
+    // สำหรับ camping: ดึงจุดกางเต๊นท์ (buildingType = 'camping')
+    const buildingTypeFilter = type === 'camping' ? 'camping' : { $ne: 'camping' }
+    const buildings = await Building.find({ 
+      isActive: true,
+      buildingType: buildingTypeFilter
+    })
+    
+    // ดึงข้อมูล camping blocks สำหรับแผนผัง camping
+    let campingBlocks: any[] = []
+    if (type === 'camping') {
+      const CampingBlock = require('@/models/CampingBlock').default
+      campingBlocks = await CampingBlock.find({ isActive: true }).lean()
+    }
+
     const buildingsWithRooms = await Promise.all(
       buildings.map(async (building) => {
+        // สำหรับ camping: ใช้ campingBlocks จาก Building หรือจาก hotspot ที่ส่งมา
+        // แต่จริงๆ แล้ว campingBlocks เก็บไว้ใน hotspot (ไม่ใช่ใน Building)
+        // ดังนั้นเราจะดึงจาก Building.buildingId ที่เชื่อมโยงกับ CampingBlock
+        // หรือถ้าไม่มีก็จะใช้ empty array (ให้แอดมินเลือกใน SiteMapEditor)
+        if (type === 'camping') {
+          // หา camping blocks ที่มี buildingId ตรงกับ building นี้ (ถ้ามีการเชื่อมโยง)
+          const buildingIdStr = building._id.toString()
+          const linkedBlocks = campingBlocks
+            .filter(block => {
+              if (!block.buildingId) return false
+              // เปรียบเทียบ ObjectId โดยแปลงเป็น string
+              const blockBuildingId = block.buildingId.toString ? block.buildingId.toString() : String(block.buildingId)
+              return blockBuildingId === buildingIdStr
+            })
+            .map(block => block._id.toString())
+          
+          console.log(`Building ${building.name} (${buildingIdStr}) has ${linkedBlocks.length} linked camping blocks:`, linkedBlocks)
+          
+          return {
+            id: building._id.toString(),
+            x: building.x,
+            y: building.y,
+            buildingName: building.name,
+            buildingType: building.buildingType,
+            description: building.description,
+            facilities: building.facilities,
+            rooms: [],
+            campingBlocks: linkedBlocks, // เริ่มต้นด้วย camping blocks ที่เชื่อมโยงกับ building
+          }
+        }
+        
+        // สำหรับ accommodation ดึงห้องพัก
         const rooms = await Room.find({ 
           buildingId: building._id, 
           isActive: true 
@@ -48,6 +108,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       imageUrl: siteMap.imageUrl,
       hotspots: buildingsWithRooms,
+      type: siteMap.type,
+      name: siteMap.name,
+      description: siteMap.description,
     })
   } catch (error) {
     console.error('Error fetching site map:', error)
@@ -74,7 +137,19 @@ export async function POST(request: NextRequest) {
     await connectDB()
 
     const body = await request.json()
-    const { imageUrl, name, description } = body
+    const { imageUrl, name, description, type, hotspots } = body
+    
+    console.log('Site map POST - Received data:', {
+      mapType: type,
+      hotspotsCount: hotspots?.length,
+      hotspots: hotspots?.map((h: any) => ({
+        id: h.id,
+        buildingName: h.buildingName,
+        buildingType: h.buildingType,
+        campingBlocks: h.campingBlocks,
+        campingBlocksCount: h.campingBlocks?.length
+      }))
+    })
 
     // Validate data
     if (!imageUrl) {
@@ -84,8 +159,71 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ลบแผนผังเดิมและสร้างใหม่ (หรือ update ถ้ามีอยู่แล้ว)
-    let siteMap = await SiteMap.findOne({ isActive: true })
+    const mapType = (type || 'accommodation') as 'accommodation' | 'camping'
+
+    // อัปเดต Building และ CampingBlock ตาม hotspots
+    if (hotspots && Array.isArray(hotspots)) {
+      const CampingBlock = require('@/models/CampingBlock').default
+      
+      for (const hotspot of hotspots) {
+        // Validate hotspot.id
+        if (!hotspot.id || !mongoose.Types.ObjectId.isValid(hotspot.id)) {
+          console.error(`Invalid hotspot.id: ${hotspot.id}`)
+          continue
+        }
+        
+        // อัปเดต Building
+        await Building.findByIdAndUpdate(hotspot.id, {
+          name: hotspot.buildingName,
+          description: hotspot.description,
+          buildingType: hotspot.buildingType,
+          facilities: hotspot.facilities || [],
+          x: hotspot.x,
+          y: hotspot.y,
+        })
+
+        // สำหรับ camping: อัปเดต camping blocks ที่เชื่อมโยงกับ building
+        if (mapType === 'camping' && hotspot.campingBlocks) {
+          const buildingObjectId = new mongoose.Types.ObjectId(hotspot.id)
+          
+          console.log(`Updating camping blocks for building ${hotspot.id}:`, {
+            buildingId: buildingObjectId.toString(),
+            campingBlocks: hotspot.campingBlocks
+          })
+          
+          // Unlink all camping blocks from this building first
+          const unlinkResult = await CampingBlock.updateMany(
+            { buildingId: buildingObjectId },
+            { $unset: { buildingId: 1 } }
+          )
+          console.log(`Unlinked ${unlinkResult.modifiedCount} camping blocks from building ${hotspot.id}`)
+          
+          // Link selected camping blocks to this building
+          if (hotspot.campingBlocks.length > 0) {
+            const campingBlockIds = hotspot.campingBlocks
+              .filter((id: string) => id && mongoose.Types.ObjectId.isValid(id))
+              .map((id: string) => new mongoose.Types.ObjectId(id))
+            
+            console.log(`Linking ${campingBlockIds.length} camping blocks to building ${hotspot.id}:`, 
+              campingBlockIds.map((id: any) => id.toString()))
+            
+            if (campingBlockIds.length > 0) {
+              const linkResult = await CampingBlock.updateMany(
+                { _id: { $in: campingBlockIds } },
+                { buildingId: buildingObjectId }
+              )
+              console.log(`Linked ${linkResult.modifiedCount} camping blocks to building ${hotspot.id}`)
+            }
+          }
+        }
+      }
+    }
+
+    // หาแผนผังเดิมตาม type
+    let siteMap = await SiteMap.findOne({ 
+      isActive: true, 
+      type: mapType 
+    })
 
     if (siteMap) {
       // Update existing
@@ -95,10 +233,16 @@ export async function POST(request: NextRequest) {
       await siteMap.save()
     } else {
       // Create new
+      const defaultName = mapType === 'camping' ? 'แผนผังลานกางเต๊นท์' : 'แผนผังห้องพัก'
+      const defaultDescription = mapType === 'camping' 
+        ? 'แผนผังลานกางเต๊นท์' 
+        : 'แผนผังหลักของสถานที่'
+      
       siteMap = await SiteMap.create({
-        name: name || 'แผนผังหลัก',
-        description: description || 'แผนผังหลักของสถานที่',
+        name: name || defaultName,
+        description: description || defaultDescription,
         imageUrl,
+        type: mapType,
       })
     }
 

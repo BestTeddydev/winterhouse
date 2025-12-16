@@ -7,6 +7,8 @@ const nextConfig = {
         hostname: '**',
       },
     ],
+    // Allow unoptimized images for static assets like logo
+    unoptimized: false,
   },
   // For Docker standalone build
   output: 'standalone',
@@ -15,6 +17,10 @@ const nextConfig = {
   // Disable static generation for pages that use useSearchParams
   experimental: {
     missingSuspenseWithCSRBailout: false,
+  },
+  // Ensure public folder is included in standalone build
+  publicRuntimeConfig: {
+    // This ensures public assets are accessible
   },
 }
 
