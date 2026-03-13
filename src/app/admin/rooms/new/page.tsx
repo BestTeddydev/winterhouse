@@ -24,6 +24,14 @@ export default function NewRoom() {
     weekend: '',
     holiday: ''
   })
+  const [seasonalPricing, setSeasonalPricing] = useState<Array<{
+    name: string
+    startMonth: number
+    endMonth: number
+    weekday: string
+    weekend: string
+    holiday: string
+  }>>([])
   const [capacity, setCapacity] = useState('')
   const [amenities, setAmenities] = useState<string[]>([])
   const [amenityInput, setAmenityInput] = useState('')
@@ -208,6 +216,20 @@ export default function NewRoom() {
           weekend: parseFloat(pricing.weekend || basePrice),
           holiday: parseFloat(pricing.holiday || basePrice)
         }
+      }
+
+      // Add seasonal pricing if provided
+      if (seasonalPricing.length > 0) {
+        roomData.seasonalPricing = seasonalPricing
+          .filter(season => season.name && season.weekday) // Only include valid seasons
+          .map(season => ({
+            name: season.name,
+            startMonth: season.startMonth,
+            endMonth: season.endMonth,
+            weekday: parseFloat(season.weekday || basePrice),
+            weekend: parseFloat(season.weekend || season.weekday || basePrice),
+            holiday: parseFloat(season.holiday || season.weekday || basePrice)
+          }))
       }
 
       await axios.post('/api/rooms', roomData)
@@ -487,6 +509,184 @@ export default function NewRoom() {
                 💡 <strong>แนะนำ:</strong> ตั้งราคา weekend สูงกว่า weekday 20-30% และ holiday สูงกว่า weekday 50% เพื่อเพิ่มรายได้
               </p>
             </div>
+          </div>
+
+          {/* Seasonal Pricing */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-semibold text-green-900">📅 กำหนดราคาตามช่วงเวลา (Seasonal Pricing)</h3>
+                <p className="text-sm text-green-800 mt-1">
+                  กำหนดราคาพิเศษสำหรับช่วงเวลาที่กำหนด เช่น เดือน 1-3 (มกราคม-มีนาคม)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSeasonalPricing([...seasonalPricing, {
+                    name: '',
+                    startMonth: 1,
+                    endMonth: 3,
+                    weekday: '',
+                    weekend: '',
+                    holiday: ''
+                  }])
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm"
+              >
+                <Plus size={16} />
+                เพิ่มช่วงเวลา
+              </button>
+            </div>
+
+            {seasonalPricing.length > 0 && (
+              <div className="space-y-4">
+                {seasonalPricing.map((season, index) => (
+                  <div key={index} className="bg-white rounded-lg border border-green-300 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium text-gray-900">ช่วงเวลา #{index + 1}</h4>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSeasonalPricing(seasonalPricing.filter((_, i) => i !== index))
+                        }}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="block text-gray-700 font-medium mb-1 text-sm">
+                          ชื่อช่วงเวลา *
+                        </label>
+                        <input
+                          type="text"
+                          value={season.name}
+                          onChange={(e) => {
+                            const updated = [...seasonalPricing]
+                            updated[index].name = e.target.value
+                            setSeasonalPricing(updated)
+                          }}
+                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                          placeholder="เช่น ช่วงฤดูหนาว"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-gray-700 font-medium mb-1 text-sm">
+                            เดือนเริ่มต้น *
+                          </label>
+                          <select
+                            value={season.startMonth}
+                            onChange={(e) => {
+                              const updated = [...seasonalPricing]
+                              updated[index].startMonth = parseInt(e.target.value)
+                              setSeasonalPricing(updated)
+                            }}
+                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                          >
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                              <option key={month} value={month}>
+                                {['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'][month - 1]}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-gray-700 font-medium mb-1 text-sm">
+                            เดือนสิ้นสุด *
+                          </label>
+                          <select
+                            value={season.endMonth}
+                            onChange={(e) => {
+                              const updated = [...seasonalPricing]
+                              updated[index].endMonth = parseInt(e.target.value)
+                              setSeasonalPricing(updated)
+                            }}
+                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                          >
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                              <option key={month} value={month}>
+                                {['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'][month - 1]}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-gray-700 font-medium mb-1 text-sm">
+                          ราคาวันธรรมดา *
+                        </label>
+                        <input
+                          type="number"
+                          value={season.weekday}
+                          onChange={(e) => {
+                            const updated = [...seasonalPricing]
+                            updated[index].weekday = e.target.value
+                            setSeasonalPricing(updated)
+                          }}
+                          min="0"
+                          step="0.01"
+                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                          placeholder={pricing.weekday || price || "1000"}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-gray-700 font-medium mb-1 text-sm">
+                          ราคาวันหยุดสุดสัปดาห์
+                        </label>
+                        <input
+                          type="number"
+                          value={season.weekend}
+                          onChange={(e) => {
+                            const updated = [...seasonalPricing]
+                            updated[index].weekend = e.target.value
+                            setSeasonalPricing(updated)
+                          }}
+                          min="0"
+                          step="0.01"
+                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                          placeholder={season.weekday || pricing.weekend || pricing.weekday || price || "1200"}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-gray-700 font-medium mb-1 text-sm">
+                          ราคาวันหยุดนักขัตฤกษ์
+                        </label>
+                        <input
+                          type="number"
+                          value={season.holiday}
+                          onChange={(e) => {
+                            const updated = [...seasonalPricing]
+                            updated[index].holiday = e.target.value
+                            setSeasonalPricing(updated)
+                          }}
+                          min="0"
+                          step="0.01"
+                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                          placeholder={season.weekday || pricing.holiday || pricing.weekday || price || "1500"}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {seasonalPricing.length === 0 && (
+              <p className="text-sm text-green-700 text-center py-4">
+                ยังไม่มีการกำหนดราคาตามช่วงเวลา คลิก "เพิ่มช่วงเวลา" เพื่อเพิ่ม
+              </p>
+            )}
           </div>
 
           <div>

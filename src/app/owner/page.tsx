@@ -296,176 +296,176 @@ export default function OwnerDashboard() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">แดชบอร์ดเจ้าของ</h1>
-          <p className="text-gray-700 text-lg">ภาพรวมการจัดการและการจองทั้งหมด</p>
+        <div className="mb-4 sm:mb-6 md:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">แดชบอร์ดเจ้าของ</h1>
+          <p className="text-gray-700 text-sm sm:text-base md:text-lg">ภาพรวมการจัดการและการจองทั้งหมด</p>
         </div>
 
         {/* Quick Access Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
-        
-
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6 mb-6 sm:mb-8">
           <Link
             href="/admin/bookings/new"
-            className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all transform hover:scale-105"
+            className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-4 sm:p-5 md:p-6 text-white hover:shadow-xl transition-all transform hover:scale-105"
           >
-            <div className="flex items-center justify-between mb-4">
-              <Plus size={32} />
-              <FileText size={20} />
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <Plus className="w-6 h-6 sm:w-8 sm:h-8" />
+              <FileText className="w-5 h-5" />
             </div>
-            <h3 className="text-xl font-bold mb-2">สร้างการจองใหม่</h3>
-            <p className="text-blue-100 text-sm">เพิ่มการจองด้วยตนเอง</p>
+            <h3 className="text-lg sm:text-xl font-bold mb-2">สร้างการจองใหม่</h3>
+            <p className="text-blue-100 text-xs sm:text-sm">เพิ่มการจองด้วยตนเอง</p>
           </Link>
 
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
-            <div className="flex items-center justify-between mb-4">
-              <TrendingUp size={32} />
-              <DollarSign size={20} />
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-4 sm:p-5 md:p-6 text-white">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8" />
+              <DollarSign className="w-5 h-5" />
             </div>
-            <h3 className="text-xl font-bold mb-2">รายได้รวม</h3>
-            <p className="text-purple-100 text-sm mb-2">รายได้ทั้งหมด</p>
+            <h3 className="text-lg sm:text-xl font-bold mb-2">รายได้รวม</h3>
+            <p className="text-purple-100 text-xs sm:text-sm mb-2">รายได้ทั้งหมด</p>
             {stats ? (
-              <p className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</p>
+              <p className="text-xl sm:text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</p>
             ) : (
-              <p className="text-2xl font-bold">-</p>
+              <p className="text-xl sm:text-2xl font-bold">-</p>
             )}
           </div>
         </div>
 
         {/* Statistics Cards */}
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-            <div className="bg-white rounded-lg shadow-md p-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6 sm:mb-8">
+            <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
-                <Calendar className="text-blue-600" size={20} />
-                <span className="text-xs text-gray-500">ทั้งหมด</span>
+                <Calendar className="text-blue-600 flex-shrink-0" size={18} />
+                <span className="text-xs text-gray-500 truncate ml-1">ทั้งหมด</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalBookings}</p>
-              <p className="text-xs text-gray-600 mt-1">การจอง</p>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{stats.totalBookings}</p>
+              <p className="text-xs text-gray-600 mt-1 truncate">การจอง</p>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-4">
+            <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
-                <Clock className="text-yellow-600" size={20} />
-                <span className="text-xs text-gray-500">รอ</span>
+                <Clock className="text-yellow-600 flex-shrink-0" size={18} />
+                <span className="text-xs text-gray-500 truncate ml-1">รอ</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{stats.pendingBookings}</p>
-              <p className="text-xs text-gray-600 mt-1">รอการยืนยัน</p>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{stats.pendingBookings}</p>
+              <p className="text-xs text-gray-600 mt-1 truncate">รอการยืนยัน</p>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-4">
+            <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
-                <CheckCircle className="text-green-600" size={20} />
-                <span className="text-xs text-gray-500">ยืนยัน</span>
+                <CheckCircle className="text-green-600 flex-shrink-0" size={18} />
+                <span className="text-xs text-gray-500 truncate ml-1">ยืนยัน</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{stats.confirmedBookings}</p>
-              <p className="text-xs text-gray-600 mt-1">ยืนยันแล้ว</p>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{stats.confirmedBookings}</p>
+              <p className="text-xs text-gray-600 mt-1 truncate">ยืนยันแล้ว</p>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-4">
+            <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
-                <CheckCircle className="text-blue-600" size={20} />
-                <span className="text-xs text-gray-500">เสร็จ</span>
+                <CheckCircle className="text-blue-600 flex-shrink-0" size={18} />
+                <span className="text-xs text-gray-500 truncate ml-1">เสร็จ</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{stats.completedBookings}</p>
-              <p className="text-xs text-gray-600 mt-1">เสร็จสิ้น</p>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{stats.completedBookings}</p>
+              <p className="text-xs text-gray-600 mt-1 truncate">เสร็จสิ้น</p>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-4">
+            <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
-                <DollarSign className="text-green-600" size={20} />
-                <span className="text-xs text-gray-500">เดือนนี้</span>
+                <DollarSign className="text-green-600 flex-shrink-0" size={18} />
+                <span className="text-xs text-gray-500 truncate ml-1">เดือนนี้</span>
               </div>
-              <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.monthlyRevenue)}</p>
-              <p className="text-xs text-gray-600 mt-1">รายได้เดือนนี้</p>
+              <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 truncate">{formatCurrency(stats.monthlyRevenue)}</p>
+              <p className="text-xs text-gray-600 mt-1 truncate">รายได้เดือนนี้</p>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-4">
+            <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
-                <TrendingUp className="text-purple-600" size={20} />
-                <span className="text-xs text-gray-500">วันนี้</span>
+                <TrendingUp className="text-purple-600 flex-shrink-0" size={18} />
+                <span className="text-xs text-gray-500 truncate ml-1">วันนี้</span>
               </div>
-              <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.todayRevenue)}</p>
-              <p className="text-xs text-gray-600 mt-1">รายได้วันนี้</p>
+              <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 truncate">{formatCurrency(stats.todayRevenue)}</p>
+              <p className="text-xs text-gray-600 mt-1 truncate">รายได้วันนี้</p>
             </div>
           </div>
         )}
 
         {/* Date Picker */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">เลือกวันที่</h2>
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700 whitespace-nowrap">กรองตาม:</label>
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6 mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">เลือกวันที่</h2>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 md:gap-4">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">กรองตาม:</label>
                 <select
                   value={dateFilterType}
                   onChange={(e) => setDateFilterType(e.target.value as 'createdAt' | 'checkIn')}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                  className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-xs sm:text-sm flex-1 sm:flex-none"
                 >
                   <option value="createdAt">วันที่สร้าง</option>
                   <option value="checkIn">วันที่เช็คอิน</option>
                 </select>
               </div>
-              <button
-                onClick={() => changeDate(-1)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="วันที่ก่อนหน้า"
-              >
-                <ChevronLeft size={20} />
-              </button>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-              <button
-                onClick={() => changeDate(1)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="วันที่ถัดไป"
-              >
-                <ChevronRight size={20} />
-              </button>
-              <button
-                onClick={() => {
-                  const today = new Date()
-                  setSelectedDate(today.toISOString().split('T')[0])
-                }}
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-              >
-                วันนี้
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => changeDate(-1)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="วันที่ก่อนหน้า"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-xs sm:text-sm"
+                />
+                <button
+                  onClick={() => changeDate(1)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="วันที่ถัดไป"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => {
+                    const today = new Date()
+                    setSelectedDate(today.toISOString().split('T')[0])
+                  }}
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-xs sm:text-sm"
+                >
+                  วันนี้
+                </button>
+              </div>
             </div>
           </div>
-          <div className="flex items-center justify-between">
-            <p className="text-lg text-gray-700 font-medium">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <p className="text-base sm:text-lg text-gray-700 font-medium">
               {formatSelectedDate()}
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-xs sm:text-sm text-gray-500">
               กรองตาม: {dateFilterType === 'createdAt' ? 'วันที่สร้าง' : 'วันที่เช็คอิน'}
             </p>
           </div>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-            <Home className="text-green-600 mx-auto mb-3" size={32} />
-            <p className="text-lg font-semibold text-gray-700">เช็คอิน</p>
-            <p className="text-3xl font-bold text-green-600">{checkIns.length}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 md:gap-6 mb-6 sm:mb-8">
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6 text-center">
+            <Home className="text-green-600 mx-auto mb-2 sm:mb-3 w-6 h-6 sm:w-8 sm:h-8" />
+            <p className="text-base sm:text-lg font-semibold text-gray-700">เช็คอิน</p>
+            <p className="text-2xl sm:text-3xl font-bold text-green-600">{checkIns.length}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-            <LogOut className="text-orange-600 mx-auto mb-3" size={32} />
-            <p className="text-lg font-semibold text-gray-700">เช็คเอาท์</p>
-            <p className="text-3xl font-bold text-orange-600">{checkOuts.length}</p>
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6 text-center">
+            <LogOut className="text-orange-600 mx-auto mb-2 sm:mb-3 w-6 h-6 sm:w-8 sm:h-8" />
+            <p className="text-base sm:text-lg font-semibold text-gray-700">เช็คเอาท์</p>
+            <p className="text-2xl sm:text-3xl font-bold text-orange-600">{checkOuts.length}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-            <Bed className="text-blue-600 mx-auto mb-3" size={32} />
-            <p className="text-lg font-semibold text-gray-700">การจองทั้งหมด</p>
-            <p className="text-3xl font-bold text-blue-600">{allBookings.length}</p>
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6 text-center">
+            <Bed className="text-blue-600 mx-auto mb-2 sm:mb-3 w-6 h-6 sm:w-8 sm:h-8" />
+            <p className="text-base sm:text-lg font-semibold text-gray-700">การจองทั้งหมด</p>
+            <p className="text-2xl sm:text-3xl font-bold text-blue-600">{allBookings.length}</p>
           </div>
         </div>
 
@@ -474,24 +474,24 @@ export default function OwnerDashboard() {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             {/* Check-ins Section */}
             {checkIns.length > 0 && (
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <Home className="text-green-600" size={24} />
-                  การเช็คอิน ({checkIns.length})
+              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center gap-2">
+                  <Home className="text-green-600 flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6" />
+                  <span>การเช็คอิน ({checkIns.length})</span>
                 </h2>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {checkIns.map((booking: any) => (
                     <Link
                       key={booking.id}
                       href={`/admin/bookings/${booking.id}/edit`}
-                      className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="block p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="w-16 h-16 relative rounded-lg overflow-hidden flex-shrink-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                        <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 relative rounded-lg overflow-hidden flex-shrink-0">
                             <Image
                               src={booking.room?.imageUrls?.[0] || booking.rooms?.[0]?.imageUrls?.[0] || '/placeholder-room.jpg'}
                               alt={booking.room?.name || booking.rooms?.[0]?.name || 'Room'}
@@ -499,41 +499,42 @@ export default function OwnerDashboard() {
                               className="object-cover"
                             />
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="font-semibold text-gray-900">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                              <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
                                 {booking.rooms && booking.rooms.length > 0
                                   ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
                                   : booking.room?.name || 'N/A'}
                               </h3>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(booking.status)}`}>
+                              <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(booking.status)}`}>
                                 {getStatusIcon(booking.status)}
-                                {booking.status}
+                                <span className="hidden sm:inline">{booking.status}</span>
+                                <span className="sm:hidden">{booking.status.substring(0, 3)}</span>
                               </span>
                             </div>
-                            <div className="space-y-1 text-sm text-gray-600">
+                            <div className="space-y-1 text-xs sm:text-sm text-gray-600">
                               <div className="flex items-center gap-2">
-                                <User size={14} />
-                                <span>{booking.guestName}</span>
+                                <User className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                                <span className="truncate">{booking.guestName}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Phone size={14} />
-                                <span>{booking.guestPhone}</span>
+                                <Phone className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                                <span className="truncate">{booking.guestPhone}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Clock size={14} />
-                                <span>เช็คอิน: {formatDateTime(booking.checkIn)}</span>
+                                <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                                <span className="truncate">เช็คอิน: {formatDateTime(booking.checkIn)}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Calendar size={14} />
-                                <span>เช็คเอาท์: {formatDateTime(booking.checkOut)}</span>
+                                <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                                <span className="truncate">เช็คเอาท์: {formatDateTime(booking.checkOut)}</span>
                               </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-primary-600">{formatCurrency(booking.totalPrice)}</p>
-                            <p className="text-sm text-gray-500">#{booking.id?.slice(0, 8)}</p>
-                          </div>
+                        </div>
+                        <div className="text-left sm:text-right flex-shrink-0 sm:ml-4">
+                          <p className="text-base sm:text-lg font-bold text-primary-600">{formatCurrency(booking.totalPrice)}</p>
+                          <p className="text-xs sm:text-sm text-gray-500">#{booking.id?.slice(0, 8)}</p>
                         </div>
                       </div>
                     </Link>
@@ -544,21 +545,21 @@ export default function OwnerDashboard() {
 
             {/* Check-outs Section */}
             {checkOuts.length > 0 && (
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <LogOut className="text-orange-600" size={24} />
-                  การเช็คเอาท์ ({checkOuts.length})
+              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center gap-2">
+                  <LogOut className="text-orange-600 flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6" />
+                  <span>การเช็คเอาท์ ({checkOuts.length})</span>
                 </h2>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {checkOuts.map((booking: any) => (
                     <Link
                       key={booking.id}
                       href={`/admin/bookings/${booking.id}/edit`}
-                      className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="block p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="w-16 h-16 relative rounded-lg overflow-hidden flex-shrink-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                        <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 relative rounded-lg overflow-hidden flex-shrink-0">
                             <Image
                               src={booking.room?.imageUrls?.[0] || booking.rooms?.[0]?.imageUrls?.[0] || '/placeholder-room.jpg'}
                               alt={booking.room?.name || booking.rooms?.[0]?.name || 'Room'}
@@ -566,41 +567,42 @@ export default function OwnerDashboard() {
                               className="object-cover"
                             />
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="font-semibold text-gray-900">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                              <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
                                 {booking.rooms && booking.rooms.length > 0
                                   ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
                                   : booking.room?.name || 'N/A'}
                               </h3>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(booking.status)}`}>
+                              <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(booking.status)}`}>
                                 {getStatusIcon(booking.status)}
-                                {booking.status}
+                                <span className="hidden sm:inline">{booking.status}</span>
+                                <span className="sm:hidden">{booking.status.substring(0, 3)}</span>
                               </span>
                             </div>
-                            <div className="space-y-1 text-sm text-gray-600">
+                            <div className="space-y-1 text-xs sm:text-sm text-gray-600">
                               <div className="flex items-center gap-2">
-                                <User size={14} />
-                                <span>{booking.guestName}</span>
+                                <User className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                                <span className="truncate">{booking.guestName}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Phone size={14} />
-                                <span>{booking.guestPhone}</span>
+                                <Phone className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                                <span className="truncate">{booking.guestPhone}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Clock size={14} />
-                                <span>เช็คอิน: {formatDateTime(booking.checkIn)}</span>
+                                <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                                <span className="truncate">เช็คอิน: {formatDateTime(booking.checkIn)}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Calendar size={14} />
-                                <span>เช็คเอาท์: {formatDateTime(booking.checkOut)}</span>
+                                <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                                <span className="truncate">เช็คเอาท์: {formatDateTime(booking.checkOut)}</span>
                               </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-primary-600">{formatCurrency(booking.totalPrice)}</p>
-                            <p className="text-sm text-gray-500">#{booking.id?.slice(0, 8)}</p>
-                          </div>
+                        </div>
+                        <div className="text-left sm:text-right flex-shrink-0 sm:ml-4">
+                          <p className="text-base sm:text-lg font-bold text-primary-600">{formatCurrency(booking.totalPrice)}</p>
+                          <p className="text-xs sm:text-sm text-gray-500">#{booking.id?.slice(0, 8)}</p>
                         </div>
                       </div>
                     </Link>
@@ -610,30 +612,32 @@ export default function OwnerDashboard() {
             )}
 
             {/* All Bookings Section */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <Bed className="text-blue-600" size={24} />
-                รายการการจอง{dateFilterType === 'createdAt' ? 'ที่สร้าง' : 'ที่เช็คอิน'}ในวันที่ {formatSelectedDate()} ({allBookings.length})
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-4 sm:mb-6 flex flex-wrap items-center gap-2">
+                <Bed className="text-blue-600 flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6" />
+                <span className="break-words">
+                  รายการการจอง{dateFilterType === 'createdAt' ? 'ที่สร้าง' : 'ที่เช็คอิน'}ในวันที่ {formatSelectedDate()} ({allBookings.length})
+                </span>
               </h2>
               {allBookings.length === 0 ? (
-                <div className="text-center py-12">
-                  <Calendar className="mx-auto text-gray-400 mb-4" size={48} />
-                  <p className="text-gray-500 text-lg">
+                <div className="text-center py-8 sm:py-12">
+                  <Calendar className="mx-auto text-gray-400 mb-4 w-10 h-10 sm:w-12 sm:h-12" />
+                  <p className="text-gray-500 text-base sm:text-lg">
                     ไม่มีการจอง{dateFilterType === 'createdAt' ? 'ที่ถูกสร้าง' : 'ที่เช็คอิน'}ในวันที่เลือก
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {allBookings.map((booking: any) => {
                     return (
                       <Link
                         key={booking.id}
                         href={`/admin/bookings/${booking.id}/edit`}
-                        className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                        className="block p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4 flex-1">
-                            <div className="w-16 h-16 relative rounded-lg overflow-hidden flex-shrink-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                            <div className="w-12 h-12 sm:w-16 sm:h-16 relative rounded-lg overflow-hidden flex-shrink-0">
                               <Image
                                 src={booking.room?.imageUrls?.[0] || booking.rooms?.[0]?.imageUrls?.[0] || '/placeholder-room.jpg'}
                                 alt={booking.room?.name || booking.rooms?.[0]?.name || 'Room'}
@@ -641,53 +645,54 @@ export default function OwnerDashboard() {
                                 className="object-cover"
                               />
                             </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h3 className="font-semibold text-gray-900">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                                <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
                                   {booking.rooms && booking.rooms.length > 0
                                     ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
                                     : booking.room?.name || 'N/A'}
                                 </h3>
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(booking.status)}`}>
+                                <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(booking.status)}`}>
                                   {getStatusIcon(booking.status)}
-                                  {booking.status}
+                                  <span className="hidden sm:inline">{booking.status}</span>
+                                  <span className="sm:hidden">{booking.status.substring(0, 3)}</span>
                                 </span>
                               </div>
-                              <div className="space-y-1 text-sm text-gray-600">
-                                <div className="flex items-center gap-2">
-                                  <User size={14} />
-                                  <span>{booking.guestName}</span>
+                              <div className="space-y-1 text-xs sm:text-sm text-gray-600">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <User className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                                  <span className="truncate">{booking.guestName}</span>
                                   {booking.guestEmail && (
                                     <>
-                                      <Mail size={14} className="ml-2" />
-                                      <span>{booking.guestEmail}</span>
+                                      <Mail className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0 ml-1" />
+                                      <span className="truncate">{booking.guestEmail}</span>
                                     </>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <Phone size={14} />
-                                  <span>{booking.guestPhone}</span>
+                                  <Phone className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                                  <span className="truncate">{booking.guestPhone}</span>
                                 </div>
                                 <div className="flex items-center gap-2 mt-1">
-                                  <Calendar size={14} />
-                                  <span className="text-primary-600 font-medium">สร้างเมื่อ: {formatDateTime(booking.createdAt)}</span>
+                                  <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                                  <span className="text-primary-600 font-medium truncate">สร้างเมื่อ: {formatDateTime(booking.createdAt)}</span>
                                 </div>
-                                <div className="flex items-center gap-4 mt-2">
+                                <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-2">
                                   <div className="flex items-center gap-2">
-                                    <Clock size={14} />
-                                    <span>เช็คอิน: {formatDateTime(booking.checkIn)}</span>
+                                    <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                                    <span className="truncate">เช็คอิน: {formatDateTime(booking.checkIn)}</span>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <Calendar size={14} />
-                                    <span>เช็คเอาท์: {formatDateTime(booking.checkOut)}</span>
+                                    <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                                    <span className="truncate">เช็คเอาท์: {formatDateTime(booking.checkOut)}</span>
                                   </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-primary-600">{formatCurrency(booking.totalPrice)}</p>
-                            <p className="text-sm text-gray-500">#{booking.id?.slice(0, 8)}</p>
+                          <div className="text-left sm:text-right flex-shrink-0 sm:ml-4">
+                            <p className="text-base sm:text-lg font-bold text-primary-600">{formatCurrency(booking.totalPrice)}</p>
+                            <p className="text-xs sm:text-sm text-gray-500">#{booking.id?.slice(0, 8)}</p>
                             {booking.payment?.status && (
                               <p className={`text-xs mt-1 ${
                                 booking.payment.status === 'COMPLETED' ? 'text-green-600' : 'text-yellow-600'

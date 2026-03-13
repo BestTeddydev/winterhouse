@@ -7,7 +7,7 @@ import User from '@/models/User'
 import stripe from '@/lib/stripe'
 import { Stripe } from 'stripe'
 import { sendEmailNotification, formatPaymentNotificationEmail } from '@/lib/email'
-import { sendLineNotification, formatPaymentThankYouMessage } from '@/lib/line'
+import { sendLineNotification, formatPaymentThankYouMessage, formatBookingNotification } from '@/lib/line'
 
 export async function POST(request: NextRequest) {
   try {
@@ -143,11 +143,12 @@ export async function POST(request: NextRequest) {
           // Populate booking with room and user data
           const bookingWithRoom = await Booking.findById(updatedBooking._id)
             .populate('roomId')
+            .populate('roomIds')
+            .populate('campingBlockId')
+            .populate('campingBlockIds')
             .populate('userId')
           
           if (bookingWithRoom) {
-        
-            
             // Send email notification to admin
             if (process.env.ADMIN_EMAIL) {
               const adminEmailHtml = formatPaymentNotificationEmail(bookingWithRoom, updatedPayment)
@@ -169,6 +170,42 @@ export async function POST(request: NextRequest) {
               console.log('Customer LINE thank you message sent')
             } else {
               console.log('No LINE user ID found for customer')
+            }
+
+            // Send LINE notification to OWNER users for customer bookings (not manual bookings)
+            // Manual bookings already sent notification when created by admin
+            if (!bookingWithRoom.isManualBooking) {
+              try {
+                const ownerUsers = await User.find({ 
+                  role: 'OWNER',
+                  lineUserId: { $exists: true, $ne: null }
+                }).select('lineUserId name')
+                
+                if (ownerUsers.length > 0) {
+                  // Format booking notification message
+                  const notificationMessage = formatBookingNotification(bookingWithRoom)
+                  
+                  // Send notification to all OWNER users
+                  const notificationPromises = ownerUsers
+                    .filter(owner => owner.lineUserId)
+                    .map(owner => 
+                      sendLineNotification({
+                        userId: owner.lineUserId!,
+                        message: notificationMessage
+                      }).catch(error => {
+                        console.error(`Error sending LINE notification to owner ${owner.name} (${owner.lineUserId}):`, error)
+                      })
+                    )
+                  
+                  await Promise.allSettled(notificationPromises)
+                  console.log(`Sent booking notification to ${ownerUsers.length} OWNER user(s) after payment success`)
+                }
+              } catch (ownerNotificationError) {
+                console.error('Error sending LINE notifications to OWNER:', ownerNotificationError)
+                // Don't fail the webhook if owner notifications fail
+              }
+            } else {
+              console.log('Manual booking - owner notification already sent when booking was created')
             }
 
           }

@@ -10,17 +10,22 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'OWNER')) {
-      return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
+    const { searchParams } = new URL(request.url)
+    const activeOnly = searchParams.get('activeOnly') === 'true'
+    
+    // Allow public access for activeOnly=true (for frontend availability checks)
+    // Otherwise require admin/owner authentication
+    if (!activeOnly) {
+      if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'OWNER')) {
+        return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
+      }
     }
 
     await connectDB()
 
-    const { searchParams } = new URL(request.url)
     const roomId = searchParams.get('roomId')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
-    const activeOnly = searchParams.get('activeOnly') === 'true'
 
     let query: any = {}
     
@@ -55,7 +60,37 @@ export async function GET(request: NextRequest) {
       .populate('createdBy', 'name email')
       .sort({ startDate: 1 })
 
-    return NextResponse.json(blocks)
+    // Transform the data to ensure roomId is always a string for consistent comparison
+    // This handles both populated (object with _id) and non-populated (ObjectId) cases
+    const transformedBlocks = blocks.map(block => {
+      const blockObj = block.toObject ? block.toObject() : block
+      
+      // Extract roomId as string
+      let roomIdStr: string
+      if (blockObj.roomId) {
+        if (typeof blockObj.roomId === 'object' && '_id' in blockObj.roomId) {
+          // Populated: { _id: ObjectId, name: string }
+          roomIdStr = (blockObj.roomId as any)._id.toString()
+        } else {
+          // Non-populated: ObjectId
+          roomIdStr = blockObj.roomId.toString()
+        }
+      } else {
+        roomIdStr = ''
+      }
+      
+      return {
+        ...blockObj,
+        _id: blockObj._id.toString(),
+        roomId: roomIdStr,
+        // Keep populated room name if available for reference
+        roomName: blockObj.roomId && typeof blockObj.roomId === 'object' && 'name' in blockObj.roomId
+          ? (blockObj.roomId as any).name
+          : undefined,
+      }
+    })
+
+    return NextResponse.json(transformedBlocks)
   } catch (error) {
     console.error('Error fetching room blocks:', error)
     return NextResponse.json({ error: 'ไม่สามารถโหลดข้อมูลการล็อคห้องได้' }, { status: 500 })

@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       imageUrls: room.imageUrls || [],
       price: room.price,
       pricing: room.pricing,
+      seasonalPricing: room.seasonalPricing || [], // Include seasonal pricing
       capacity: room.capacity,
       amenities: room.amenities,
       hotspots: [], // This will be populated by site map data
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, description, imageUrl, imageUrls, price, capacity, amenities, buildingId, pricing } = body
+    const { name, description, imageUrl, imageUrls, price, capacity, amenities, buildingId, pricing, seasonalPricing } = body
 
     // Validate required fields
     const finalImageUrls = imageUrls || (imageUrl ? [imageUrl] : [])
@@ -84,6 +85,18 @@ export async function POST(request: NextRequest) {
         weekend: pricing.weekend || pricing.weekday || price,
         holiday: pricing.holiday || pricing.weekday || price
       }
+    }
+
+    // Add seasonal pricing if provided
+    if (seasonalPricing && Array.isArray(seasonalPricing) && seasonalPricing.length > 0) {
+      roomData.seasonalPricing = seasonalPricing.map((season: any) => ({
+        name: season.name,
+        startMonth: season.startMonth,
+        endMonth: season.endMonth,
+        weekday: season.weekday || price,
+        weekend: season.weekend || season.weekday || price,
+        holiday: season.holiday || season.weekday || price
+      }))
     }
 
     const room = new Room(roomData)

@@ -221,10 +221,22 @@ export default function NewBooking() {
     }, 0)
   }
 
-  const calculateTotalPrice = () => {
+  const calculateSubtotal = () => {
     const basePrice = calculateBasePrice()
     const addOnsPrice = calculateAddOnsPrice()
     return basePrice + addOnsPrice
+  }
+
+  const calculateVAT = () => {
+    const subtotal = calculateSubtotal()
+    // Calculate VAT 3% from subtotal
+    return Math.round(subtotal * 0.03)
+  }
+
+  const calculateTotalPrice = () => {
+    const subtotal = calculateSubtotal()
+    const vat = calculateVAT()
+    return subtotal + vat
   }
 
   const calculatePaymentAmount = () => {
@@ -715,6 +727,22 @@ export default function NewBooking() {
                     </div>
                   </>
                 )}
+                <div className="flex justify-between border-t pt-2 mt-2">
+                  <span className="text-gray-800 font-medium">
+                    ราคารวมย่อย
+                  </span>
+                  <span className="font-semibold text-gray-900">
+                    {formatCurrency(calculateSubtotal())}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">
+                    VAT 3%
+                  </span>
+                  <span className="text-gray-600">
+                    {formatCurrency(calculateVAT())}
+                  </span>
+                </div>
                 <div className="flex justify-between border-t pt-2 mt-2">
                   <span className="text-gray-800 font-medium">
                     ราคารวมทั้งหมด

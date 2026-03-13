@@ -57,6 +57,14 @@ export async function GET(
         select: 'name description price capacity imageUrls'
       })
       .populate({
+        path: 'campingBlockId',
+        select: 'name description pricePerPerson minCapacity maxCapacity imageUrls'
+      })
+      .populate({
+        path: 'campingBlockIds',
+        select: 'name description pricePerPerson minCapacity maxCapacity imageUrls'
+      })
+      .populate({
         path: 'paymentId',
         select: 'status amount totalAmount paidAmount remainingAmount paymentType paymentSlipUrl'
       })
@@ -176,15 +184,83 @@ export async function PUT(
     if (body.checkOut) updateData.checkOut = new Date(body.checkOut)
     if (body.guestName) updateData.guestName = body.guestName
     if (body.guestEmail) updateData.guestEmail = body.guestEmail
-    if (body.guestPhone) updateData.guestPhone = body.guestPhone
-    if (body.guestCount) updateData.guestCount = body.guestCount
+    if (body.guestPhone !== undefined) updateData.guestPhone = body.guestPhone
+    if (body.guestCount !== undefined) updateData.guestCount = body.guestCount
     if (body.specialRequests !== undefined) updateData.specialRequests = body.specialRequests
     if (body.manualBookingNotes !== undefined) updateData.manualBookingNotes = body.manualBookingNotes
     if (body.totalPrice !== undefined) updateData.totalPrice = body.totalPrice
+    if (body.discount !== undefined) updateData.discount = body.discount
+    if (body.discountAmount !== undefined) updateData.discountAmount = body.discountAmount
 
     // Update booking status - accept both 'status' and 'bookingStatus'
     if (body.status) updateData.status = body.status
     if (body.bookingStatus) updateData.status = body.bookingStatus
+
+    // Update rooms - handle both roomId (single) and roomIds (multiple)
+    if (body.roomIds !== undefined) {
+      if (Array.isArray(body.roomIds) && body.roomIds.length > 0) {
+        updateData.roomIds = body.roomIds.map((id: string) => new mongoose.Types.ObjectId(id))
+        // Clear single roomId if switching to multiple rooms
+        updateData.roomId = null
+      } else {
+        // Empty array means no rooms
+        updateData.roomIds = []
+        updateData.roomId = null
+      }
+    } else if (body.roomId !== undefined) {
+      if (body.roomId === null) {
+        // Explicitly clear roomId
+        updateData.roomId = null
+      } else if (body.roomId) {
+        updateData.roomId = new mongoose.Types.ObjectId(body.roomId)
+        // Clear roomIds if switching to single room
+        updateData.roomIds = []
+      }
+    }
+
+    // Update camping blocks - handle both campingBlockId (single) and campingBlockIds (multiple)
+    if (body.campingBlockIds !== undefined) {
+      if (Array.isArray(body.campingBlockIds) && body.campingBlockIds.length > 0) {
+        updateData.campingBlockIds = body.campingBlockIds.map((id: string) => new mongoose.Types.ObjectId(id))
+        // Clear single campingBlockId if switching to multiple blocks
+        updateData.campingBlockId = null
+      } else {
+        // Empty array means no camping blocks
+        updateData.campingBlockIds = []
+        updateData.campingBlockId = null
+      }
+    } else if (body.campingBlockId !== undefined) {
+      if (body.campingBlockId === null) {
+        // Explicitly clear campingBlockId
+        updateData.campingBlockId = null
+      } else if (body.campingBlockId) {
+        updateData.campingBlockId = new mongoose.Types.ObjectId(body.campingBlockId)
+        // Clear campingBlockIds if switching to single block
+        updateData.campingBlockIds = []
+      }
+    }
+
+    // Update guest counts for camping blocks
+    if (body.guestCounts !== undefined) {
+      if (Array.isArray(body.guestCounts)) {
+        updateData.guestCounts = body.guestCounts
+      }
+    }
+
+    // Update addons
+    if (body.addOns !== undefined) {
+      if (Array.isArray(body.addOns)) {
+        updateData.addOns = body.addOns.map((addOn: any) => ({
+          addOnId: new mongoose.Types.ObjectId(addOn.addOnId),
+          name: addOn.name,
+          price: addOn.price,
+          quantity: addOn.quantity || 1,
+          unit: addOn.unit || 'หน่วย'
+        }))
+      } else {
+        updateData.addOns = []
+      }
+    }
 
     // Set updated timestamp
     updateData.updatedAt = new Date()
@@ -203,6 +279,12 @@ export async function PUT(
     }).populate({
       path: 'rooms.roomId',
       select: 'name description price capacity imageUrls'
+    }).populate({
+      path: 'campingBlockId',
+      select: 'name description pricePerPerson minCapacity maxCapacity imageUrls'
+    }).populate({
+      path: 'campingBlockIds',
+      select: 'name description pricePerPerson minCapacity maxCapacity imageUrls'
     }).populate({
       path: 'paymentId',
       select: 'status amount totalAmount paidAmount remainingAmount paymentType paymentSlipUrl'

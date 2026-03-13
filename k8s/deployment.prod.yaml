@@ -7,7 +7,7 @@ metadata:
     app: baanlomnow
     component: app
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: baanlomnow
@@ -23,7 +23,7 @@ spec:
       - name: baanlomnow-app
         # Production: Use Artifact Registry image
         # Using digest instead of tag to avoid platform mismatch issues
-        image: asia-southeast1-docker.pkg.dev/project-14a6d9ab-7aaf-49a0-92d/baanlomnow-repository/baanlomnow@sha256:001dd5ab6a59a02538804e45093328f41381c7cd2c984653124bd856a4405111
+        image: asia-southeast1-docker.pkg.dev/project-14a6d9ab-7aaf-49a0-92d/baanlomnow-repository/baanlomnow:1.2.1
         ports:
         - containerPort: 3000
         env:
@@ -134,23 +134,29 @@ spec:
               key: STRIPE_PUBLIC_KEY
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "50m"
+            memory: "256Mi"
+            cpu: "100m"
           limits:
-            memory: "384Mi"
-            cpu: "200m"
+            memory: "768Mi"
+            cpu: "500m"
         livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
+        readinessProbe:
           httpGet:
             path: /api/health
             port: 3000
           initialDelaySeconds: 30
           periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /api/health
-            port: 3000
-          initialDelaySeconds: 5
-          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
       # Production: Using imagePullSecrets for Artifact Registry authentication
       # Note: Can switch to Workload Identity after node pool fully updates
       imagePullSecrets:

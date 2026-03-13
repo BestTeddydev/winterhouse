@@ -92,40 +92,73 @@ export default function NewBooking() {
       return
     }
 
-    fetchRooms()
-    fetchCampingBlocks()
-    fetchAddOns()
-  }, [session])
+    let isMounted = true
+    const abortController = new AbortController()
 
-  const fetchRooms = async () => {
-    try {
-      const response = await axios.get('/api/rooms')
-      setRooms(response.data)
-    } catch (error) {
-      console.error('Error fetching rooms:', error)
-      toast.error('ไม่สามารถโหลดข้อมูลห้องพักได้')
-    }
-  }
+    const fetchData = async () => {
+      try {
+        // Fetch all data in parallel with timeout
+        const [roomsResponse, campingBlocksResponse, addOnsResponse] = await Promise.allSettled([
+          axios.get('/api/rooms', { 
+            signal: abortController.signal,
+            timeout: 30000 
+          }),
+          axios.get('/api/camping-blocks', { 
+            signal: abortController.signal,
+            timeout: 30000 
+          }),
+          axios.get('/api/addons?activeOnly=true', { 
+            signal: abortController.signal,
+            timeout: 30000 
+          })
+        ])
 
-  const fetchCampingBlocks = async () => {
-    try {
-      const response = await axios.get('/api/camping-blocks')
-      setCampingBlocks(response.data || [])
-    } catch (error) {
-      console.error('Error fetching camping blocks:', error)
-      toast.error('ไม่สามารถโหลดข้อมูลบล็อคกางเต๊นท์ได้')
-    }
-  }
+        if (!isMounted) return
 
-  const fetchAddOns = async () => {
-    try {
-      const response = await axios.get('/api/addons?activeOnly=true')
-      setAddOns(response.data)
-    } catch (error) {
-      console.error('Error fetching add-ons:', error)
-      // Don't show error toast, just log it
+        // Handle rooms response
+        if (roomsResponse.status === 'fulfilled') {
+          setRooms(roomsResponse.value.data || [])
+        } else {
+          console.error('Error fetching rooms:', roomsResponse.reason)
+          if (roomsResponse.reason.name !== 'AbortError' && roomsResponse.reason.code !== 'ERR_CANCELED') {
+            toast.error('ไม่สามารถโหลดข้อมูลห้องพักได้')
+          }
+        }
+
+        // Handle camping blocks response
+        if (campingBlocksResponse.status === 'fulfilled') {
+          setCampingBlocks(campingBlocksResponse.value.data || [])
+        } else {
+          console.error('Error fetching camping blocks:', campingBlocksResponse.reason)
+          if (campingBlocksResponse.reason.name !== 'AbortError' && campingBlocksResponse.reason.code !== 'ERR_CANCELED') {
+            toast.error('ไม่สามารถโหลดข้อมูลบล็อคกางเต๊นท์ได้')
+          }
+        }
+
+        // Handle addons response
+        if (addOnsResponse.status === 'fulfilled') {
+          setAddOns(addOnsResponse.value.data || [])
+        } else {
+          console.error('Error fetching add-ons:', addOnsResponse.reason)
+          // Don't show error toast for addons, just log it
+        }
+      } catch (error: any) {
+        if (!isMounted) return
+        if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
+          return
+        }
+        console.error('Error fetching data:', error)
+      }
     }
-  }
+
+    fetchData()
+
+    // Cleanup function
+    return () => {
+      isMounted = false
+      abortController.abort()
+    }
+  }, [session, router])
 
   const handleRoomSelect = (room: Room) => {
     setSelectedRoom(room)

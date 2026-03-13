@@ -219,16 +219,61 @@ export function getDayType(date: Date): DayType {
 }
 
 /**
+ * Check if a date falls within a seasonal pricing period
+ */
+function isDateInSeasonalPeriod(date: Date, startMonth: number, endMonth: number): boolean {
+  const month = date.getMonth() + 1 // getMonth() returns 0-11, so add 1 to get 1-12
+  
+  // Handle case where period spans across year boundary (e.g., Dec-Feb: 12-2)
+  if (startMonth > endMonth) {
+    // Period spans across year boundary
+    return month >= startMonth || month <= endMonth
+  } else {
+    // Normal period within same year
+    return month >= startMonth && month <= endMonth
+  }
+}
+
+/**
+ * Get seasonal pricing for a specific date
+ */
+function getSeasonalPricing(room: IRoom, date: Date): { weekday: number; weekend: number; holiday: number } | null {
+  if (!room.seasonalPricing || room.seasonalPricing.length === 0) {
+    return null
+  }
+  
+  // Find the first matching seasonal pricing period
+  for (const season of room.seasonalPricing) {
+    if (isDateInSeasonalPeriod(date, season.startMonth, season.endMonth)) {
+      return {
+        weekday: season.weekday,
+        weekend: season.weekend,
+        holiday: season.holiday
+      }
+    }
+  }
+  
+  return null
+}
+
+/**
  * Get price for a room on a specific date
  */
 export function getRoomPriceForDate(room: IRoom, date: Date): number {
   const dayType = getDayType(date)
-  // ถ้ามี pricing object ใช้ pricing
+  
+  // Check for seasonal pricing first
+  const seasonalPricing = getSeasonalPricing(room, date)
+  if (seasonalPricing) {
+    return seasonalPricing[dayType] || room.price
+  }
+  
+  // Fall back to regular pricing
   if (room.pricing) {
     return room.pricing[dayType] || room.price
   }
   
-  // ถ้าไม่มี pricing ใช้ base price
+  // Fall back to base price
   return room.price
 }
 

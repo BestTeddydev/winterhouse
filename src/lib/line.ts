@@ -59,11 +59,11 @@ export function formatBookingNotification(booking: any) {
   }
   
   // Determine booking type for header
-  let bookingTypeHeader = '🏠 การจองห้องพักใหม่'
+  let bookingTypeHeader = '🏠 การจองห้องพักบ้านลมหนาวคาเฟ่ แอนด์ แคมป์ปิ้ง'
   if (roomNames && campingBlockNames) {
-    bookingTypeHeader = '🏠 การจองห้องพักและบล็อคกางเต๊นท์ใหม่'
+    bookingTypeHeader = '🏠 การจองห้องพักและบล็อคกางเต๊นท์ บ้านลมหนาวคาเฟ่ แอนด์ แคมป์ปิ้ง'
   } else if (campingBlockNames && !roomNames) {
-    bookingTypeHeader = '🏕️ การจองบล็อคกางเต๊นท์ใหม่'
+    bookingTypeHeader = '🏕️ การจองบล็อคกางเต๊นท์บ้านลมหนาวคาเฟ่ แอนด์ แคมป์ปิ้ง'
   }
   
   const checkInDate = new Date(booking.checkIn).toLocaleDateString('th-TH', {
@@ -85,6 +85,18 @@ export function formatBookingNotification(booking: any) {
   // Format booking source
   const bookingSource = booking.isManualBooking ? '📝 Admin สร้าง' : '🌐 ลูกค้าสร้าง'
   
+  // Get addons details
+  let addOnsDetails = ''
+  if (booking.addOns && Array.isArray(booking.addOns) && booking.addOns.length > 0) {
+    const addOnsList = booking.addOns.map((addOn: any) => {
+      const quantity = addOn.quantity || 1
+      const unit = addOn.unit ? ` ${addOn.unit}` : ''
+      const price = addOn.price || 0
+      return `  • ${addOn.name || 'N/A'} (${quantity}${unit})`
+    }).join('\n')
+    addOnsDetails = `🎁 ออปชั่นเสริม:\n${addOnsList}\n`
+  }
+  
   // Build booking details section
   let bookingDetails = '📋 รายละเอียดการจอง:\n'
   if (roomNames) {
@@ -99,7 +111,7 @@ ${bookingTypeHeader}
 
 ${bookingSource}
 
-${bookingDetails}ผู้จอง: ${booking.guestName}
+${bookingDetails}${addOnsDetails}ผู้จอง: ${booking.guestName}
 📧 อีเมล: ${booking.guestEmail || 'N/A'}
 📱 เบอร์โทร: ${booking.guestPhone || 'N/A'}
 
@@ -118,9 +130,16 @@ ${booking.discountAmount > 0 ? `ส่วนลด: ฿${booking.discountAmount.
 
 🆔 เลขที่การจอง: ${booking._id?.toString().slice(-8) || 'N/A'}
 
+นโยบายการยกเลิก / เปลี่ยนแปลง: 
+- การเปลี่ยนวันเข้าพัก: ต้องแจ้งล่วงหน้าก่อนอย่างน้อย 15 วัน เพื่อขอเปลี่ยนวันเข้าพัก (สามารถเปลี่ยนได้เพียง 1 ครั้ง)
+- การยกเลิกห้องพัก: หัก 15% เมื่อแจ้งก่อน 1 เดือนก่อนถึงวันเข้าพัก
+- หัก 30% เมื่อแจ้งหลัง 1 เดือน แต่ไม่เกิน 15 วัน ก่อนถึงวันเข้าพัก
+- หัก 50% เมื่อแจ้งหลัง 7 วัน หรือ 1 อาทิตย์ ก่อนถึงวันเข้าพัก
+
 📞 หากมีคำถาม กรุณาติดต่อเราได้ที่:
 📧 ${process.env.ADMIN_EMAIL || 'baanlomnowcafeandcamping@gmail.com'}
 📱 ${process.env.ADMIN_PHONE || '064-553-5691, 064-554-6591'}
+แผนที่: https://maps.app.goo.gl/EccRaurf7mzUpZJJ9
 
 เราหวังว่าจะได้ต้อนรับคุณในเร็วๆ นี้! 🏡✨
   `.trim()
@@ -167,6 +186,12 @@ export function formatPaymentThankYouMessage(booking: any, payment: any) {
 เช็คเอาท์: ${checkOutDate}
 จำนวนคืน: ${Math.ceil((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / (1000 * 60 * 60 * 24))} คืน
 เลขที่การจอง: ${booking._id}
+
+นโยบายการยกเลิก / เปลี่ยนแปลง: 
+- การเปลี่ยนวันเข้าพัก: ต้องแจ้งล่วงหน้าก่อนอย่างน้อย 15 วัน เพื่อขอเปลี่ยนวันเข้าพัก (สามารถเปลี่ยนได้เพียง 1 ครั้ง)
+- การยกเลิกห้องพัก: หัก 15% เมื่อแจ้งก่อน 1 เดือนก่อนถึงวันเข้าพัก
+- หัก 30% เมื่อแจ้งหลัง 1 เดือน แต่ไม่เกิน 15 วัน ก่อนถึงวันเข้าพัก
+- หัก 50% เมื่อแจ้งหลัง 7 วัน หรือ 1 อาทิตย์ ก่อนถึงวันเข้าพัก
 
 💳 ข้อมูลการชำระเงิน:
 ${paymentInfo}

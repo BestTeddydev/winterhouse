@@ -330,25 +330,25 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">แผงควบคุมผู้ดูแลระบบ</h1>
-          <p className="text-gray-700 text-lg font-medium">ยินดีต้อนรับสู่ระบบจัดการ Winterhouse</p>
+        <div className="mb-4 sm:mb-6 md:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">แผงควบคุมผู้ดูแลระบบ</h1>
+          <p className="text-gray-700 text-sm sm:text-base md:text-lg font-medium">ยินดีต้อนรับสู่ระบบจัดการ Winterhouse</p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 md:gap-6 mb-6 sm:mb-8">
           {statCards.map((stat, index) => (
-            <div key={index} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+            <div key={index} className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-700 mb-1">{stat.title}</p>
-                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                  <p className="text-sm text-gray-600 font-medium mt-1">{stat.change}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">{stat.title}</p>
+                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 truncate">{stat.value}</p>
+                  <p className="text-xs sm:text-sm text-gray-600 font-medium mt-1 truncate">{stat.change}</p>
                 </div>
-                <div className={`${stat.color} p-3 rounded-lg text-white`}>
-                  <stat.icon size={24} />
+                <div className={`${stat.color} p-2 sm:p-3 rounded-lg text-white flex-shrink-0 ml-2`}>
+                  <stat.icon size={20} className="sm:w-6 sm:h-6" />
                 </div>
               </div>
             </div>
@@ -356,59 +356,59 @@ export default function AdminDashboard() {
         </div>
 
  {/* Today Bookings */}
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">การจองวันนี้</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6 mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">การจองวันนี้</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 md:gap-6 mb-4 sm:mb-6">
+            <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center justify-center mb-2">
-                <Calendar className="text-primary-600 mr-2" size={20} />
-                <span className="font-semibold text-gray-900">สร้างวันนี้</span>
+                <Calendar className="text-primary-600 mr-2 flex-shrink-0" size={18} />
+                <span className="font-semibold text-gray-900 text-sm sm:text-base">สร้างวันนี้</span>
               </div>
-              <p className="text-2xl font-bold text-primary-600">{todayCreated?.length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-primary-600">{todayCreated?.length}</p>
             </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center justify-center mb-2">
-                <LogOut className="text-orange-600 mr-2" size={20} />
-                <span className="font-semibold text-gray-900">เช็คเอาท์วันนี้</span>
+                <LogOut className="text-orange-600 mr-2 flex-shrink-0" size={18} />
+                <span className="font-semibold text-gray-900 text-sm sm:text-base">เช็คเอาท์วันนี้</span>
               </div>
-              <p className="text-2xl font-bold text-orange-600">{todayCheckOuts?.length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-orange-600">{todayCheckOuts?.length}</p>
             </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center justify-center mb-2">
-                <Eye className="text-blue-600 mr-2" size={20} />
-                <span className="font-semibold text-gray-900">กำลังพัก</span>
+                <Eye className="text-blue-600 mr-2 flex-shrink-0" size={18} />
+                <span className="font-semibold text-gray-900 text-sm sm:text-base">กำลังพัก</span>
               </div>
-              <p className="text-2xl font-bold text-blue-600">{todayStaying?.length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-blue-600">{todayStaying?.length}</p>
             </div>
           </div>
 
           {(todayCheckIns?.length + todayCheckOuts?.length) > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
               <div>
-                <h3 className="font-semibold mb-3">รายการเช็คอิน</h3>
+                <h3 className="font-semibold mb-3 text-sm sm:text-base">รายการเช็คอิน</h3>
                 <div className="divide-y rounded-lg border bg-gray-50">
                   {todayCheckIns?.slice(0,5).map((b:any)=> (
-                    <div key={b.id} className="p-3 text-sm flex items-center justify-between">
-                      <div className="text-gray-800 font-medium">{b.room?.name || 'ไม่ระบุห้อง'}</div>
-                      <div className="text-gray-500">{b.guestName}</div>
+                    <div key={b.id} className="p-2 sm:p-3 text-xs sm:text-sm flex items-center justify-between gap-2">
+                      <div className="text-gray-800 font-medium truncate">{b.room?.name || 'ไม่ระบุห้อง'}</div>
+                      <div className="text-gray-500 truncate">{b.guestName}</div>
                     </div>
                   ))}
                   {todayCheckIns?.length === 0 && (
-                    <div className="p-3 text-sm text-gray-500">ไม่มีรายการ</div>
+                    <div className="p-2 sm:p-3 text-xs sm:text-sm text-gray-500">ไม่มีรายการ</div>
                   )}
                 </div>
               </div>
               <div>
-                <h3 className="font-semibold mb-3">รายการเช็คเอาท์</h3>
+                <h3 className="font-semibold mb-3 text-sm sm:text-base">รายการเช็คเอาท์</h3>
                 <div className="divide-y rounded-lg border bg-gray-50">
                   {todayCheckOuts?.slice(0,5).map((b:any)=> (
-                    <div key={b.id} className="p-3 text-sm flex items-center justify-between">
-                      <div className="text-gray-800 font-medium">{b.room?.name || 'ไม่ระบุห้อง'}</div>
-                      <div className="text-gray-500">{b?.guestName}</div>
+                    <div key={b.id} className="p-2 sm:p-3 text-xs sm:text-sm flex items-center justify-between gap-2">
+                      <div className="text-gray-800 font-medium truncate">{b.room?.name || 'ไม่ระบุห้อง'}</div>
+                      <div className="text-gray-500 truncate">{b?.guestName}</div>
                     </div>
                   ))}
                   {todayCheckOuts?.length === 0 && (
-                    <div className="p-3 text-sm text-gray-500">ไม่มีรายการ</div>
+                    <div className="p-2 sm:p-3 text-xs sm:text-sm text-gray-500">ไม่มีรายการ</div>
                   )}
                 </div>
               </div>
@@ -417,24 +417,24 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">การจัดการหลัก</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">การจัดการหลัก</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
             {menuItems.map((item) => (
               <Link key={item.href} href={item.href}>
-                <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group">
-                  <div className="flex items-start gap-4">
-                    <div className={`${item.color} p-4 rounded-xl text-white group-hover:scale-110 transition-transform duration-300`}>
-                      <item.icon size={32} />
+                <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group">
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className={`${item.color} p-3 sm:p-4 rounded-xl text-white group-hover:scale-110 transition-transform duration-300 flex-shrink-0`}>
+                      <item.icon size={24} className="sm:w-8 sm:h-8" />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold mb-2 text-gray-900 group-hover:text-primary-600 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base sm:text-lg md:text-xl font-bold mb-2 text-gray-900 group-hover:text-primary-600 transition-colors">
                         {item.title}
                       </h3>
-                      <p className="text-gray-600 mb-3">{item.description}</p>
-                      <div className="flex items-center gap-2 text-sm text-primary-600 font-medium">
-                        <span>{item.stats}</span>
-                        <TrendingUp size={16} />
+                      <p className="text-sm sm:text-base text-gray-600 mb-2 sm:mb-3">{item.description}</p>
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-primary-600 font-medium">
+                        <span className="truncate">{item.stats}</span>
+                        <TrendingUp size={14} className="flex-shrink-0 sm:w-4 sm:h-4" />
                       </div>
                     </div>
                   </div>
@@ -447,31 +447,31 @@ export default function AdminDashboard() {
        
 
         {/* Recent Activity */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">สถานะระบบ</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">สถานะระบบ</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+            <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center justify-center mb-2">
-                <Eye className="text-green-500 mr-2" size={20} />
-                <span className="font-semibold text-gray-900">ห้องพักเปิดใช้งาน</span>
+                <Eye className="text-green-500 mr-2 flex-shrink-0" size={18} />
+                <span className="font-semibold text-gray-900 text-sm sm:text-base">ห้องพักเปิดใช้งาน</span>
               </div>
-              <p className="text-2xl font-bold text-green-600">{stats?.activeRooms || 0}</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-600">{stats?.activeRooms || 0}</p>
             </div>
             
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center justify-center mb-2">
-                <AlertCircle className="text-yellow-500 mr-2" size={20} />
-                <span className="font-semibold text-gray-900">รอดำเนินการ</span>
+                <AlertCircle className="text-yellow-500 mr-2 flex-shrink-0" size={18} />
+                <span className="font-semibold text-gray-900 text-sm sm:text-base">รอดำเนินการ</span>
               </div>
-              <p className="text-2xl font-bold text-yellow-600">{stats?.pendingBookings || 0}</p>
+              <p className="text-xl sm:text-2xl font-bold text-yellow-600">{stats?.pendingBookings || 0}</p>
             </div>
             
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center justify-center mb-2">
-                <XCircle className="text-red-500 mr-2" size={20} />
-                <span className="font-semibold text-gray-900">ยกเลิกแล้ว</span>
+                <XCircle className="text-red-500 mr-2 flex-shrink-0" size={18} />
+                <span className="font-semibold text-gray-900 text-sm sm:text-base">ยกเลิกแล้ว</span>
               </div>
-              <p className="text-2xl font-bold text-red-600">{stats?.cancelledBookings || 0}</p>
+              <p className="text-xl sm:text-2xl font-bold text-red-600">{stats?.cancelledBookings || 0}</p>
             </div>
           </div>
         </div>

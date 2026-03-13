@@ -41,6 +41,19 @@ interface Room {
   imageUrl: string
   imageUrls?: string[]
   price: number
+  pricing?: {
+    weekday: number
+    weekend: number
+    holiday: number
+  }
+  seasonalPricing?: Array<{
+    name: string
+    startMonth: number
+    endMonth: number
+    weekday: number
+    weekend: number
+    holiday: number
+  }>
   capacity: number
   amenities: string[]
   hotspots: any[]
@@ -879,17 +892,40 @@ export default function RoomsPage() {
     const checkIn = new Date(checkInDate)
     const checkOut = new Date(checkOutDate)
     
+    // Normalize roomId to string for comparison (remove any whitespace)
+    const normalizedRoomId = String(roomId).trim()
+    
     return roomBlocks.some(block => {
       if (!block.isActive) return false
       
-      // Check roomId - handle both populated and non-populated cases
-      const blockRoomId = block.roomId?._id?.toString() || block.roomId?.toString() || block.roomId
-      if (blockRoomId !== roomId) return false
+      // Extract roomId from block - API now returns roomId as string, but handle both cases for safety
+      let blockRoomId: string | null = null
       
+      if (block.roomId) {
+        // Case 1: If it's a string (API now serializes it as string)
+        if (typeof block.roomId === 'string') {
+          blockRoomId = block.roomId.trim()
+        }
+        // Case 2: If populated (object with _id property) - fallback for old data
+        else if (typeof block.roomId === 'object' && '_id' in block.roomId) {
+          blockRoomId = String((block.roomId as any)._id).trim()
+        }
+        // Case 3: If it's an ObjectId object - fallback
+        else {
+          blockRoomId = String(block.roomId).trim()
+        }
+      }
+      
+      // Compare normalized IDs - return false if IDs don't match
+      if (!blockRoomId || blockRoomId !== normalizedRoomId) {
+        return false
+      }
+      
+      // Check if dates overlap
       const blockStart = new Date(block.startDate)
       const blockEnd = new Date(block.endDate)
       
-      // Check if dates overlap
+      // Dates overlap if: checkIn < blockEnd AND checkOut > blockStart
       return checkIn < blockEnd && checkOut > blockStart
     })
   }
@@ -2023,7 +2059,7 @@ export default function RoomsPage() {
 
                     {/* Cancellation Policy */}
                     <div className="space-y-2">
-                      <h5 className="font-medium text-gray-800">📅 นโยบายการยกเลิก / เปลี่ยนแปลง:</h5>
+                      <h5 className="font-medium text-gray-800">📅 :</h5>
                       <div className="pl-4 space-y-2 text-sm">
                         <p><strong>การเปลี่ยนวันเข้าพัก:</strong></p>
                         <p className="pl-4">• ต้องแจ้งล่วงหน้าก่อนอย่างน้อย 15 วัน เพื่อขอเปลี่ยนวันเข้าพัก (สามารถเปลี่ยนได้เพียง 1 ครั้ง)</p>

@@ -10,6 +10,14 @@ export interface IRoom extends Document {
     weekend: number   // Friday-Sunday
     holiday: number   // Holiday rates
   }
+  seasonalPricing?: Array<{
+    name: string // ชื่อช่วงเวลา เช่น "ช่วงฤดูหนาว"
+    startMonth: number // เดือนเริ่มต้น (1-12)
+    endMonth: number // เดือนสิ้นสุด (1-12)
+    weekday: number // ราคาวันธรรมดาในช่วงนี้
+    weekend: number // ราคาวันหยุดสุดสัปดาห์ในช่วงนี้
+    holiday: number // ราคาวันหยุดนักขัตฤกษ์ในช่วงนี้
+  }>
   capacity: number
   amenities: string[]
   buildingId?: mongoose.Types.ObjectId
@@ -43,6 +51,14 @@ const RoomSchema = new Schema<IRoom>({
     weekend: { type: Number, min: 0 },
     holiday: { type: Number, min: 0 }
   },
+  seasonalPricing: [{
+    name: { type: String, trim: true },
+    startMonth: { type: Number, min: 1, max: 12 },
+    endMonth: { type: Number, min: 1, max: 12 },
+    weekday: { type: Number, min: 0 },
+    weekend: { type: Number, min: 0 },
+    holiday: { type: Number, min: 0 }
+  }],
   capacity: { 
     type: Number, 
     required: true,

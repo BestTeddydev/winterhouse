@@ -38,7 +38,7 @@ export async function PUT(
     const body = await request.json()
     const { 
       name, description, imageUrl, imageUrls, price, 
-      capacity, amenities, hotspots, isActive, pricing 
+      capacity, amenities, hotspots, isActive, pricing, seasonalPricing 
     } = body
 
     await connectDB()
@@ -73,6 +73,23 @@ export async function PUT(
         weekday: pricing.weekday || price,
         weekend: pricing.weekend || pricing.weekday || price,
         holiday: pricing.holiday || pricing.weekday || price
+      }
+    }
+
+    // Add seasonal pricing if provided
+    if (seasonalPricing !== undefined) {
+      if (Array.isArray(seasonalPricing) && seasonalPricing.length > 0) {
+        updateData.seasonalPricing = seasonalPricing.map((season: any) => ({
+          name: season.name,
+          startMonth: season.startMonth,
+          endMonth: season.endMonth,
+          weekday: season.weekday || price,
+          weekend: season.weekend || season.weekday || price,
+          holiday: season.holiday || season.weekday || price
+        }))
+      } else {
+        // If empty array, clear seasonal pricing
+        updateData.seasonalPricing = []
       }
     }
 

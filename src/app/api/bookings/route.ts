@@ -276,11 +276,6 @@ export async function POST(request: NextRequest) {
     // Ensure values are valid numbers and within bounds
     const validDiscount = Math.max(0, Math.min(100, Number.isNaN(finalDiscount) ? 0 : finalDiscount))
     const validDiscountAmount = Math.max(0, Number.isNaN(finalDiscountAmount) ? 0 : finalDiscountAmount)
-    
-    console.log('Discount values received:', { 
-      original: { discount, discountAmount },
-      processed: { discount: validDiscount, discountAmount: validDiscountAmount }
-    })
 
     // Validate required fields
     // Support camping block(s) booking, single roomId, or multiple roomIds
@@ -386,7 +381,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'วันเช็คเอาท์ต้องมากกว่าวันเช็คอิน' }, { status: 400 })
     }
     
-    if (checkInDate < new Date()) {
+    // Check if check-in date is in the past (compare dates only, ignore time)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0) // Reset time to midnight for date comparison
+    
+    const checkInDateOnly = new Date(checkInDate)
+    checkInDateOnly.setHours(0, 0, 0, 0) // Reset time to midnight for date comparison
+    
+    if (checkInDateOnly < today) {
       return NextResponse.json({ error: 'วันเช็คอินไม่สามารถเป็นวันในอดีตได้' }, { status: 400 })
     }
 
@@ -408,32 +410,47 @@ export async function POST(request: NextRequest) {
     if (!mongoose.models.Payment) {
       require('@/models/Payment')
     }
+
+    // Find user document that matches the current session user
+    // รองรับทั้งกรณีที่ session.user.id เป็น ObjectId และ lineUserId
     let user
     if (mongoose.Types.ObjectId.isValid(session.user.id)) {
       user = await User.findById(session.user.id)
     } else {
       user = await User.findOne({ lineUserId: session.user.id })
     }
-    // const user = await User.findOne({lineUserId: session.user.id})
-    console.log('user',user?._id);
-    
-    // if (!user) {
-    //   return NextResponse.json({ error: 'ไม่พบข้อมูลผู้ใช้งาน' }, { status: 404 })
-    // }
+
+    // ถ้าไม่พบ user ให้ตอบเป็น 404 / 400 แทนที่จะปล่อยให้ไป error เป็น 500 ภายหลัง
+    if (!user?._id) {
+      return NextResponse.json(
+        { error: 'ไม่พบข้อมูลผู้ใช้งานสำหรับสร้างการจอง' },
+        { status: 404 }
+      )
+    }
     
     const ObjectId = mongoose.Types.ObjectId
 
     // Check availability for camping block(s) or rooms
     const CampingBlock = require('@/models/CampingBlock').default
+    const CampingBlockBlock = require('@/models/CampingBlockBlock').default
+    
+    // Cache for camping blocks to avoid duplicate queries
+    const campingBlockCache = new Map<string, any>()
     
     // Validate multiple camping blocks
     if (selectedCampingBlockIds.length > 0) {
-      const CampingBlockBlock = require('@/models/CampingBlockBlock').default
+      // Fetch all camping blocks in parallel
+      const campingBlockPromises = selectedCampingBlockIds.map(id => 
+        CampingBlock.findById(id)
+      )
+      const campingBlocks = await Promise.all(campingBlockPromises)
       
-      for (let i = 0; i < selectedCampingBlockIds.length; i++) {
+      // Validate each block
+      for (let i = 0; i < campingBlocks.length; i++) {
+        const campingBlock = campingBlocks[i]
         const blockId = selectedCampingBlockIds[i]
         const blockGuestCount = selectedGuestCounts[i]
-        const campingBlock = await CampingBlock.findById(blockId)
+        
         if (!campingBlock) {
           return NextResponse.json({ error: `ไม่พบบล็อคกางเต๊นท์: ${blockId}` }, { status: 404 })
         }
@@ -446,20 +463,39 @@ export async function POST(request: NextRequest) {
           }, { status: 400 })
         }
         
-        // Check for camping block blocks (locks)
-        const campingBlockBlocks = await CampingBlockBlock.find({
-          campingBlockId: new mongoose.Types.ObjectId(blockId),
-          isActive: true,
-          $and: [
-            { startDate: { $lt: checkOutDate } },
-            { endDate: { $gt: checkInDate } }
-          ]
-        })
-        
-        if (campingBlockBlocks.length > 0) {
-          const blockReason = campingBlockBlocks[0].reason ? ` (${campingBlockBlocks[0].reason})` : ''
+        // Cache the block for later use
+        campingBlockCache.set(blockId, campingBlock)
+      }
+      
+      // Check for camping block blocks (locks) in one query
+      const allCampingBlockBlocks = await CampingBlockBlock.find({
+        campingBlockId: { $in: selectedCampingBlockIds.map(id => new mongoose.Types.ObjectId(id)) },
+        isActive: true,
+        $and: [
+          { startDate: { $lt: checkOutDate } },
+          { endDate: { $gt: checkInDate } }
+        ]
+      })
+      
+      // Group blocks by campingBlockId
+      const blocksByCampingBlockId = new Map<string, any[]>()
+      allCampingBlockBlocks.forEach((block: any) => {
+        const blockId = block.campingBlockId.toString()
+        if (!blocksByCampingBlockId.has(blockId)) {
+          blocksByCampingBlockId.set(blockId, [])
+        }
+        blocksByCampingBlockId.get(blockId)!.push(block)
+      })
+      
+      // Check if any block is locked
+      for (let i = 0; i < selectedCampingBlockIds.length; i++) {
+        const blockId = selectedCampingBlockIds[i]
+        const lockedBlocks = blocksByCampingBlockId.get(blockId)
+        if (lockedBlocks && lockedBlocks.length > 0) {
+          const campingBlock = campingBlockCache.get(blockId)
+          const blockReason = lockedBlocks[0].reason ? ` (${lockedBlocks[0].reason})` : ''
           return NextResponse.json(
-            { error: `บล็อคกางเต๊นท์ ${campingBlock.name} ถูกล็อคไม่ให้จองในช่วงวันที่เลือก${blockReason}` },
+            { error: `บล็อคกางเต๊นท์ ${campingBlock?.name || blockId} ถูกล็อคไม่ให้จองในช่วงวันที่เลือก${blockReason}` },
             { status: 400 }
           )
         }
@@ -467,8 +503,6 @@ export async function POST(request: NextRequest) {
     }
     // Validate single camping block
     else if (selectedCampingBlockId) {
-      const CampingBlockBlock = require('@/models/CampingBlockBlock').default
-      
       const campingBlock = await CampingBlock.findById(selectedCampingBlockId)
       if (!campingBlock) {
         return NextResponse.json({ error: 'ไม่พบบล็อคกางเต๊นท์' }, { status: 404 })
@@ -481,6 +515,9 @@ export async function POST(request: NextRequest) {
           error: `จำนวนคนต้องอยู่ระหว่าง ${campingBlock.minCapacity} - ${campingBlock.maxCapacity} คน` 
         }, { status: 400 })
       }
+      
+      // Cache the block for later use
+      campingBlockCache.set(selectedCampingBlockId, campingBlock)
       
       // Check for camping block blocks (locks)
       const campingBlockBlocks = await CampingBlockBlock.find({
@@ -556,19 +593,24 @@ export async function POST(request: NextRequest) {
     let roomPrices: Array<{ roomId: string; price: number }> = []
     const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24))
     
-    // Calculate price for multiple camping blocks
+    // Calculate price for multiple camping blocks (use cached data)
     if (selectedCampingBlockIds.length > 0) {
       for (let i = 0; i < selectedCampingBlockIds.length; i++) {
         const blockId = selectedCampingBlockIds[i]
         const blockGuestCount = selectedGuestCounts[i]
-        const campingBlock = await CampingBlock.findById(blockId)
-        calculatedTotalPrice += campingBlock.pricePerPerson * blockGuestCount * nights
+        // Use cached camping block instead of querying again
+        const campingBlock = campingBlockCache.get(blockId)
+        if (campingBlock) {
+          calculatedTotalPrice += campingBlock.pricePerPerson * blockGuestCount * nights
+        }
       }
     }
-    // Calculate price for single camping block
+    // Calculate price for single camping block (use cached data)
     else if (selectedCampingBlockId) {
-      const campingBlock = await CampingBlock.findById(selectedCampingBlockId)
-      calculatedTotalPrice += campingBlock.pricePerPerson * guestCount * nights
+      const campingBlock = campingBlockCache.get(selectedCampingBlockId)
+      if (campingBlock) {
+        calculatedTotalPrice += campingBlock.pricePerPerson * guestCount * nights
+      }
     }
     
     // Calculate price for rooms (can be combined with camping blocks)
@@ -610,7 +652,8 @@ export async function POST(request: NextRequest) {
 
     // Create booking
     const bookingData: any = {
-      userId: new ObjectId(user?._id),
+      // userId ต้องเป็น ObjectId ที่ถูกต้องเสมอ (ผ่านการเช็คข้างบนแล้ว)
+      userId: new ObjectId(user._id),
       checkIn: checkInDate,
       checkOut: checkOutDate,
       totalPrice: finalTotalPrice,
@@ -654,12 +697,6 @@ export async function POST(request: NextRequest) {
     
     // Verify discount was saved
     const savedBooking = await Booking.findById(booking._id)
-    console.log('Booking saved with discount:', { 
-      bookingId: booking._id,
-      discount: savedBooking?.discount,
-      discountAmount: savedBooking?.discountAmount,
-      totalPrice: savedBooking?.totalPrice
-    })
 
     // Populate for response
     await booking.populate('roomId', 'name description price capacity imageUrls pricing')
@@ -701,48 +738,10 @@ export async function POST(request: NextRequest) {
     booking.paymentId = payment._id
     await booking.save()
 
-    // Populate payment for response
+    // Populate payment for response (minimal populate for faster response)
     await booking.populate('paymentId', 'status amount totalAmount paidAmount remainingAmount')
     
-    // Populate room data for notification
-    await booking.populate('roomId', 'name')
-    if (booking.roomIds && booking.roomIds.length > 0) {
-      await booking.populate('roomIds', 'name')
-    }
-
-    // Send LINE notification to OWNER users
-    try {
-      const ownerUsers = await User.find({ 
-        role: 'OWNER',
-        lineUserId: { $exists: true, $ne: null }
-      }).select('lineUserId name')
-      
-      if (ownerUsers.length > 0) {
-        // Format booking notification message
-        const notificationMessage = formatBookingNotification(booking)
-        
-        // Send notification to all OWNER users
-        const notificationPromises = ownerUsers
-          .filter(owner => owner.lineUserId)
-          .map(owner => 
-            sendLineNotification({
-              userId: owner.lineUserId!,
-              message: notificationMessage
-            }).catch(error => {
-              console.error(`Error sending LINE notification to owner ${owner.name} (${owner.lineUserId}):`, error)
-              // Don't throw error, just log it so booking creation still succeeds
-            })
-          )
-        
-        await Promise.allSettled(notificationPromises)
-        console.log(`Sent booking notification to ${ownerUsers.length} OWNER user(s)`)
-      }
-    } catch (error) {
-      // Log error but don't fail the booking creation
-      console.error('Error sending LINE notifications to OWNER:', error)
-    }
-
-    // Transform the data to match frontend expectations
+    // Transform the data to match frontend expectations (before sending response)
     const bookingObj = booking.toObject()
     const transformedBooking = {
       ...bookingObj,
@@ -751,6 +750,53 @@ export async function POST(request: NextRequest) {
       payment: booking.paymentId || { status: 'PENDING', amount: 0 }
     }
 
+    // Send LINE notification to OWNER only for manual bookings (admin created)
+    // For customer bookings, notification will be sent after payment success in webhook
+    if (isManualBooking) {
+      Promise.resolve().then(async () => {
+        try {
+          // Populate room data for notification (only if needed)
+          if (booking.roomId || (booking.roomIds && booking.roomIds.length > 0)) {
+            await booking.populate('roomId', 'name')
+            if (booking.roomIds && booking.roomIds.length > 0) {
+              await booking.populate('roomIds', 'name')
+            }
+          }
+          
+          const ownerUsers = await User.find({ 
+            role: 'OWNER',
+            lineUserId: { $exists: true, $ne: null }
+          }).select('lineUserId name')
+          
+          if (ownerUsers.length > 0) {
+            // Format booking notification message
+            const notificationMessage = formatBookingNotification(booking)
+            
+            // Send notification to all OWNER users (fire and forget)
+            const notificationPromises = ownerUsers
+              .filter(owner => owner.lineUserId)
+              .map(owner => 
+                sendLineNotification({
+                  userId: owner.lineUserId!,
+                  message: notificationMessage
+                }).catch(error => {
+                  console.error(`Error sending LINE notification to owner ${owner.name} (${owner.lineUserId}):`, error)
+                })
+              )
+            
+            await Promise.allSettled(notificationPromises)
+            console.log(`Sent booking notification to ${ownerUsers.length} OWNER user(s) for manual booking`)
+          }
+        } catch (error) {
+          // Log error but don't fail the booking creation
+          console.error('Error sending LINE notifications to OWNER:', error)
+        }
+      }).catch(err => {
+        console.error('Error in async LINE notification handler:', err)
+      })
+    }
+
+    // Return response immediately (don't wait for LINE notifications)
     return NextResponse.json(transformedBooking, { status: 201 })
   } 
 catch (error) {
