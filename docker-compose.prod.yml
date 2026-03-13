@@ -4,19 +4,19 @@ services:
   # MongoDB Database
   db:
     image: mongo:7-jammy
-    container_name: winterhouse-db-prod
+    container_name: baanlomnow-db-prod
     restart: always
     ports:
       - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
-      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-winterhouse}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-baanlomnow}
     volumes:
       - mongodb_prod_data:/data/db
       - mongodb_prod_config:/data/configdb
     networks:
-      - winterhouse-network
+      - baanlomnow-network
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -37,7 +37,7 @@ services:
       dockerfile: Dockerfile
       args:
         - NODE_ENV=production
-    container_name: winterhouse-app-prod
+    container_name: baanlomnow-app-prod
     restart: always
     ports:
       - "3000:3000"
@@ -64,7 +64,7 @@ services:
       
       # Google Cloud Storage
       - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
-      - GOOGLE_CLOUD_STORAGE_BUCKET=${GOOGLE_CLOUD_STORAGE_BUCKET}
+      - GOOGLE_CLOUD_BUCKET_NAME=${GOOGLE_CLOUD_BUCKET_NAME}
       
       # Email Service
       - RESEND_API_KEY=${RESEND_API_KEY}
@@ -80,7 +80,7 @@ services:
       db:
         condition: service_healthy
     networks:
-      - winterhouse-network
+      - baanlomnow-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
@@ -97,7 +97,7 @@ services:
   # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
-    container_name: winterhouse-nginx
+    container_name: baanlomnow-nginx
     restart: always
     ports:
       - "80:80"
@@ -108,7 +108,7 @@ services:
     depends_on:
       - app
     networks:
-      - winterhouse-network
+      - baanlomnow-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
@@ -128,6 +128,6 @@ volumes:
     driver: local
 
 networks:
-  winterhouse-network:
+  baanlomnow-network:
     driver: bridge
 
