@@ -20,6 +20,8 @@ export interface IRoom extends Document {
   }>
   capacity: number
   amenities: string[]
+  /** Points of interest on the cover photo (room detail page) */
+  hotspots?: Array<{ x: number; y: number; title: string; description?: string }>
   buildingId?: string
   isActive: boolean
   createdAt: Date
@@ -67,6 +69,12 @@ const RoomSchema = new Schema<IRoom>({
   amenities: [{
     type: String,
     trim: true
+  }],
+  hotspots: [{
+    x: { type: Number, min: 0, max: 100 },
+    y: { type: Number, min: 0, max: 100 },
+    title: { type: String, trim: true },
+    description: { type: String, trim: true },
   }],
   buildingId: {
     type: Schema.Types.ObjectId,

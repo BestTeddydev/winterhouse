@@ -77,6 +77,16 @@ describe('rooms', () => {
     expect((await call(roomsRoute.POST, 'POST', { body: { ...body, imageUrls: [] } })).status).toBe(400)
   })
 
+  it('saves hotspots on the room photo', async () => {
+    await signInAdmin()
+    const room = await createRoom()
+    const hotspots = [{ x: 25, y: 40, title: 'ระเบียง', description: 'วิวภูเขา' }]
+    const res = await call(roomRoute.PUT, 'PUT', { params: { id: room._id }, body: { hotspots } })
+    expect(res.status).toBe(200)
+    expect((await Room.findById(room._id)).hotspots).toEqual(hotspots)
+    expect((await call(roomRoute.PUT, 'PUT', { params: { id: room._id }, body: { hotspots: [{ x: 150, y: 0 }] } })).status).toBe(400)
+  })
+
   it('soft-deletes rooms so existing bookings keep them', async () => {
     await signInAdmin()
     const room = await createRoom()

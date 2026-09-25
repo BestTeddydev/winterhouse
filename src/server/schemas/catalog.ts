@@ -56,6 +56,16 @@ export const roomSchema = z.object({
   price: price('กรุณากรอกราคา'),
   capacity: z.coerce.number({ message: 'กรุณากรอกจำนวนผู้เข้าพัก' }).int().positive('กรุณากรอกจำนวนผู้เข้าพัก'),
   amenities: z.array(z.string().trim()).default([]),
+  hotspots: z
+    .array(
+      z.object({
+        x: z.coerce.number().min(0).max(100),
+        y: z.coerce.number().min(0).max(100),
+        title: z.string().trim().default(''),
+        description: z.string().trim().optional(),
+      })
+    )
+    .optional(),
   buildingId: optionalId('Building ID'),
   pricing: dayPrices.optional(),
   seasonalPricing: z.array(seasonalPrice).optional(),
