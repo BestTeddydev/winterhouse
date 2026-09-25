@@ -31,7 +31,9 @@ export const createBookingSchema = z
     discountAmount: money('ส่วนลด').optional(),
     isManualBooking: z.boolean().optional(),
     bookingStatus: z.enum(BOOKING_STATUSES).optional(),
+    paymentStatus: z.enum(PAYMENT_STATUSES).optional(),
     paymentSlipUrl: optionalText(),
+    manualBookingNotes: optionalText(),
   })
   .refine((b) => b.checkOut > b.checkIn, { message: 'วันเช็คเอาท์ต้องมากกว่าวันเช็คอิน', path: ['checkOut'] })
 

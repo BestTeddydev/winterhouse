@@ -14,12 +14,12 @@ import { createRoom, createUser } from '../support/factories'
 
 describe('documents', () => {
   it('casts values, applies defaults and drops fields outside the schema', async () => {
-    const room = await new Room({ name: 'R', description: 'd', imageUrls: ['a'], price: '1500', capacity: 2, hotspots: ['x'] }).save()
+    const room = await new Room({ name: 'R', description: 'd', imageUrls: ['a'], price: '1500', capacity: 2, legacyField: 'x' }).save()
     expect(room.price).toBe(1500)
     expect(room.isActive).toBe(true)
     expect(room.createdAt).toBeInstanceOf(Date)
     const stored = (await getDb().collection('rooms').doc(room._id).get()).data()!
-    expect(stored.hotspots).toBeUndefined()
+    expect(stored.legacyField).toBeUndefined()
   })
 
   it('reports validation and cast errors', async () => {

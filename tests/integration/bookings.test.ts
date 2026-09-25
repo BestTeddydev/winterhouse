@@ -172,6 +172,19 @@ describe('POST /api/bookings (staff)', () => {
     expect(lineMock.sendLineNotification).toHaveBeenCalledWith(expect.objectContaining({ userId: 'Uowner' }))
   })
 
+  it('keeps the payment status and notes staff entered', async () => {
+    signInAs(await createUser({ role: 'ADMIN' }))
+    const room = await createRoom({ price: 1000 })
+    const body = { ...guest, ...stay(10, 1), roomIds: [room._id], isManualBooking: true, manualBookingNotes: 'จองทางโทรศัพท์' }
+
+    const paid = await call(bookingsRoute.POST, 'POST', { body })
+    expect(paid.body.manualBookingNotes).toBe('จองทางโทรศัพท์')
+    expect(await Payment.findById(paid.body.paymentId?._id ?? paid.body.paymentId)).toMatchObject({ status: 'COMPLETED', paidAmount: 1000 })
+
+    const unpaid = await call(bookingsRoute.POST, 'POST', { body: { ...body, ...stay(20, 1), paymentStatus: 'PENDING' } })
+    expect(await Payment.findById(unpaid.body.paymentId?._id ?? unpaid.body.paymentId)).toMatchObject({ status: 'PENDING', paidAmount: 0 })
+  })
+
   it('lets staff override the total', async () => {
     signInAs(await createUser({ role: 'OWNER' }))
     const room = await createRoom()

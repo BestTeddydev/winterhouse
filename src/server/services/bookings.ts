@@ -167,6 +167,7 @@ export async function createBooking(input: CreateBookingInput, session: Session)
     discountAmount,
     status,
     isManualBooking,
+    manualBookingNotes: staff ? input.manualBookingNotes : undefined,
     createdBy: staff ? user._id : undefined,
     addOns: addOns.length ? addOns : undefined,
     ...(rooms.length && {
@@ -184,12 +185,15 @@ export async function createBooking(input: CreateBookingInput, session: Session)
   })
 
   const upfront = upfrontAmount(totalPrice, input.paymentType)
+  // Manual bookings record what the guest already paid (e.g. by bank transfer slip);
+  // online bookings are unpaid until Stripe confirms
+  const paymentStatus = (staff && input.paymentStatus) || (isManualBooking ? 'COMPLETED' : 'PENDING')
   const payment = new Payment({
     bookingId: booking._id,
     amount: upfront,
     totalAmount: totalPrice,
-    // Staff record bookings the guest already paid (e.g. by bank transfer slip); online bookings are unpaid until Stripe confirms
-    paidAmount: staff ? upfront : 0,
+    status: paymentStatus,
+    paidAmount: paymentStatus === 'COMPLETED' ? upfront : 0,
     remainingAmount: totalPrice - upfront,
     paymentType: input.paymentType,
     paymentSlipUrl: staff ? input.paymentSlipUrl : undefined,
