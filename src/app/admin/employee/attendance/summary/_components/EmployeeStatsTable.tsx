@@ -1,5 +1,5 @@
 import { Users } from 'lucide-react'
-import type { EmployeeCounts } from '../../_components/attendance'
+import type { EmployeeCounts } from '@/lib/attendance'
 
 const COLUMNS: Array<{ label: string; value: (e: EmployeeCounts) => string | number; className: string }> = [
   { label: 'พนักงาน', value: (e) => e.name, className: 'font-medium text-gray-900' },

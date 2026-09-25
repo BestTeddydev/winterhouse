@@ -89,6 +89,23 @@ describe('employee attendance', () => {
     )
   })
 
+  it('lets an employee check in again after a rejection', async () => {
+    const employee = await createUser({ role: 'EMPLOYEE' })
+    signInAs(employee)
+    const first = (await call(checkInRoute.POST, 'POST', { body: { location: 'เข้างาน' } })).body.attendance
+
+    signInAs(await createUser({ role: 'ADMIN' }))
+    await call(reviewRoute.PATCH, 'PATCH', { params: { id: first._id }, body: { status: 'REJECTED', rejectionReason: 'มาสาย' } })
+
+    signInAs(employee)
+    const again = await call(checkInRoute.POST, 'POST', { body: { location: 'ลางาน', notes: 'ป่วย' } })
+    expect(again.status).toBe(201)
+    expect(again.body.attendance).toMatchObject({ _id: first._id, status: 'PENDING', location: 'ลางาน', notes: 'ป่วย' })
+    expect(again.body.attendance.rejectionReason).toBeUndefined()
+    expect(again.body.attendance.approvedBy).toBeUndefined()
+    expect((await call(checkInRoute.POST, 'POST', { body: { location: 'เข้างาน' } })).status).toBe(400)
+  })
+
   it('requires approval before checking out', async () => {
     const employee = await createUser({ role: 'EMPLOYEE' })
     const admin = await createUser({ role: 'ADMIN' })

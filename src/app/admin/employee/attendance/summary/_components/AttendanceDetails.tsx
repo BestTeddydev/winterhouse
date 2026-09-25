@@ -1,4 +1,4 @@
-import { attendanceDate, attendanceTime } from '../../_components/attendance'
+import { attendanceDate, attendanceTime } from '@/lib/attendance'
 import AttendanceStatusBadge from '../../_components/AttendanceStatusBadge'
 import EmployeeCell from '../../_components/EmployeeCell'
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { summarize } from './attendance'
+import { summarize } from '@/lib/attendance'
 
 describe('summarize', () => {
   it('counts work days, leave and approvals per employee', () => {

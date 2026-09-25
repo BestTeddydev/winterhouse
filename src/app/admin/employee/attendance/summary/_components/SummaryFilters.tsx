@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react'
 import FilterChips from '../../_components/FilterChips'
-import { WORK_TYPES, filterDate } from '../../_components/attendance'
+import { WORK_TYPES, filterDate } from '@/lib/attendance'
 
 export interface SummaryFilterValues {
   search: string

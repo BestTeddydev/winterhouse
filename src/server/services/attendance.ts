@@ -93,17 +93,32 @@ export async function listAttendance(q: z.infer<typeof attendanceQuery>, session
 export async function checkIn(input: z.infer<typeof checkInSchema>, session: Session) {
   const employee = await currentEmployee(session)
   const existing = await todaysRecord(employee._id)
-  if (existing) throw badRequest('คุณได้เช็คอินแล้ววันนี้', { attendance: existing })
+  if (existing && existing.status !== 'REJECTED') throw badRequest('คุณได้เช็คอินแล้ววันนี้', { attendance: existing })
 
   const now = new Date()
-  const attendance = await EmployeeAttendance.create({
-    employeeId: employee._id,
-    checkInDate: bangkokDayRange(now).start,
-    checkInTime: now,
-    location: input.location,
-    notes: input.notes,
-    status: 'PENDING',
-  })
+  let attendance
+  if (existing) {
+    // A rejected check-in may be sent again: the day's record starts over as PENDING
+    Object.assign(existing, {
+      checkInTime: now,
+      location: input.location,
+      notes: input.notes,
+      status: 'PENDING',
+      rejectionReason: undefined,
+      approvedBy: undefined,
+      approvedAt: undefined,
+    })
+    attendance = await existing.save()
+  } else {
+    attendance = await EmployeeAttendance.create({
+      employeeId: employee._id,
+      checkInDate: bangkokDayRange(now).start,
+      checkInTime: now,
+      location: input.location,
+      notes: input.notes,
+      status: 'PENDING',
+    })
+  }
   await attendance.populate('employeeId', 'name email')
 
   void notifyManagers(

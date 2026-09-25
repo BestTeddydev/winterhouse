@@ -11,7 +11,7 @@ import { useDebounced } from '@/hooks/useDebounced'
 import { useIsStaff } from '@/hooks/useIsStaff'
 import AttendanceTable from './_components/AttendanceTable'
 import FilterChips from './_components/FilterChips'
-import { ATTENDANCE_STATUS_LABELS, filterDate } from './_components/attendance'
+import { ATTENDANCE_STATUS_LABELS, filterDate } from '@/lib/attendance'
 
 interface Pagination {
   page: number

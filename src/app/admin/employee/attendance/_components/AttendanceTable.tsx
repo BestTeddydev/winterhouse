@@ -1,5 +1,5 @@
 import { CheckCircle, FileText, MapPin } from 'lucide-react'
-import { attendanceDate, attendanceTime } from './attendance'
+import { attendanceDate, attendanceTime } from '@/lib/attendance'
 import AttendanceStatusBadge from './AttendanceStatusBadge'
 import EmployeeCell from './EmployeeCell'
 import RejectButton from './RejectDialog'

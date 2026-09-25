@@ -1,6 +1,6 @@
 import { AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react'
 import { TONE_CLASSES, type Tone } from '@/lib/bookingStatus'
-import { ATTENDANCE_STATUS_LABELS } from './attendance'
+import { ATTENDANCE_STATUS_LABELS } from '@/lib/attendance'
 
 const STATUS: Record<string, { tone: Tone; icon: typeof Clock }> = {
   APPROVED: { tone: 'green', icon: CheckCircle },
