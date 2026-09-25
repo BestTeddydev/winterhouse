@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { amountDue, detailItems, nextPayment } from './bookingDetail'
+import { amountDue, nextPayment } from '@/lib/bookingPayment'
+import { detailItems } from './bookingDetail'
 
 describe('booking detail', () => {
   it('lists the current rooms with the price charged for the stay, and camping blocks with guests', () => {

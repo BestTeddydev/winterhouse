@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { ArrowLeft, CreditCard, DollarSign, ExternalLink, Receipt } from 'lucide-react'
 import { PAYMENT_STATUS_LABELS } from '@/lib/bookingStatus'
 import { formatCurrency } from '@/lib/utils'
-import { amountDue, nextPayment } from '../_lib/bookingDetail'
+import { amountDue, nextPayment } from '@/lib/bookingPayment'
 
 const STATUS_COLOR: Record<string, string> = {
   COMPLETED: 'text-green-600',
