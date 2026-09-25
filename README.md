@@ -15,7 +15,14 @@ Next.js 14 (App Router) + Firestore + Firebase Storage, เข้าสู่ร
 | สิทธิ์ของหน้าเว็บ | `src/middleware.ts` |
 | LINE Login (NextAuth) | `src/lib/auth.ts` |
 | อัปโหลดรูป | `src/lib/storage.ts`, `src/app/api/upload/route.ts` |
-| Security rules | `firestore.rules`, `storage.rules` |
+| Security rules / Firestore indexes | `firestore.rules`, `storage.rules`, `firestore.indexes.json` |
+
+ข้อมูลอยู่ที่ Firestore database `baanlomnow-sg` (asia-southeast1, สิงคโปร์) และ Storage bucket `baanlomnow-3501a.firebasestorage.app` (asia-southeast1)
+
+### Query และ index
+
+`src/lib/odm.ts` ส่งเงื่อนไข `==`, `$in`, ช่วงวันที่ (`$gt/$gte/$lt/$lte`) และ array-contains ไปให้ Firestore กรอง แล้วตรวจเงื่อนไขทั้งหมดซ้ำในหน่วยความจำ
+query ที่ใช้หลาย field ต้องมี composite index ใน `firestore.indexes.json` — ถ้าเพิ่ม query แบบใหม่แล้วไม่มี index แอปจะยังทำงาน (ถอยไปกรองเฉพาะ `==`) แต่จะ log `[odm] Missing Firestore index ...` พร้อมลิงก์สร้าง index ให้เพิ่มลงไฟล์แล้ว deploy
 
 บทบาทผู้ใช้: `CUSTOMER` (ค่าเริ่มต้น), `EMPLOYEE`, `OWNER`, `ADMIN`
 

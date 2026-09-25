@@ -26,7 +26,7 @@ initializeApp({
   credential: serviceAccount ? cert(serviceAccount) : applicationDefault(),
   projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount?.project_id,
 })
-const users = getFirestore().collection('users')
+const users = getFirestore(process.env.FIRESTORE_DATABASE_ID || 'baanlomnow-sg').collection('users')
 
 // Same 24-hex id format the app uses (ObjectId compatible)
 function newId() {

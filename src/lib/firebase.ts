@@ -3,6 +3,10 @@ import { App, applicationDefault, cert, getApps, initializeApp } from 'firebase-
 import { Firestore, getFirestore } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
 
+// Firestore database in asia-southeast1 (Singapore), close to users in Thailand.
+// The original (default) database is in nam5 (US) and is no longer used by the app.
+export const FIRESTORE_DATABASE_ID = process.env.FIRESTORE_DATABASE_ID || 'baanlomnow-sg'
+
 // Credentials, in order of preference:
 // - FIREBASE_SERVICE_ACCOUNT_KEY: service account JSON as a string (docker / k8s secret)
 // - GOOGLE_APPLICATION_CREDENTIALS: path to a service account key file
@@ -41,7 +45,7 @@ const globalCache = globalThis as typeof globalThis & { __firestore?: Firestore 
 
 export function getDb(): Firestore {
   if (!globalCache.__firestore) {
-    const firestore = getFirestore(getFirebaseApp(), process.env.FIRESTORE_DATABASE_ID || '(default)')
+    const firestore = getFirestore(getFirebaseApp(), FIRESTORE_DATABASE_ID)
     firestore.settings({ ignoreUndefinedProperties: true })
     globalCache.__firestore = firestore
   }

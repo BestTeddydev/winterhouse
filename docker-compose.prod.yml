@@ -20,6 +20,7 @@ services:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/firebase.json
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-baanlomnow-3501a}
       - FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET:-baanlomnow-3501a.firebasestorage.app}
+      - FIRESTORE_DATABASE_ID=${FIRESTORE_DATABASE_ID:-baanlomnow-sg}
 
       # NextAuth
       - NEXTAUTH_URL=${NEXTAUTH_URL}

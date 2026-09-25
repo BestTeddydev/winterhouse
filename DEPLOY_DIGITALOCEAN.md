@@ -80,7 +80,7 @@ docker compose -f docker-compose.prod.yml logs -f
 ## 5. ย้ายระบบจริง (cutover)
 
 1. หยุดรับการจองบนระบบเดิม (GKE) ชั่วคราว
-2. sync ข้อมูลรอบสุดท้ายจาก MongoDB → Firestore (รันจากเครื่องที่ต่อ GKE ได้):
+2. sync ข้อมูลรอบสุดท้ายจาก MongoDB → Firestore `baanlomnow-sg` (สคริปต์เขียนลง database นี้เป็นค่าเริ่มต้น; รันจากเครื่องที่ต่อ GKE ได้):
    ```bash
    kubectl port-forward -n baanlomnow svc/mongodb-service 27019:27017
    MONGODB_URI="mongodb://admin:<password>@localhost:27019/baanlomnow?authSource=admin" \
@@ -106,12 +106,13 @@ docker compose -f docker-compose.prod.yml up -d --build
 docker image prune -f
 ```
 
-## Firebase rules
+## Firebase rules และ indexes
 
-ต้อง deploy ครั้งเดียว (และทุกครั้งที่แก้ `firestore.rules` / `storage.rules`) จากเครื่องที่ login Firebase CLI แล้ว:
+Firestore database ที่ใช้คือ `baanlomnow-sg` (asia-southeast1) ตั้งไว้ใน `firebase.json` แล้ว
+deploy ทุกครั้งที่แก้ `firestore.rules`, `firestore.indexes.json` หรือ `storage.rules` จากเครื่องที่ login Firebase CLI แล้ว:
 
 ```bash
-npx firebase-tools deploy --only firestore:rules,storage --project baanlomnow-3501a
+npx firebase-tools deploy --only firestore,storage --project baanlomnow-3501a
 ```
 
 ถ้าไม่ deploy `storage.rules` รูป/วิดีโอในโฟลเดอร์ `public/` ที่หน้าแรกใช้จะโหลดไม่ขึ้น

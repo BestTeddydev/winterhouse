@@ -12,7 +12,7 @@
  *   SOURCE_ACCESS_TOKEN          optional OAuth token for the source bucket, e.g. $(gcloud auth print-access-token)
  *   FIREBASE_SERVICE_ACCOUNT     path to Firebase service account key (default: secrets/baanlomnow-firebase.json)
  *   FIREBASE_STORAGE_BUCKET      destination bucket (default: auto-detect <project>.firebasestorage.app / .appspot.com)
- *   FIRESTORE_DATABASE_ID        Firestore database (default: "(default)")
+ *   FIRESTORE_DATABASE_ID        Firestore database (default: "baanlomnow-sg", asia-southeast1)
  *
  * Safe to re-run: files already copied (same md5) are skipped, Firestore docs are overwritten by id.
  * Run storage first (or without --only) so image URLs in documents can be rewritten to Firebase URLs.
@@ -42,7 +42,7 @@ const CONCURRENCY = 8
 
 const serviceAccount = require(SERVICE_ACCOUNT_PATH)
 const app = initializeApp({ credential: cert(serviceAccount), projectId: serviceAccount.project_id })
-const firestore = getFirestore(app, process.env.FIRESTORE_DATABASE_ID || '(default)')
+const firestore = getFirestore(app, process.env.FIRESTORE_DATABASE_ID || 'baanlomnow-sg')
 firestore.settings({ ignoreUndefinedProperties: true })
 
 // SOURCE_ACCESS_TOKEN (e.g. `gcloud auth print-access-token`) overrides Application Default Credentials

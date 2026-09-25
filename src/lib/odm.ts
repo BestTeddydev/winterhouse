@@ -1079,17 +1079,78 @@ function idCondition(id: any): string | null {
   return hex.toLowerCase()
 }
 
-// Only plain scalar equality on non-array fields is sent to Firestore
-function pushdownFilters(schema: Schema, filter: Record<string, any>): Array<[string, unknown]> {
-  const conditions: Array<[string, unknown]> = []
-  for (const [key, raw] of Object.entries(filter)) {
-    if (key.startsWith('$') || key.includes('.') || key === '_id') continue
+type WhereCondition = [string, FirebaseFirestore.WhereFilterOp, unknown]
+
+const RANGE_OPS: Record<string, FirebaseFirestore.WhereFilterOp> = { $gt: '>', $gte: '>=', $lt: '<', $lte: '<=' }
+
+function scalarValue(value: unknown): string | number | boolean | Date | null {
+  if (value instanceof ObjectId) return value.toHexString()
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
+  return ['string', 'number', 'boolean'].includes(typeof value) ? (value as string | number | boolean) : null
+}
+
+/**
+ * Top-level AND conditions that Firestore can evaluate, used to narrow the documents read.
+ * Every candidate is still checked with the full Mongo-style filter in memory, so these only
+ * need to be a superset of the real matches:
+ * - equality -> '==' ('array-contains' for array fields)
+ * - $in (1-30 values) -> 'in' ('==' for one value)
+ * - $gt/$gte/$lt/$lte on dates, numbers, strings -> range filters (need a composite index
+ *   when combined with other fields; see firestore.indexes.json)
+ * Firestore allows only one 'in' / 'array-contains' per query.
+ */
+function pushdownFilters(schema: Schema, filter: Record<string, any>): WhereCondition[] {
+  const conditions: WhereCondition[] = []
+  let usedDisjunction = false
+
+  const entries: Array<[string, any]> = []
+  const collect = (f: Record<string, any>) => {
+    for (const [key, value] of Object.entries(f)) {
+      if (key === '$and' && Array.isArray(value)) value.forEach(collect)
+      else entries.push([key, value])
+    }
+  }
+  collect(filter)
+
+  for (const [key, raw] of entries) {
+    if (key.startsWith('$') || key.includes('.') || key === '_id' || raw === undefined) continue
     const spec = schema.fields[key]
-    if (!spec || spec.kind === 'array' || spec.kind === 'mixed' || spec.kind === 'object') continue
-    const value = raw instanceof ObjectId ? raw.toHexString() : raw
-    if (['string', 'number', 'boolean'].includes(typeof value)) conditions.push([key, value])
+    if (!spec || spec.kind === 'mixed' || spec.kind === 'object') continue
+    const isArray = spec.kind === 'array'
+
+    if (isOperatorObject(raw)) {
+      for (const [op, arg] of Object.entries(raw)) {
+        if (op in RANGE_OPS && !isArray) {
+          const value = scalarValue(arg)
+          if (value !== null) conditions.push([key, RANGE_OPS[op], value])
+        } else if (op === '$in' && !isArray && Array.isArray(arg) && arg.length > 0 && arg.length <= 30) {
+          const values = arg.map(scalarValue)
+          if (values.some((v) => v === null)) continue
+          if (values.length === 1) conditions.push([key, '==', values[0]])
+          else if (!usedDisjunction) {
+            conditions.push([key, 'in', values])
+            usedDisjunction = true
+          }
+        }
+      }
+      continue
+    }
+
+    const value = scalarValue(raw)
+    if (value === null) continue
+    if (!isArray) conditions.push([key, '==', value])
+    else if (!usedDisjunction) {
+      conditions.push([key, 'array-contains', value])
+      usedDisjunction = true
+    }
   }
   return conditions
+}
+
+const warnedMissingIndexes = new Set<string>()
+
+function isMissingIndexError(error: unknown) {
+  return (error as { code?: number })?.code === 9 && /index/i.test(String((error as Error).message))
 }
 
 export const models: Record<string, ModelClass> = {}
@@ -1123,11 +1184,28 @@ export function model<T = any>(name: string, schema: Schema<T>): ModelClass {
         return [...(await fetchByIds(this as unknown as ModelClass, [...new Set(ids)])).values()]
       }
 
-      let query: FirebaseFirestore.Query = this.collection()
-      for (const [field, value] of pushdownFilters(schema, filter)) query = query.where(field, '==', value)
-      // Field mask: only transfer the fields the query needs
-      if (fields) query = query.select(...fields)
-      const snapshot = await query.get()
+      const build = (conditions: WhereCondition[]) => {
+        let query: FirebaseFirestore.Query = this.collection()
+        for (const [field, op, value] of conditions) query = query.where(field, op, value)
+        // Field mask: only transfer the fields the query needs
+        return fields ? query.select(...fields) : query
+      }
+
+      const conditions = pushdownFilters(schema, filter)
+      let snapshot: FirebaseFirestore.QuerySnapshot
+      try {
+        snapshot = await build(conditions).get()
+      } catch (error) {
+        if (!isMissingIndexError(error)) throw error
+        // Never fail a request because of a missing composite index: fall back to equality
+        // filters only (always indexed) and log the index Firestore asks for
+        const shape = `${collectionName}: ${conditions.map(([f, op]) => `${f} ${op}`).join(', ')}`
+        if (!warnedMissingIndexes.has(shape)) {
+          warnedMissingIndexes.add(shape)
+          console.warn(`[odm] Missing Firestore index for ${shape}. ${(error as Error).message}`)
+        }
+        snapshot = await build(conditions.filter(([, op]) => op === '==')).get()
+      }
       return snapshot.docs.map((doc) => snapshotToRaw(doc)!)
     }
 
