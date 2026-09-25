@@ -2,322 +2,42 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import Navbar from '@/components/Navbar'
-import Link from 'next/link'
 import axios from 'axios'
-import { 
-  Home, 
-  Calendar, 
-  TrendingUp, 
-  DollarSign,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  XCircle,
-  Eye,
-  
-  MapPin,
-  LogOut,
-  UserCheck,
-  Package,
-  TentIcon,
-  Lock
-} from 'lucide-react'
-
-interface DashboardStats {
-  totalRooms: number
-  activeRooms: number
-  totalBookings: number
-  pendingBookings: number
-  confirmedBookings: number
-  completedBookings: number
-  cancelledBookings: number
-  totalRevenue: number
-  monthlyRevenue: number
-}
+import toast from 'react-hot-toast'
+import { AlertCircle, Eye, XCircle } from 'lucide-react'
+import Navbar from '@/components/Navbar'
+import PageSpinner from '@/components/PageSpinner'
+import CountTile from './_dashboard/CountTile'
+import MenuGrid from './_dashboard/MenuGrid'
+import StatCards from './_dashboard/StatCards'
+import TodayBookings from './_dashboard/TodayBookings'
+import type { AdminDashboardData } from './_dashboard/types'
 
 export default function AdminDashboard() {
-  const { data: session } = useSession()
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [todayCheckIns, setTodayCheckIns] = useState<any[]>([])
-  const [todayCheckOuts, setTodayCheckOuts] = useState<any[]>([])
-  const [todayStaying, setTodayStaying] = useState<any[]>([])
-  const [todayCreated, setTodayCreated] = useState<any[]>([])
-  const [attendanceStats, setAttendanceStats] = useState({
-    pending: 0,
-    approvedToday: 0,
-    totalToday: 0
-  })
-  const [addOnsStats, setAddOnsStats] = useState({
-    total: 0,
-    active: 0
-  })
+  const { data: session, status } = useSession()
+  const isAdmin = session?.user?.role === 'ADMIN'
+  const [data, setData] = useState<AdminDashboardData | null>(null)
 
   useEffect(() => {
-    // Middleware already handles authentication and authorization
-    // Just fetch the dashboard stats
-    if (session && session.user) {
-      fetchDashboardStats()
-      fetchAttendanceStats()
-      fetchAddOnsStats()
-    }
-  }, [session])
-
-  const fetchDashboardStats = async () => {
-    try {
-      const [roomsResponse, bookingsResponse] = await Promise.all([
-        axios.get('/api/rooms'),
-        axios.get('/api/bookings?limit=150&sortBy=createdAt&sortOrder=desc')
-      ])
-
-      const rooms = roomsResponse.data
-      const bookingsRaw = bookingsResponse.data
-      const bookings = Array.isArray(bookingsRaw) ? bookingsRaw : (bookingsRaw.bookings || [])
-
-      const totalRooms = rooms.length
-      const activeRooms = rooms.filter((room: any) => room.isActive).length
-      const totalBookings = bookings.length
-      const pendingBookings = bookings.filter((booking: any) => booking.status === 'PENDING').length
-      const confirmedBookings = bookings.filter((booking: any) => booking.status === 'CONFIRMED').length
-      const completedBookings = bookings.filter((booking: any) => booking.status === 'COMPLETED').length
-      const cancelledBookings = bookings.filter((booking: any) => booking.status === 'CANCELLED').length
-
-      const totalRevenue = bookings
-        .filter((booking: any) => booking.payment.status === 'COMPLETED')
-        .reduce((sum: number, booking: any) => sum + booking.totalPrice, 0)
-
-      const currentMonth = new Date().getMonth()
-      const currentYear = new Date().getFullYear()
-      const monthlyRevenue = bookings
-        .filter((booking: any) => {
-          const bookingDate = new Date(booking.createdAt)
-          return booking.payment.status === 'COMPLETED' && 
-                 bookingDate.getMonth() === currentMonth && 
-                 bookingDate.getFullYear() === currentYear
-        })
-        .reduce((sum: number, booking: any) => sum + booking.totalPrice, 0)
-
-      setStats({
-        totalRooms,
-        activeRooms,
-        totalBookings,
-        pendingBookings,
-        confirmedBookings,
-        completedBookings,
-        cancelledBookings,
-        totalRevenue,
-        monthlyRevenue
+    if (!isAdmin) return
+    const controller = new AbortController()
+    axios
+      .get('/api/admin/dashboard', { signal: controller.signal })
+      .then((res) => setData(res.data))
+      .catch((error) => {
+        if (axios.isCancel(error)) return
+        console.error('Error fetching dashboard:', error)
+        toast.error('ไม่สามารถโหลดข้อมูลแดชบอร์ดได้')
       })
+    return () => controller.abort()
+  }, [isAdmin])
 
-      // Today bookings info
-      const today = new Date()
-      const todayStr = today.toDateString()
-      const createdToday = bookings.filter((b: any) => b.createdAt && new Date(b.createdAt).toDateString() === todayStr) 
-      const checkIns = bookings.filter((b: any) => b.checkIn && new Date(b.checkIn).toDateString() === todayStr && b.status !== 'CANCELLED')
-      const checkOuts = bookings.filter((b: any) => b.checkOut && new Date(b.checkOut).toDateString() === todayStr && b.status !== 'CANCELLED')
-      const staying = bookings.filter((b: any) => {
-        if (!b.checkIn || !b.checkOut) return false
-        const ci = new Date(b.checkIn)
-        const co = new Date(b.checkOut)
-        return ci <= today && co >= today && b.status !== 'CANCELLED'
-      })
-      setTodayCreated(createdToday)
-      setTodayCheckIns(checkIns)
-      setTodayCheckOuts(checkOuts)
-      setTodayStaying(staying)
-    } catch (error) {
-      console.error('Error fetching dashboard stats:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchAttendanceStats = async () => {
-    try {
-      const today = new Date().toISOString().split('T')[0]
-      
-      // Get pending attendance
-      const pendingResponse = await axios.get('/api/employee/attendance', {
-        params: {
-          status: 'PENDING',
-          limit: 100
-        }
-      })
-
-      // Get today's attendance
-      const todayResponse = await axios.get('/api/employee/attendance', {
-        params: {
-          date: today,
-          limit: 100
-        }
-      })
-
-      const pendingCount = pendingResponse.data.attendance?.length || 0
-      const todayAttendance = todayResponse.data.attendance || []
-      const approvedToday = todayAttendance.filter((a: any) => a.status === 'APPROVED').length
-
-      setAttendanceStats({
-        pending: pendingCount,
-        approvedToday,
-        totalToday: todayAttendance.length
-      })
-    } catch (error) {
-      console.error('Error fetching attendance stats:', error)
-    }
-  }
-
-  const fetchAddOnsStats = async () => {
-    try {
-      const response = await axios.get('/api/addons')
-      const addOns = response.data || []
-      const activeAddOns = addOns.filter((addOn: any) => addOn.isActive)
-      
-      setAddOnsStats({
-        total: addOns.length,
-        active: activeAddOns.length
-      })
-    } catch (error) {
-      console.error('Error fetching add-ons stats:', error)
-    }
-  }
-
-  if (session === undefined) {
-    // Session is still loading
+  if (status !== 'loading' && !isAdmin) return null
+  if (!data) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!session || !session.user || session.user.role !== 'ADMIN') {
-    return null
-  }
-
-  const menuItems = [
-    {
-      title: 'การจองที่จะมาถึง',
-      description: 'ดูการจองในช่วง 7 วันข้างหน้า',
-      href: '/admin/bookings/upcoming',
-      icon: Calendar,
-      color: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
-      stats: 'ช่วง 7 วันข้างหน้า'
-    },
-    {
-      title: 'จัดการการจอง',
-      description: 'ดูและจัดการการจองทั้งหมด',
-      href: '/admin/bookings',
-      icon: Calendar,
-      color: 'bg-gradient-to-br from-green-500 to-green-600',
-      stats: stats ? `${stats.totalBookings} การจองทั้งหมด` : 'กำลังโหลด...'
-    },
-    
-    {
-      title: 'จัดการห้องพัก',
-      description: 'เพิ่ม แก้ไข ลบห้องพัก และจัดการ hotspots',
-      href: '/admin/rooms',
-      icon: Home,
-      color: 'bg-gradient-to-br from-blue-500 to-blue-600',
-      stats: stats ? `${stats.activeRooms}/${stats.totalRooms} ห้องเปิดใช้งาน` : 'กำลังโหลด...'
-    },
-    {
-      title: 'แผนผังที่ดินและอาคาร',
-      description: 'จัดการแผนผังและระบุตำแหน่งอาคาร',
-      href: '/admin/site-map',
-      icon: MapPin,
-      color: 'bg-gradient-to-br from-purple-500 to-purple-600',
-      stats: 'แผนผังและ Hotspots'
-    },
-    {
-      title: 'จัดการการเช็คอินพนักงาน',
-      description: 'อนุมัติหรือปฏิเสธการเช็คอินของพนักงาน',
-      href: '/admin/employee/attendance',
-      icon: UserCheck,
-      color: 'bg-gradient-to-br from-teal-500 to-teal-600',
-      stats: attendanceStats.pending > 0 
-        ? `${attendanceStats.pending} รออนุมัติ` 
-        : attendanceStats.totalToday > 0 
-        ? `${attendanceStats.approvedToday}/${attendanceStats.totalToday} วันนี้`
-        : 'จัดการการเช็คอิน'
-    },
-    {
-      title: 'จัดการอ๊อฟชั่นเสริม',
-      description: 'เพิ่ม แก้ไข หรือลบอ๊อฟชั่นเสริม',
-      href: '/admin/addons',
-      icon: Package,
-      color: 'bg-gradient-to-br from-orange-500 to-orange-600',
-      stats: addOnsStats.total > 0 
-        ? `${addOnsStats.active}/${addOnsStats.total} เปิดใช้งาน` 
-        : 'จัดการอ๊อฟชั่นเสริม'
-    },
-    {
-      title: 'จัดการบล็อคกางเต๊นท์',
-      description: 'เพิ่ม แก้ไข หรือลบบล็อคกางเต๊นท์',
-      href: '/admin/camping-blocks',
-      icon: TentIcon,
-      color: 'bg-gradient-to-br from-green-500 to-green-600',
-      stats: 'จัดการบล็อคกางเต๊นท์'
-    },
-    {
-      title: 'ล็อคห้องไม่ให้จอง',
-      description: 'ล็อคห้องไม่ให้จองในช่วงวันที่กำหนด',
-      href: '/admin/room-blocks',
-      icon: Lock,
-      color: 'bg-gradient-to-br from-red-500 to-red-600',
-      stats: 'จัดการการล็อคห้อง'
-    },
-    {
-      title: 'ล็อคบล็อคกางเต๊นท์',
-      description: 'ล็อคบล็อคกางเต๊นท์ไม่ให้จองในช่วงวันที่กำหนด',
-      href: '/admin/camping-block-blocks',
-      icon: TentIcon,
-      color: 'bg-gradient-to-br from-orange-500 to-orange-600',
-      stats: 'จัดการการล็อคบล็อคกางเต๊นท์'
-    },
-  ]
-
-  const statCards = [
-    {
-      title: 'รายได้รวม',
-      value: stats ? `฿${stats.totalRevenue.toLocaleString()}` : '฿0',
-      icon: DollarSign,
-      color: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
-      change: stats ? `฿${stats.monthlyRevenue.toLocaleString()} เดือนนี้` : '฿0 เดือนนี้'
-    },
-    {
-      title: 'การจองรอดำเนินการ',
-      value: stats ? stats.pendingBookings.toString() : '0',
-      icon: Clock,
-      color: 'bg-gradient-to-br from-yellow-500 to-yellow-600',
-      change: 'รอการยืนยัน'
-    },
-    {
-      title: 'การจองที่ยืนยันแล้ว',
-      value: stats ? stats.confirmedBookings.toString() : '0',
-      icon: CheckCircle,
-      color: 'bg-gradient-to-br from-blue-500 to-blue-600',
-      change: 'พร้อมเข้าพัก'
-    },
-    {
-      title: 'การจองที่เสร็จสิ้น',
-      value: stats ? stats.completedBookings.toString() : '0',
-      icon: TrendingUp,
-      color: 'bg-gradient-to-br from-green-500 to-green-600',
-      change: 'เสร็จสิ้นแล้ว'
-    }
-  ]
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-        </div>
+        <PageSpinner />
       </div>
     )
   }
@@ -327,150 +47,24 @@ export default function AdminDashboard() {
       <Navbar />
 
       <main className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
-        {/* Header */}
         <div className="mb-4 sm:mb-6 md:mb-8">
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">แผงควบคุมผู้ดูแลระบบ</h1>
           <p className="text-gray-700 text-sm sm:text-base md:text-lg font-medium">ยินดีต้อนรับสู่ระบบจัดการ Winterhouse</p>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 md:gap-6 mb-6 sm:mb-8">
-          {statCards.map((stat, index) => (
-            <div key={index} className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm font-semibold text-gray-700 mb-1 truncate">{stat.title}</p>
-                  <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 truncate">{stat.value}</p>
-                  <p className="text-xs sm:text-sm text-gray-600 font-medium mt-1 truncate">{stat.change}</p>
-                </div>
-                <div className={`${stat.color} p-2 sm:p-3 rounded-lg text-white flex-shrink-0 ml-2`}>
-                  <stat.icon size={20} className="sm:w-6 sm:h-6" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <StatCards stats={data.stats} />
+        <TodayBookings today={data.today} />
+        <MenuGrid data={data} />
 
- {/* Today Bookings */}
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6 mb-6 sm:mb-8">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">การจองวันนี้</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 md:gap-6 mb-4 sm:mb-6">
-            <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-center mb-2">
-                <Calendar className="text-primary-600 mr-2 flex-shrink-0" size={18} />
-                <span className="font-semibold text-gray-900 text-sm sm:text-base">สร้างวันนี้</span>
-              </div>
-              <p className="text-xl sm:text-2xl font-bold text-primary-600">{todayCreated?.length}</p>
-            </div>
-            <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-center mb-2">
-                <LogOut className="text-orange-600 mr-2 flex-shrink-0" size={18} />
-                <span className="font-semibold text-gray-900 text-sm sm:text-base">เช็คเอาท์วันนี้</span>
-              </div>
-              <p className="text-xl sm:text-2xl font-bold text-orange-600">{todayCheckOuts?.length}</p>
-            </div>
-            <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-center mb-2">
-                <Eye className="text-blue-600 mr-2 flex-shrink-0" size={18} />
-                <span className="font-semibold text-gray-900 text-sm sm:text-base">กำลังพัก</span>
-              </div>
-              <p className="text-xl sm:text-2xl font-bold text-blue-600">{todayStaying?.length}</p>
-            </div>
-          </div>
-
-          {(todayCheckIns?.length + todayCheckOuts?.length) > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
-              <div>
-                <h3 className="font-semibold mb-3 text-sm sm:text-base">รายการเช็คอิน</h3>
-                <div className="divide-y rounded-lg border bg-gray-50">
-                  {todayCheckIns?.slice(0,5).map((b:any)=> (
-                    <div key={b.id} className="p-2 sm:p-3 text-xs sm:text-sm flex items-center justify-between gap-2">
-                      <div className="text-gray-800 font-medium truncate">{b.room?.name || 'ไม่ระบุห้อง'}</div>
-                      <div className="text-gray-500 truncate">{b.guestName}</div>
-                    </div>
-                  ))}
-                  {todayCheckIns?.length === 0 && (
-                    <div className="p-2 sm:p-3 text-xs sm:text-sm text-gray-500">ไม่มีรายการ</div>
-                  )}
-                </div>
-              </div>
-              <div>
-                <h3 className="font-semibold mb-3 text-sm sm:text-base">รายการเช็คเอาท์</h3>
-                <div className="divide-y rounded-lg border bg-gray-50">
-                  {todayCheckOuts?.slice(0,5).map((b:any)=> (
-                    <div key={b.id} className="p-2 sm:p-3 text-xs sm:text-sm flex items-center justify-between gap-2">
-                      <div className="text-gray-800 font-medium truncate">{b.room?.name || 'ไม่ระบุห้อง'}</div>
-                      <div className="text-gray-500 truncate">{b?.guestName}</div>
-                    </div>
-                  ))}
-                  {todayCheckOuts?.length === 0 && (
-                    <div className="p-2 sm:p-3 text-xs sm:text-sm text-gray-500">ไม่มีรายการ</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Quick Actions */}
-        <div className="mb-6 sm:mb-8">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">การจัดการหลัก</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
-            {menuItems.map((item) => (
-              <Link key={item.href} href={item.href}>
-                <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group">
-                  <div className="flex items-start gap-3 sm:gap-4">
-                    <div className={`${item.color} p-3 sm:p-4 rounded-xl text-white group-hover:scale-110 transition-transform duration-300 flex-shrink-0`}>
-                      <item.icon size={24} className="sm:w-8 sm:h-8" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base sm:text-lg md:text-xl font-bold mb-2 text-gray-900 group-hover:text-primary-600 transition-colors">
-                        {item.title}
-                      </h3>
-                      <p className="text-sm sm:text-base text-gray-600 mb-2 sm:mb-3">{item.description}</p>
-                      <div className="flex items-center gap-2 text-xs sm:text-sm text-primary-600 font-medium">
-                        <span className="truncate">{item.stats}</span>
-                        <TrendingUp size={14} className="flex-shrink-0 sm:w-4 sm:h-4" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Activity */}
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">สถานะระบบ</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
-            <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-center mb-2">
-                <Eye className="text-green-500 mr-2 flex-shrink-0" size={18} />
-                <span className="font-semibold text-gray-900 text-sm sm:text-base">ห้องพักเปิดใช้งาน</span>
-              </div>
-              <p className="text-xl sm:text-2xl font-bold text-green-600">{stats?.activeRooms || 0}</p>
-            </div>
-            
-            <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-center mb-2">
-                <AlertCircle className="text-yellow-500 mr-2 flex-shrink-0" size={18} />
-                <span className="font-semibold text-gray-900 text-sm sm:text-base">รอดำเนินการ</span>
-              </div>
-              <p className="text-xl sm:text-2xl font-bold text-yellow-600">{stats?.pendingBookings || 0}</p>
-            </div>
-            
-            <div className="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-center mb-2">
-                <XCircle className="text-red-500 mr-2 flex-shrink-0" size={18} />
-                <span className="font-semibold text-gray-900 text-sm sm:text-base">ยกเลิกแล้ว</span>
-              </div>
-              <p className="text-xl sm:text-2xl font-bold text-red-600">{stats?.cancelledBookings || 0}</p>
-            </div>
+            <CountTile icon={Eye} iconColor="text-green-500" label="ห้องพักเปิดใช้งาน" value={data.rooms.active} valueColor="text-green-600" />
+            <CountTile icon={AlertCircle} iconColor="text-yellow-500" label="รอดำเนินการ" value={data.stats.pendingBookings} valueColor="text-yellow-600" />
+            <CountTile icon={XCircle} iconColor="text-red-500" label="ยกเลิกแล้ว" value={data.stats.cancelledBookings} valueColor="text-red-600" />
           </div>
         </div>
       </main>
     </div>
   )
 }
-

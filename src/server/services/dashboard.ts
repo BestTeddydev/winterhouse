@@ -1,5 +1,8 @@
 import { bangkokDateKey, bangkokDayRange } from '@/lib/dates'
+import AddOn from '@/models/AddOn'
 import Booking from '@/models/Booking'
+import EmployeeAttendance from '@/models/EmployeeAttendance'
+import Room from '@/models/Room'
 import Payment from '@/models/Payment'
 import type { OwnerDashboardQuery } from '../schemas/dashboard'
 import { populateForDisplay, toBookingResponse } from './bookings'
@@ -75,4 +78,40 @@ export async function upcomingBookings(days = 7) {
   }>
   const ids = candidates.filter((b) => b.status !== 'CANCELLED' && new Date(b.checkIn) < end).map((b) => b._id)
   return ids.length ? display({ _id: { $in: ids } }, { checkIn: 1 }) : []
+}
+
+/** Admin home: overall booking stats, today's movements and counts for the menu cards */
+export async function adminDashboard() {
+  const today = bangkokDateKey()
+  const day = bangkokDayRange(today)
+  const [owner, stayingCandidates, rooms, activeRooms, addOns, activeAddOns, pendingAttendance, todayAttendance] = await Promise.all([
+    ownerDashboard({ date: today, by: 'createdAt' }),
+    Booking.find({ checkOut: { $gte: day.start } }).select('_id checkIn status').lean().exec() as Promise<
+      Array<{ _id: string; checkIn: Date; status: string }>
+    >,
+    Room.countDocuments({}),
+    Room.countDocuments({ isActive: true }),
+    AddOn.countDocuments({}),
+    AddOn.countDocuments({ isActive: true }),
+    EmployeeAttendance.countDocuments({ status: 'PENDING' }),
+    EmployeeAttendance.find({ checkInDate: { $gte: day.start, $lt: day.end } }).select('status').lean().exec() as Promise<Array<{ status: string }>>,
+  ])
+
+  return {
+    stats: owner.stats,
+    today: {
+      created: owner.bookings,
+      checkIns: owner.checkIns,
+      checkOuts: owner.checkOuts,
+      // In the house today: arrived before the day ends, leaving today or later
+      staying: stayingCandidates.filter((b) => b.status !== 'CANCELLED' && new Date(b.checkIn) < day.end).length,
+    },
+    rooms: { total: rooms, active: activeRooms },
+    addOns: { total: addOns, active: activeAddOns },
+    attendance: {
+      pending: pendingAttendance,
+      today: todayAttendance.length,
+      approvedToday: todayAttendance.filter((a) => a.status === 'APPROVED').length,
+    },
+  }
 }

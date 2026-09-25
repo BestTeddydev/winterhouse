@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import * as adminDashboardRoute from '@/app/api/admin/dashboard/route'
 import * as upcomingRoute from '@/app/api/bookings/upcoming/route'
 import * as dashboardRoute from '@/app/api/owner/dashboard/route'
-import { createBooking, createUser, day } from '../support/factories'
+import { createAddOn, createBooking, createRoom, createUser, day } from '../support/factories'
 import { call } from '../support/http'
 import { signInAs } from '../support/mocks'
 
@@ -56,5 +57,32 @@ describe('GET /api/bookings/upcoming', () => {
     expect(res.status).toBe(200)
     expect(res.body.map((b: any) => b.guestName)).toEqual(['staying', 'soon'])
     expect((await call(upcomingRoute.GET, 'GET', { query: { days: '10' } })).body).toHaveLength(3)
+  })
+})
+
+describe('GET /api/admin/dashboard', () => {
+  it('counts rooms, add-ons, attendance and today’s bookings', async () => {
+    const admin = await createUser({ role: 'ADMIN' })
+    signInAs(admin)
+    await createRoom()
+    await createRoom({ isActive: false })
+    await createAddOn()
+    await createBooking({ checkIn: day(0), checkOut: day(2) })
+    await createBooking({ checkIn: day(-2), checkOut: day(1) })
+    await createBooking({ checkIn: day(-3), checkOut: day(0), status: 'CANCELLED' })
+
+    const res = await call(adminDashboardRoute.GET, 'GET')
+    expect(res.status).toBe(200)
+    expect(res.body.rooms).toEqual({ total: 2, active: 1 })
+    expect(res.body.addOns).toEqual({ total: 1, active: 1 })
+    expect(res.body.attendance).toEqual({ pending: 0, today: 0, approvedToday: 0 })
+    expect(res.body.today).toMatchObject({ staying: 2 })
+    expect(res.body.today.checkIns).toHaveLength(1)
+    expect(res.body.today.checkOuts).toHaveLength(0)
+    expect(res.body.today.created).toHaveLength(3)
+    expect(res.body.stats.totalBookings).toBe(3)
+
+    signInAs(await createUser())
+    expect((await call(adminDashboardRoute.GET, 'GET')).status).toBe(403)
   })
 })
