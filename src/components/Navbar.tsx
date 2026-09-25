@@ -49,6 +49,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-20 sm:h-24 min-h-[80px]">
           <Link href="/" className="flex items-center hover:opacity-90 transition-opacity duration-200 group">
             <div className="relative overflow-hidden rounded-lg shadow-md group-hover:shadow-lg transition-shadow duration-200">
+              {/* eslint-disable-next-line @next/next/no-img-element -- small local logo with an onError text fallback */}
               <img
                 src="/logo.jpeg"
                 alt="บ้านลมหนาว คาเฟ่ แอนด์ แคมป์ปิ้ง"
