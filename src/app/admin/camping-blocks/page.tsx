@@ -227,7 +227,7 @@ export default function AdminCampingBlocks() {
                 {/* Image */}
                 <div className="relative h-48 w-full">
                   <Image
-                    src={block.imageUrl || '/placeholder-camping.jpg'}
+                    src={block.imageUrl || '/placeholder-camping.svg'}
                     alt={block.name}
                     fill
                     className="object-cover"

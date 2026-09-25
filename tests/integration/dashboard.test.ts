@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import * as upcomingRoute from '@/app/api/bookings/upcoming/route'
 import * as dashboardRoute from '@/app/api/owner/dashboard/route'
 import { createBooking, createUser, day } from '../support/factories'
 import { call } from '../support/http'
@@ -39,5 +40,21 @@ describe('GET /api/owner/dashboard', () => {
     signInAs(await createUser({ role: 'ADMIN' }))
     const res = await call(dashboardRoute.GET, 'GET', { query: { date: 'nope' } })
     expect(res.body).toMatchObject({ date: day(0), by: 'createdAt', bookings: [] })
+  })
+})
+
+describe('GET /api/bookings/upcoming', () => {
+  it('lists active stays overlapping the next days, by check-in', async () => {
+    signInAs(await createUser({ role: 'ADMIN' }))
+    await createBooking({ checkIn: day(-2), checkOut: day(1), guestName: 'staying' })
+    await createBooking({ checkIn: day(3), checkOut: day(4), guestName: 'soon' })
+    await createBooking({ checkIn: day(9), checkOut: day(10), guestName: 'later' })
+    await createBooking({ checkIn: day(-3), checkOut: day(-1), guestName: 'gone' })
+    await createBooking({ checkIn: day(2), checkOut: day(3), guestName: 'cancelled', status: 'CANCELLED' })
+
+    const res = await call(upcomingRoute.GET, 'GET')
+    expect(res.status).toBe(200)
+    expect(res.body.map((b: any) => b.guestName)).toEqual(['staying', 'soon'])
+    expect((await call(upcomingRoute.GET, 'GET', { query: { days: '10' } })).body).toHaveLength(3)
   })
 })

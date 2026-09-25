@@ -31,7 +31,7 @@ export default function CampingBlockOptionCard({ block, guestCount, nights, onTo
     >
       <SelectCheckbox selected={selected} onToggle={onToggle} label={`เลือก ${block.name}`} />
       <div className="relative h-32 mb-3 rounded-lg overflow-hidden">
-        <Image src={block.imageUrl || '/placeholder-camping.jpg'} alt={block.name} fill className="object-cover" />
+        <Image src={block.imageUrl || '/placeholder-camping.svg'} alt={block.name} fill className="object-cover" />
       </div>
       <h3 className="font-semibold text-gray-900 mb-1 pr-8">{block.name}</h3>
       <p className="text-sm text-gray-600 mb-2 line-clamp-2">{block.description}</p>

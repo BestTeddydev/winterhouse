@@ -62,3 +62,17 @@ export async function ownerDashboard({ date, by }: OwnerDashboardQuery) {
     bookings,
   }
 }
+
+/** Active bookings that overlap today and the next `days` Thai days, by check-in */
+export async function upcomingBookings(days = 7) {
+  const start = bangkokDayRange(bangkokDateKey()).start
+  const end = new Date(start.getTime() + (days + 1) * 24 * 60 * 60 * 1000)
+  // One range filter per query in Firestore: check-out here, check-in in memory
+  const candidates = (await Booking.find({ checkOut: { $gte: start } }).select('_id checkIn status').lean().exec()) as Array<{
+    _id: string
+    checkIn: Date
+    status: string
+  }>
+  const ids = candidates.filter((b) => b.status !== 'CANCELLED' && new Date(b.checkIn) < end).map((b) => b._id)
+  return ids.length ? display({ _id: { $in: ids } }, { checkIn: 1 }) : []
+}

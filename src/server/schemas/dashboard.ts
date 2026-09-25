@@ -13,3 +13,7 @@ export const ownerDashboardQuery = z.object({
 })
 
 export type OwnerDashboardQuery = z.infer<typeof ownerDashboardQuery>
+
+export const upcomingQuery = z.object({
+  days: z.coerce.number().int().min(1).max(60).catch(7).default(7),
+})

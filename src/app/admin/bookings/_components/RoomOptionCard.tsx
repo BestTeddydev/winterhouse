@@ -25,7 +25,7 @@ export default function RoomOptionCard({ room, selected, onToggle, checkIn }: Pr
       <SelectCheckbox selected={selected} onToggle={onToggle} label={`เลือก ${room.name}`} />
       <div className="relative h-32 mb-3 rounded-lg overflow-hidden">
         <Image
-          src={room.imageUrl || room.imageUrls?.[0] || '/placeholder-room.jpg'}
+          src={room.imageUrl || room.imageUrls?.[0] || '/placeholder-room.svg'}
           alt={room.name}
           fill
           className="object-cover"

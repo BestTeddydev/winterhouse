@@ -30,3 +30,14 @@ describe('booking list helpers', () => {
     expect(nextStatuses('CANCELLED')).toEqual([])
   })
 })
+
+describe('stay name and image', () => {
+  it('falls back to camping blocks for camping-only bookings', async () => {
+    const { bookingImage, stayName } = await import('@/lib/bookingDisplay')
+    const camping = { campingBlocks: [{ name: 'C1', imageUrls: ['c.jpg'] }], guestCounts: [2] }
+    expect(stayName(camping)).toBe('C1 (2 คน)')
+    expect(bookingImage(camping)).toEqual({ src: 'c.jpg', alt: 'C1' })
+    expect(stayName({ rooms: [{ name: 'A1' }], ...camping })).toBe('A1 • C1 (2 คน)')
+    expect(bookingImage({})).toEqual({ src: '/placeholder-room.svg', alt: 'Room' })
+  })
+})

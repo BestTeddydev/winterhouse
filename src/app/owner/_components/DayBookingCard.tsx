@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { AlertCircle, Calendar, CheckCircle, Clock, Mail, Phone, User, XCircle } from 'lucide-react'
 import { TONE_CLASSES, bookingStatusTone, type Tone } from '@/lib/bookingStatus'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
-import { roomImage, roomNames } from '@/lib/bookingDisplay'
+import { bookingImage, stayName } from '@/lib/bookingDisplay'
 
 const STATUS_ICONS: Record<Tone, typeof Clock> = { green: CheckCircle, yellow: Clock, blue: CheckCircle, red: XCircle, gray: AlertCircle }
 const SMALL_ICON = 'w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0'
@@ -31,7 +31,7 @@ function Line({ icon: Icon, children, className = 'flex items-center gap-2' }: {
 
 /** A booking in the owner's day lists; `detailed` adds email, creation time and payment status */
 export default function DayBookingCard({ booking, detailed = false }: { booking: any; detailed?: boolean }) {
-  const image = roomImage(booking)
+  const image = bookingImage(booking)
   return (
     <Link href={`/admin/bookings/${booking.id}/edit`} className="block p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
@@ -41,7 +41,7 @@ export default function DayBookingCard({ booking, detailed = false }: { booking:
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-              <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{roomNames(booking) ?? 'N/A'}</h3>
+              <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{stayName(booking)}</h3>
               <StatusPill status={booking.status} />
             </div>
             <div className="space-y-1 text-xs sm:text-sm text-gray-600">
