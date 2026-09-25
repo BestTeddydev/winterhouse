@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import Navbar from '@/components/Navbar'
+import PageSpinner from '@/components/PageSpinner'
 
 const STAFF_ROLES = ['ADMIN', 'OWNER']
 
@@ -17,12 +18,6 @@ export function useIsStaff() {
   }, [status, staff, router])
   return { status, staff }
 }
-
-export const PageSpinner = () => (
-  <div className="flex justify-center items-center h-64">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-  </div>
-)
 
 /** Frame of the admin booking create/edit pages: staff guard, header and spinner */
 export default function BookingFormPage({

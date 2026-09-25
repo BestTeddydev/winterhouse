@@ -43,7 +43,7 @@ export function toBookingResponse(booking: any) {
 }
 
 /** Populates the refs the booking pages show; `detail` adds per-room prices and the payment slip */
-function populateForDisplay(query: any, { detail = false } = {}) {
+export function populateForDisplay(query: any, { detail = false } = {}) {
   query
     .populate('roomId', ROOM_FIELDS)
     .populate('roomIds', ROOM_FIELDS)

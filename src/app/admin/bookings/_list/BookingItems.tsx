@@ -1,6 +1,6 @@
 import Image from 'next/image'
 import { MapPin, Tent } from 'lucide-react'
-import { campingSummary, roomImage, roomNames } from '../_lib/bookingList'
+import { campingSummary, roomImage, roomNames } from '@/lib/bookingDisplay'
 
 /** Rooms (with a thumbnail) and camping blocks of a booking */
 export default function BookingItems({ booking, compact = false }: { booking: any; compact?: boolean }) {

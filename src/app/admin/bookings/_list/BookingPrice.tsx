@@ -1,5 +1,5 @@
 import { formatCurrency } from '@/lib/utils'
-import { priceBeforeDiscount } from '../_lib/bookingList'
+import { priceBeforeDiscount } from '@/lib/bookingDisplay'
 
 export default function BookingPrice({ booking, className }: { booking: any; className: string }) {
   const before = priceBeforeDiscount(booking)

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { campingSummary, nextStatuses, pageWindow, priceBeforeDiscount, roomImage, roomNames } from './bookingList'
+import { campingSummary, priceBeforeDiscount, roomImage, roomNames } from '@/lib/bookingDisplay'
+import { nextStatuses, pageWindow } from './bookingList'
 
 describe('booking list helpers', () => {
   it('names rooms and camping blocks of new and legacy bookings', () => {
