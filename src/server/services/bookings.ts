@@ -36,6 +36,8 @@ export function toBookingResponse(booking: any) {
     id: b._id,
     room: b.roomId,
     rooms: b.roomIds?.length ? b.roomIds : b.roomId ? [b.roomId] : [],
+    /** Price of each room for the whole stay, as charged when booked */
+    roomPrices: b.rooms ?? [],
     campingBlock: b.campingBlockId,
     campingBlocks: b.campingBlockIds?.length ? b.campingBlockIds : b.campingBlockId ? [b.campingBlockId] : [],
     payment: b.paymentId || { status: 'PENDING', amount: 0 },
@@ -280,7 +282,7 @@ export async function getBooking(id: string, session: Session) {
   const booking = await populateForDisplay(Booking.findById(id), { detail: true })
   if (!booking) throw notFound('ไม่พบการจอง')
   await assertOwnerOrStaff(session, booking.userId)
-  return booking
+  return toBookingResponse(booking)
 }
 
 // --- update (staff) ---------------------------------------------------------------

@@ -241,6 +241,20 @@ describe('GET/PUT /api/bookings/[id]', () => {
     expect((await call(bookingRoute.GET, 'GET', { params: { id: booking._id } })).status).toBe(200)
   })
 
+  it('returns the booking in the list shape: id, payment and per-room prices', async () => {
+    const owner = await createUser()
+    const room = await createRoom({ name: 'A1' })
+    const { booking } = await createBooking(
+      { userId: owner._id, roomId: room._id, roomIds: [room._id], rooms: [{ roomId: room._id, price: 3000 }] },
+      { status: 'COMPLETED', paidAmount: 2000 }
+    )
+    signInAs(owner)
+    const { body } = await call(bookingRoute.GET, 'GET', { params: { id: booking._id } })
+    expect(body).toMatchObject({ id: booking._id, payment: { status: 'COMPLETED', paidAmount: 2000 } })
+    expect(body.rooms.map((r: any) => r.name)).toEqual(['A1'])
+    expect(body.roomPrices).toEqual([expect.objectContaining({ price: 3000, roomId: expect.objectContaining({ name: 'A1' }) })])
+  })
+
   it('only lets staff update bookings', async () => {
     const { booking } = await createBooking()
     signInAs(await createUser())
