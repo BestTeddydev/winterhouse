@@ -445,7 +445,7 @@ export default function EditBooking() {
         try {
           const result = calculateRoomPriceRange(room as any, checkIn, checkOut)
           return roomTotal + result.totalPrice
-        } catch (error) {
+        } catch {
           return roomTotal + room.price * nights
         }
       }, 0)

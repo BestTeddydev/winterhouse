@@ -32,6 +32,8 @@ services:
 
       # LINE Messaging API
       - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
+      # Receives employee check-in/out notifications (owners get them if unset)
+      - LINE_ADMIN_USER_ID=${LINE_ADMIN_USER_ID}
 
       # Stripe Payment Gateway
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}

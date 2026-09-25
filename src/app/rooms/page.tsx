@@ -185,7 +185,7 @@ export default function RoomsPage() {
           try {
             const campingBlockBlocksResponse = await axios.get('/api/camping-block-blocks?activeOnly=true')
             setCampingBlockBlocks(campingBlockBlocksResponse.data || [])
-          } catch (error) {
+          } catch {
             setCampingBlockBlocks([])
           }
         } else {
@@ -193,7 +193,7 @@ export default function RoomsPage() {
           try {
             const roomBlocksResponse = await axios.get('/api/room-blocks?activeOnly=true')
             setRoomBlocks(roomBlocksResponse.data || [])
-          } catch (error) {
+          } catch {
             setRoomBlocks([])
           }
         }
@@ -253,7 +253,7 @@ export default function RoomsPage() {
       try {
         const bookingsResponse = await axios.get('/api/bookings/public')
         bookingsData = bookingsResponse.data || []
-      } catch (error) {
+      } catch {
       }
       
       // Fetch room blocks (locks) if accommodation map
@@ -262,7 +262,7 @@ export default function RoomsPage() {
         try {
           const roomBlocksResponse = await axios.get('/api/room-blocks?activeOnly=true')
           roomBlocksData = roomBlocksResponse.data || []
-        } catch (error) {
+        } catch {
         }
       }
       
@@ -272,7 +272,7 @@ export default function RoomsPage() {
         try {
           const campingBlockBlocksResponse = await axios.get('/api/camping-block-blocks?activeOnly=true')
           campingBlockBlocksData = campingBlockBlocksResponse.data || []
-        } catch (error) {
+        } catch {
         }
       }
       

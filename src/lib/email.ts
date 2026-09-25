@@ -15,7 +15,9 @@ export interface EmailNotification {
 
 export async function sendEmailNotification({ to, subject, html }: EmailNotification) {
   if (!resend) {
-    throw new Error('Resend is not configured. Please set RESEND_API_KEY environment variable.')
+    // Local development / tests: skip instead of failing
+    console.warn('RESEND_API_KEY is not set; skipping email')
+    return null
   }
   
   try {

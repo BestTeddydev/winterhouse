@@ -52,7 +52,6 @@ export default function NewBooking() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [rooms, setRooms] = useState<Room[]>([])
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [selectedRooms, setSelectedRooms] = useState<Room[]>([]) // For multi-room booking
   const [campingBlocks, setCampingBlocks] = useState<any[]>([])
   const [selectedCampingBlocks, setSelectedCampingBlocks] = useState<Array<{ block: any; guestCount: number }>>([])
@@ -196,30 +195,17 @@ export default function NewBooking() {
           try {
             const result = calculateRoomPriceRange(room as any, checkIn, checkOut)
             return roomTotal + result.totalPrice
-          } catch (error) {
+          } catch {
             // Fallback to old calculation if pricing fails
             return roomTotal + room.price * nights
           }
         }, 0)
       }
       
-      // Single room
-      if (selectedRoom) {
-        try {
-          const result = calculateRoomPriceRange(selectedRoom as any, checkIn, checkOut)
-          total += result.totalPrice
-        } catch (error) {
-          // Fallback to old calculation
-          total += selectedRoom.price * nights
-        }
-      }
-    } catch (error) {
+    } catch {
       // Ultimate fallback
       if (selectedRooms.length > 0) {
         total += selectedRooms.reduce((roomTotal, room) => roomTotal + room.price, 0) * nights
-      }
-      if (selectedRoom) {
-        total += selectedRoom.price * nights
       }
     }
     
@@ -310,7 +296,7 @@ export default function NewBooking() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (selectedRooms.length === 0 && !selectedRoom && selectedCampingBlocks.length === 0) {
+    if (selectedRooms.length === 0 && selectedCampingBlocks.length === 0) {
       toast.error('กรุณาเลือกห้องพักหรือบล็อคกางเต๊นท์')
       return
     }
@@ -360,8 +346,6 @@ export default function NewBooking() {
       // Add room data
       if (selectedRooms.length > 0) {
         bookingData.roomIds = selectedRooms.map(r => r.id)
-      } else if (selectedRoom) {
-        bookingData.roomId = selectedRoom.id
       }
 
       // Add camping block data
@@ -551,8 +535,6 @@ export default function NewBooking() {
                       className={`p-4 border-2 rounded-lg cursor-pointer transition-all relative ${
                         isRoomSelected(room.id)
                           ? 'border-green-500 bg-green-50'
-                          : selectedRoom?.id === room.id
-                          ? 'border-primary-500 bg-primary-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
@@ -902,7 +884,7 @@ export default function NewBooking() {
                     <input
                       type="number"
                       min="1"
-                      max={selectedRoom?.capacity || 10}
+                      max={10}
                       value={formData.guestCount}
                       onChange={(e) => handleInputChange('guestCount', parseInt(e.target.value))}
                       className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 placeholder-gray-500"
@@ -1263,7 +1245,7 @@ export default function NewBooking() {
               </div>
 
               {/* Price Summary */}
-              {(selectedRoom || selectedRooms.length > 0 || selectedCampingBlocks.length > 0) && formData.checkIn && formData.checkOut && (
+              {(selectedRooms.length > 0 || selectedCampingBlocks.length > 0) && formData.checkIn && formData.checkOut && (
                 <div className="bg-white rounded-xl shadow-lg p-6">
                   <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                     <DollarSign size={20} />
@@ -1276,7 +1258,7 @@ export default function NewBooking() {
                     const totalPrice = calculateTotalPrice()
                     
                     // Calculate average price per night
-                    const avgPricePerNight = nights > 0 ? Math.round(totalPrice / nights / (selectedRooms.length || selectedRoom ? 1 : 1)) : 0
+                    const avgPricePerNight = nights > 0 ? Math.round(totalPrice / nights) : 0
                     
                     return (
                       <div className="space-y-3">
@@ -1291,18 +1273,7 @@ export default function NewBooking() {
                               <span className="text-gray-900">฿{avgPricePerNight.toLocaleString()}</span>
                             </div>
                           </>
-                        ) : selectedRoom && (
-                          <>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">ห้อง:</span>
-                              <span className="text-gray-900">{selectedRoom.name}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">ราคาต่อคืน (เฉลี่ย):</span>
-                              <span className="text-gray-900">฿{avgPricePerNight.toLocaleString()}</span>
-                            </div>
-                          </>
-                        )}
+                        ) : null}
                         {selectedCampingBlocks.length > 0 && (
                           <>
                             <div className="flex justify-between">
@@ -1398,7 +1369,7 @@ export default function NewBooking() {
                 </button>
                 <button
                   type="submit"
-                  disabled={loading || (selectedRooms.length === 0 && !selectedRoom && selectedCampingBlocks.length === 0)}
+                  disabled={loading || (selectedRooms.length === 0 && selectedCampingBlocks.length === 0)}
                   className="flex-1 px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
                   {loading ? (

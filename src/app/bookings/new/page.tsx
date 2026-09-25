@@ -195,7 +195,7 @@ export default function NewBooking() {
         try {
           const result = calculateRoomPriceRange(room as any, start, end)
           return sum + result.totalPrice
-        } catch (error) {
+        } catch {
           return sum + parseFloat(room.price) * nights
         }
       }, 0)
@@ -205,7 +205,7 @@ export default function NewBooking() {
       try {
         const result = calculateRoomPriceRange(room as any, start, end)
         total += result.totalPrice
-      } catch (error) {
+      } catch {
         total += parseFloat(room.price) * nights
       }
     }

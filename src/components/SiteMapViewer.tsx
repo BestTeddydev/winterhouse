@@ -117,7 +117,6 @@ export default function SiteMapViewer({
       }
       
       // Count available vs booked/locked camping blocks
-      let availableCount = 0
       let bookedCount = 0
       let lockedCount = 0
       
@@ -159,11 +158,7 @@ export default function SiteMapViewer({
           })
         }
         
-        if (isBooked) {
-          bookedCount++
-        } else {
-          availableCount++
-        }
+        if (isBooked) bookedCount++
       })
       
       const totalBlocks = hotspot.campingBlocks.length
@@ -189,7 +184,6 @@ export default function SiteMapViewer({
     if (hotspot.rooms.length === 0) return 'available'
     
     // Count available vs booked rooms
-    let availableCount = 0
     let bookedCount = 0
     let lockedCount = 0
     
@@ -262,11 +256,7 @@ export default function SiteMapViewer({
         })
       }
       
-      if (isBooked) {
-        bookedCount++
-      } else {
-        availableCount++
-      }
+      if (isBooked) bookedCount++
     })
     
     const totalRooms = hotspot.rooms.length

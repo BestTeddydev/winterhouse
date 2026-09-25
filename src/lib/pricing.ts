@@ -307,18 +307,6 @@ export function calculateRoomPriceRange(
 }
 
 /**
- * Calculate total price for multiple rooms
- */
-export function calculateMultipleRoomsPrice(
-  rooms: Array<{ room: IRoom; checkIn: Date; checkOut: Date }>
-): number {
-  return rooms.reduce((total, { room, checkIn, checkOut }) => {
-    const result = calculateRoomPriceRange(room, checkIn, checkOut)
-    return total + result.totalPrice
-  }, 0)
-}
-
-/**
  * Format price for display
  */
 export function formatPrice(price: number): string {
@@ -327,41 +315,6 @@ export function formatPrice(price: number): string {
     currency: 'THB',
     minimumFractionDigits: 0
   }).format(price)
-}
-
-/**
- * Get daily breakdown for display
- */
-export function getPriceBreakdown(
-  room: IRoom,
-  checkIn: Date,
-  checkOut: Date
-): Array<{
-  date: Date
-  dayType: DayType
-  price: number
-  formattedDate: string
-}> {
-  const { dailyPrices } = calculateRoomPriceRange(room, checkIn, checkOut)
-  
-  return dailyPrices.map(({ date, price }) => ({
-    date,
-    dayType: getDayType(date),
-    price,
-    formattedDate: formatDate(date)
-  }))
-}
-
-/**
- * Format date for display
- */
-export function formatDate(date: Date): string {
-  return date.toLocaleDateString('th-TH', {
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
 }
 
 /**

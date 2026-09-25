@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server'
 
 type Role = 'ADMIN' | 'CUSTOMER' | 'OWNER' | 'EMPLOYEE'
 
-// Page access rules. API routes check permissions themselves (see src/lib/api-auth.ts).
+// Page access rules. API routes check permissions themselves (see apiRoute in src/server/http.ts).
 const PROTECTED_PAGES: Array<{ prefix: string; roles?: Role[]; redirectAnonymousTo: 'signin' | 'home' }> = [
   { prefix: '/admin', roles: ['ADMIN', 'OWNER'], redirectAnonymousTo: 'home' },
   { prefix: '/owner', roles: ['OWNER'], redirectAnonymousTo: 'signin' },
@@ -13,7 +13,7 @@ const PROTECTED_PAGES: Array<{ prefix: string; roles?: Role[]; redirectAnonymous
 ]
 
 // Only allow same-origin relative paths ("//host" would be an open redirect)
-function safeCallbackPath(value: string | null): string {
+export function safeCallbackPath(value: string | null): string {
   return value && value.startsWith('/') && !value.startsWith('//') ? value : '/'
 }
 

@@ -1,98 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import connectDB from '@/lib/db'
-import Room from '@/models/Room'
+import { z } from 'zod'
 import Building from '@/models/Building'
+import Room from '@/models/Room'
+import { apiRoute, findOr404 } from '@/server/http'
+import { objectId } from '@/server/schemas/common'
 
-// POST - ผูกห้องพักกับอาคาร
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 401 })
-    }
+const linkSchema = z.object({ roomId: objectId('roomId'), buildingId: objectId('buildingId') })
+const unlinkSchema = z.object({ roomId: objectId('roomId') })
 
-    const body = await request.json()
-    const { roomId, buildingId } = body
-
-    // Validate required fields
-    if (!roomId || !buildingId) {
-      return NextResponse.json({ 
-        error: 'กรุณาระบุ roomId และ buildingId' 
-      }, { status: 400 })
-    }
-
-    await connectDB()
-    
-    // Validate that building exists
-    const building = await Building.findById(buildingId)
-    if (!building) {
-      return NextResponse.json({ error: 'ไม่พบอาคาร' }, { status: 404 })
-    }
-    
-    // Update room with buildingId
-    const room = await Room.findByIdAndUpdate(
-      roomId,
-      { buildingId },
-      { new: true }
-    )
-
-    if (!room) {
-      return NextResponse.json({ error: 'ไม่พบห้องพัก' }, { status: 404 })
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'ผูกห้องพักกับอาคารสำเร็จ',
-      room
-    })
-  } catch (error) {
-    console.error('Error linking room to building:', error)
-    return NextResponse.json({ error: 'ไม่สามารถผูกห้องพักกับอาคารได้' }, { status: 500 })
+/** Puts a room in a building (site map) */
+export const POST = apiRoute(
+  { access: ['ADMIN'], body: linkSchema, errorMessage: 'ไม่สามารถผูกห้องพักกับอาคารได้' },
+  async ({ body }) => {
+    await findOr404(Building.findById(body.buildingId), 'ไม่พบอาคาร')
+    const room = await findOr404(Room.findByIdAndUpdate(body.roomId, { buildingId: body.buildingId }, { new: true }), 'ไม่พบห้องพัก')
+    return { success: true, message: 'ผูกห้องพักกับอาคารสำเร็จ', room }
   }
-}
+)
 
-// DELETE - ยกเลิกการผูกห้องพักกับอาคาร
-export async function DELETE(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 401 })
-    }
-
-    const body = await request.json()
-    const { roomId } = body
-
-    // Validate required fields
-    if (!roomId) {
-      return NextResponse.json({ 
-        error: 'กรุณาระบุ roomId' 
-      }, { status: 400 })
-    }
-
-    await connectDB()
-    
-    // Remove buildingId from room
-    const room = await Room.findByIdAndUpdate(
-      roomId,
-      { $unset: { buildingId: 1 } },
-      { new: true }
-    )
-
-    if (!room) {
-      return NextResponse.json({ error: 'ไม่พบห้องพัก' }, { status: 404 })
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'ยกเลิกการผูกห้องพักกับอาคารสำเร็จ',
-      room
-    })
-  } catch (error) {
-    console.error('Error unlinking room from building:', error)
-    return NextResponse.json({ error: 'ไม่สามารถยกเลิกการผูกห้องพักกับอาคารได้' }, { status: 500 })
+export const DELETE = apiRoute(
+  { access: ['ADMIN'], body: unlinkSchema, errorMessage: 'ไม่สามารถยกเลิกการผูกห้องพักกับอาคารได้' },
+  async ({ body }) => {
+    const room = await findOr404(Room.findByIdAndUpdate(body.roomId, { $unset: { buildingId: 1 } }, { new: true }), 'ไม่พบห้องพัก')
+    return { success: true, message: 'ยกเลิกการผูกห้องพักกับอาคารสำเร็จ', room }
   }
-}
+)

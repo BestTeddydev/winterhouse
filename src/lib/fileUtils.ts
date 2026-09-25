@@ -1,4 +1,4 @@
-import { ApiError } from '@/lib/api-auth'
+import { badRequest } from '@/server/errors'
 import { uploadToStorage } from '@/lib/storage'
 
 export interface UploadResult {
@@ -13,10 +13,10 @@ const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
 export async function uploadFile(file: File): Promise<UploadResult> {
   if (!ALLOWED_TYPES.includes(file.type)) {
-    throw new ApiError(400, 'ประเภทไฟล์ไม่ถูกต้อง กรุณาอัปโหลดไฟล์รูปภาพ')
+    throw badRequest('ประเภทไฟล์ไม่ถูกต้อง กรุณาอัปโหลดไฟล์รูปภาพ')
   }
   if (file.size > MAX_SIZE) {
-    throw new ApiError(400, 'ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 10MB)')
+    throw badRequest('ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 10MB)')
   }
 
   const buffer = Buffer.from(await file.arrayBuffer())

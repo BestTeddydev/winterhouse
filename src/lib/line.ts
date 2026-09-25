@@ -8,6 +8,11 @@ export interface LineNotification {
 }
 
 export async function sendLineNotification({ userId, message }: LineNotification) {
+  // Local development / tests: skip instead of calling LINE without credentials
+  if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) {
+    console.warn('LINE_CHANNEL_ACCESS_TOKEN is not set; skipping LINE notification')
+    return null
+  }
   try {
     const response = await axios.post(
       LINE_MESSAGING_API_URL,

@@ -111,7 +111,7 @@ export default function AdminSiteMapPage() {
             type: siteMapResponse.data.type || mapType,
           })
         }
-      } catch (error) {
+      } catch {
         // Site map doesn't exist yet, use default
         setSiteMap({
           imageUrl: '/placeholder-map.jpg',

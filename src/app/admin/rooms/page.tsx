@@ -41,7 +41,6 @@ export default function AdminRooms() {
     if (session && session.user) {
       fetchRooms()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
 
   const fetchRooms = async () => {

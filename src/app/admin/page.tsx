@@ -62,7 +62,6 @@ export default function AdminDashboard() {
       fetchAttendanceStats()
       fetchAddOnsStats()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
 
   const fetchDashboardStats = async () => {

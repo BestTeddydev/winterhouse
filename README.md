@@ -4,18 +4,27 @@ Next.js 14 (App Router) + Firestore + Firebase Storage, เข้าสู่ร
 
 ## โครงสร้าง
 
-| ส่วน | ที่อยู่ |
-|---|---|
-| หน้าเว็บ (ลูกค้า / แอดมิน / เจ้าของ / พนักงาน) | `src/app/**/page.tsx` |
-| API | `src/app/api/**/route.ts` |
-| Model (schema, validation) | `src/models/*.ts` |
-| Model layer บน Firestore (API แบบ Mongoose: `find`, `populate`, `save`, ...) | `src/lib/odm.ts` |
-| Firebase Admin SDK (Firestore / Storage) | `src/lib/firebase.ts` |
-| สิทธิ์ใน API (`requireSession`, `findSessionUser`, `apiErrorResponse`) | `src/lib/api-auth.ts` |
-| สิทธิ์ของหน้าเว็บ | `src/middleware.ts` |
-| LINE Login (NextAuth) | `src/lib/auth.ts` |
-| อัปโหลดรูป | `src/lib/storage.ts`, `src/app/api/upload/route.ts` |
-| Security rules / Firestore indexes | `firestore.rules`, `storage.rules`, `firestore.indexes.json` |
+```
+src/
+  app/                 หน้าเว็บ (App Router) และ API routes (src/app/api/**/route.ts)
+  server/              โค้ดฝั่ง server ทั้งหมดของ API
+    http.ts            apiRoute(): สิทธิ์ + ตรวจ input ด้วย zod + error response แบบเดียวกันทุก route
+    auth.ts            session, บทบาท (STAFF_ROLES), ตรวจความเป็นเจ้าของข้อมูล
+    errors.ts          ApiError (badRequest/notFound/conflict/…) และการแปลง error เป็น response
+    schemas/           zod schema ของ request แต่ละแบบ
+    services/          business logic: bookings, payments, availability, locks, attendance, siteMap, …
+  models/              schema ของข้อมูล (Firestore ผ่าน src/lib/odm.ts)
+  lib/                 โค้ดที่ใช้ได้ทั้ง client/server: ราคา (pricing, bookingPrice), วันที่ (dates, calendar), Firebase, LINE, email, Stripe
+  components/          React components
+tests/
+  integration/         เรียก route handler จริงกับ Firestore emulator
+  support/             emulator, mock (session, Stripe, LINE, email), factory ข้อมูลทดสอบ
+```
+
+- route ทำแค่ `apiRoute({ access, body, query }, handler)` แล้วเรียก service — ไม่มี logic ธุรกิจใน route
+- ราคา/ยอดชำระคำนวณที่ server เสมอ (`src/lib/bookingPrice.ts`) ลูกค้าส่งราคา/ส่วนลด/สถานะมาเองไม่ได้
+- กันจองซ้อน: `src/server/services/availability.ts` (รวมการ hold ห้อง 30 นาทีระหว่างจ่ายเงิน)
+- วันที่ทางธุรกิจเป็นเวลาไทยเสมอ (`src/lib/dates.ts`) ไม่ขึ้นกับ time zone ของ server
 
 ข้อมูลอยู่ที่ Firestore database `baanlomnow-sg` (asia-southeast1, สิงคโปร์) และ Storage bucket `baanlomnow-3501a.firebasestorage.app` (asia-southeast1)
 
@@ -25,6 +34,19 @@ Next.js 14 (App Router) + Firestore + Firebase Storage, เข้าสู่ร
 query ที่ใช้หลาย field ต้องมี composite index ใน `firestore.indexes.json` — ถ้าเพิ่ม query แบบใหม่แล้วไม่มี index แอปจะยังทำงาน (ถอยไปกรองเฉพาะ `==`) แต่จะ log `[odm] Missing Firestore index ...` พร้อมลิงก์สร้าง index ให้เพิ่มลงไฟล์แล้ว deploy
 
 บทบาทผู้ใช้: `CUSTOMER` (ค่าเริ่มต้น), `EMPLOYEE`, `OWNER`, `ADMIN`
+
+## ทดสอบ
+
+```bash
+npm run typecheck
+npm run lint
+npm test                  # unit + integration (เปิด Firestore emulator ใน Docker ให้เอง)
+npm run test:unit         # เฉพาะ unit (ไม่ต้องใช้ Docker)
+npm run test:integration
+```
+
+integration test ใช้ project `demo-winterhouse` บน emulator เท่านั้น ไม่แตะข้อมูลจริง และ mock Stripe / LINE / email
+GitHub Actions (`.github/workflows/ci.yml`) รัน typecheck, lint, test และ build ทุก push/PR
 
 ## รันบนเครื่อง
 

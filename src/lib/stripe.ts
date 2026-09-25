@@ -1,105 +1,58 @@
 import Stripe from 'stripe'
 
-// Only create Stripe client if STRIPE_SECRET_KEY is available
-let stripe: Stripe | null = null
+let client: Stripe | null = null
 
-if (process.env.STRIPE_SECRET_KEY) {
-  stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2025-09-30.clover',
+function getStripe(): Stripe {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
+  }
+  client ??= new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-09-30.clover' })
+  return client
+}
+
+interface PaymentParams {
+  /** In satang (1 THB = 100 satang) */
+  amount: number
+  currency: string
+  description: string
+  metadata: Record<string, string>
+}
+
+const lineItem = ({ amount, currency, description }: PaymentParams) => ({
+  price_data: { currency, product_data: { name: description }, unit_amount: amount },
+  quantity: 1,
+})
+
+/**
+ * Payment Link for QR / PromptPay. Its id is stored on the payment and matched in the webhook
+ * (checkout.session.completed carries `payment_link`). The link can be paid only once.
+ */
+export async function createQRCodePayment(params: PaymentParams) {
+  const paymentLink = await getStripe().paymentLinks.create({
+    line_items: [lineItem(params)],
+    metadata: params.metadata,
+    payment_intent_data: { metadata: params.metadata },
+    restrictions: { completed_sessions: { limit: 1 } },
+  })
+  return { paymentLink, qrCodeUrl: paymentLink.url }
+}
+
+/** Stripe Checkout expires a little after the booking's payment hold (min. 30 minutes) */
+const CHECKOUT_EXPIRES_SECONDS = 31 * 60
+
+export async function createCheckoutSession(params: PaymentParams & { success_url: string; cancel_url: string }) {
+  return getStripe().checkout.sessions.create({
+    payment_method_types: ['card'],
+    line_items: [lineItem(params)],
+    mode: 'payment',
+    success_url: params.success_url,
+    cancel_url: params.cancel_url,
+    metadata: params.metadata,
+    expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_EXPIRES_SECONDS,
   })
 }
 
-export async function createQRCodePayment(params: {
-  amount: number
-  currency: string
-  description: string
-  metadata?: Record<string, string>
-}) {
-  if (!stripe) {
-    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
-  }
-  
-  try {
-    
-    // Create Payment Intent for QR Code
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: params.amount,
-      currency: params.currency,
-      description: params.description,
-      metadata: params.metadata || {},
-      // payment_method_types: ['card', 'promptpay'],
-      automatic_payment_methods: {
-        enabled: true,
-      },
-    })
-
-    // Create Payment Link for QR Code
-    const paymentLink = await stripe.paymentLinks.create({
-      line_items: [
-        {
-          price_data: {
-            currency: params.currency,
-            product_data: {
-              name: params.description,
-            },
-            unit_amount: params.amount,
-          },
-          quantity: 1,
-        },
-      ],
-      metadata: params.metadata || {},
-    })
-
-    return {
-      paymentIntent,
-      paymentLink,
-      qrCodeUrl: paymentLink.url,
-    }
-  } catch (error: any) {
-    console.error('Error creating Stripe QR Code payment:', error)
-    throw error
-  }
+/** Verifies the Stripe signature and parses the webhook event (throws if invalid) */
+export function constructWebhookEvent(body: string, signature: string, secret: string): Stripe.Event {
+  return getStripe().webhooks.constructEvent(body, signature, secret)
 }
-
-export async function createCheckoutSession(params: {
-  amount: number
-  currency: string
-  description: string
-  metadata?: Record<string, string>
-  success_url: string
-  cancel_url: string
-}) {
-  if (!stripe) {
-    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
-  }
-  
-  try {
-    
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: params.currency,
-            product_data: {
-              name: params.description,
-            },
-            unit_amount: params.amount,
-          },
-          quantity: 1,
-        },
-      ],
-      mode: 'payment',
-      success_url: params.success_url,
-      cancel_url: params.cancel_url,
-      metadata: params.metadata || {},
-    })
-    
-    return session
-  } catch (error: any) {
-    console.error('Error creating Stripe Checkout Session:', error)
-    throw error
-  }
-}
-
-export default stripe

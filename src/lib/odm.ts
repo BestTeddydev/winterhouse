@@ -155,6 +155,8 @@ function parseField(def: any): FieldSpec {
   return { kind: 'mixed' }
 }
 
+// The type parameter documents the document shape at call sites (Schema<IRoom>)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export class Schema<T = any> {
   static Types = { ObjectId, Mixed, String, Number, Boolean, Date }
 
@@ -1070,7 +1072,6 @@ export interface ModelClass {
   exists(filter: Record<string, any>): Promise<{ _id: string } | null>
 }
 
-export type Model<T = any> = ModelClass
 
 function idCondition(id: any): string | null {
   if (id === null || id === undefined) return null

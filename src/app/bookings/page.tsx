@@ -38,7 +38,6 @@ export default function MyBookings() {
     if (session && session.user) {
       fetchBookings()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, searchParams])
 
   const fetchBookings = async () => {

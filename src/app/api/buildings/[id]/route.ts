@@ -1,118 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import connectDB from '@/lib/db'
 import Building from '@/models/Building'
 import Room from '@/models/Room'
+import { badRequest } from '@/server/errors'
+import { apiRoute, findOr404 } from '@/server/http'
+import { buildingUpdateSchema } from '@/server/schemas/catalog'
 
-// Always read live data; never pre-render at build time
 export const dynamic = 'force-dynamic'
 
-// GET - ดึงข้อมูลอาคารและห้องพักในอาคารนั้น
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    await connectDB()
-    
-    const building = await Building.findById(params.id)
-    if (!building) {
-      return NextResponse.json({ error: 'ไม่พบอาคาร' }, { status: 404 })
-    }
+type Params = { id: string }
+const NOT_FOUND = 'ไม่พบอาคาร'
 
-    // ดึงห้องพักในอาคารนี้
-    const rooms = await Room.find({ 
-      buildingId: params.id, 
-      isActive: true 
-    }).sort({ createdAt: -1 })
+export const GET = apiRoute<Params>({ access: 'public', errorMessage: 'ไม่สามารถโหลดข้อมูลอาคารได้' }, async ({ params }) => {
+  const [building, rooms] = await Promise.all([
+    findOr404(Building.findById(params.id), NOT_FOUND),
+    Room.find({ buildingId: params.id, isActive: true }).sort({ createdAt: -1 }),
+  ])
+  return { building, rooms }
+})
 
-    return NextResponse.json({
-      building,
-      rooms
-    })
-  } catch (error) {
-    console.error('Error fetching building:', error)
-    return NextResponse.json({ error: 'ไม่สามารถโหลดข้อมูลอาคารได้' }, { status: 500 })
+export const PUT = apiRoute<Params, typeof buildingUpdateSchema>(
+  { access: ['ADMIN'], body: buildingUpdateSchema, errorMessage: 'ไม่สามารถอัปเดตอาคารได้' },
+  ({ params, body }) => findOr404(Building.findByIdAndUpdate(params.id, body, { new: true, runValidators: true }), NOT_FOUND)
+)
+
+/** Soft delete; refused while active rooms still belong to the building */
+export const DELETE = apiRoute<Params>({ access: ['ADMIN'], errorMessage: 'ไม่สามารถลบอาคารได้' }, async ({ params }) => {
+  if ((await Room.countDocuments({ buildingId: params.id, isActive: true })) > 0) {
+    throw badRequest('ไม่สามารถลบอาคารได้ เนื่องจากยังมีห้องพักอยู่ในอาคารนี้')
   }
-}
-
-// PUT - อัปเดตอาคาร
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 401 })
-    }
-
-    const body = await request.json()
-    const { name, description, buildingType, facilities, x, y, isActive } = body
-
-    await connectDB()
-    const building = await Building.findByIdAndUpdate(
-      params.id,
-      { name, description, buildingType, facilities, x, y, isActive },
-      { new: true, runValidators: true }
-    )
-
-    if (!building) {
-      return NextResponse.json({ error: 'ไม่พบอาคาร' }, { status: 404 })
-    }
-
-    return NextResponse.json(building)
-  } catch (error) {
-    console.error('Error updating building:', error)
-    return NextResponse.json({ error: 'ไม่สามารถอัปเดตอาคารได้' }, { status: 500 })
-  }
-}
-
-// DELETE - ลบอาคาร (soft delete)
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 401 })
-    }
-
-    await connectDB()
-    
-    // ตรวจสอบว่ามีห้องพักในอาคารนี้หรือไม่
-    const roomsCount = await Room.countDocuments({ 
-      buildingId: params.id, 
-      isActive: true 
-    })
-    
-    if (roomsCount > 0) {
-      return NextResponse.json({ 
-        error: 'ไม่สามารถลบอาคารได้ เนื่องจากยังมีห้องพักอยู่ในอาคารนี้' 
-      }, { status: 400 })
-    }
-
-    // Soft delete - เปลี่ยน isActive เป็น false
-    const building = await Building.findByIdAndUpdate(
-      params.id,
-      { isActive: false },
-      { new: true }
-    )
-
-    if (!building) {
-      return NextResponse.json({ error: 'ไม่พบอาคาร' }, { status: 404 })
-    }
-
-    return NextResponse.json({ 
-      message: 'ลบอาคารสำเร็จ',
-      building 
-    })
-  } catch (error) {
-    console.error('Error deleting building:', error)
-    return NextResponse.json({ error: 'ไม่สามารถลบอาคารได้' }, { status: 500 })
-  }
-}
+  const building = await findOr404(Building.findByIdAndUpdate(params.id, { isActive: false }, { new: true }), NOT_FOUND)
+  return { message: 'ลบอาคารสำเร็จ', building }
+})
