@@ -11,7 +11,7 @@ import WhyChooseUsSection from './_home/WhyChooseUsSection'
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 overflow-x-clip">
       <StructuredData />
       <Navbar />
       <HeroSection />
