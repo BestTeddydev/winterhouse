@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDateTime } from '@/lib/utils'
+import { buildBookingsReport, downloadTextFile } from '@/lib/bookingReport'
 import { 
   Calendar, 
   User, 
@@ -39,136 +40,182 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 
+type SortField = 'checkIn' | 'createdAt' | 'totalPrice'
+
+interface Pagination {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+  hasNextPage: boolean
+  hasPrevPage: boolean
+}
+
+const PAGE_SIZE = 20
+const EMPTY_PAGINATION: Pagination = { page: 1, limit: PAGE_SIZE, total: 0, totalPages: 0, hasNextPage: false, hasPrevPage: false }
+
+function getStatusColor(status: string) {
+  switch (status) {
+    case 'PENDING':
+      return 'bg-yellow-100 text-yellow-800'
+    case 'CONFIRMED':
+      return 'bg-green-100 text-green-800'
+    case 'CANCELLED':
+      return 'bg-red-100 text-red-800'
+    case 'COMPLETED':
+      return 'bg-blue-100 text-blue-800'
+    default:
+      return 'bg-gray-100 text-gray-800'
+  }
+}
+
+function getPaymentStatusColor(status: string) {
+  switch (status) {
+    case 'COMPLETED':
+      return 'bg-green-100 text-green-800'
+    case 'PENDING':
+    case 'PROCESSING':
+      return 'bg-yellow-100 text-yellow-800'
+    case 'FAILED':
+      return 'bg-red-100 text-red-800'
+    default:
+      return 'bg-gray-100 text-gray-800'
+  }
+}
+
+function getStatusIcon(status: string) {
+  switch (status) {
+    case 'PENDING':
+      return <Clock className="text-yellow-500 w-4 h-4 sm:w-5 sm:h-5" />
+    case 'CONFIRMED':
+      return <CheckCircle className="text-green-500 w-4 h-4 sm:w-5 sm:h-5" />
+    case 'CANCELLED':
+      return <XCircle className="text-red-500 w-4 h-4 sm:w-5 sm:h-5" />
+    case 'COMPLETED':
+      return <CheckCircle className="text-blue-500 w-4 h-4 sm:w-5 sm:h-5" />
+    default:
+      return <AlertCircle className="text-gray-500 w-4 h-4 sm:w-5 sm:h-5" />
+  }
+}
+
+function getPaymentIcon(status: string) {
+  switch (status) {
+    case 'COMPLETED':
+      return <CheckCircle className="text-green-500 w-3 h-3 sm:w-4 sm:h-4" />
+    case 'PENDING':
+    case 'PROCESSING':
+      return <Clock className="text-yellow-500 w-3 h-3 sm:w-4 sm:h-4" />
+    case 'FAILED':
+      return <XCircle className="text-red-500 w-3 h-3 sm:w-4 sm:h-4" />
+    default:
+      return <AlertCircle className="text-gray-500 w-3 h-3 sm:w-4 sm:h-4" />
+  }
+}
+
 export default function AdminBookings() {
-  const { data: session } = useSession()
+  const { status: sessionStatus } = useSession()
+  const router = useRouter()
+
   const [bookings, setBookings] = useState<any[]>([])
+  const [pagination, setPagination] = useState<Pagination>(EMPTY_PAGINATION)
   const [loading, setLoading] = useState(true)
-  const [searchInput, setSearchInput] = useState('') // Input field value
-  const [searchTerm, setSearchTerm] = useState('') // Actual search term sent to API
+  const [hasLoaded, setHasLoaded] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+
+  // Filters: the search box is applied on Enter / button; the others apply immediately
+  const [searchInput, setSearchInput] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [paymentFilter, setPaymentFilter] = useState('all')
   const [dateFilterType, setDateFilterType] = useState<'createdAt' | 'checkIn'>('createdAt')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [sortBy, setSortBy] = useState<'checkIn' | 'createdAt' | 'totalPrice'>('checkIn')
+  const [sortBy, setSortBy] = useState<SortField>('checkIn')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [currentPage, setCurrentPage] = useState(1)
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 20,
-    total: 0,
-    totalPages: 0,
-    hasNextPage: false,
-    hasPrevPage: false
-  })
-  const router = useRouter()
 
-  // Create fetchBookings function that can be called from anywhere
-  const fetchBookings = useCallback(async () => {
-    if (!session || !session.user) {
-      return
-    }
+  // Query params shared by the list and the download
+  const filterParams = useMemo(() => {
+    const params: Record<string, string> = { sortBy, sortOrder }
+    if (dateFrom && dateTo) Object.assign(params, { dateFrom, dateTo, dateFilterType })
+    if (searchTerm.trim()) params.search = searchTerm.trim()
+    if (statusFilter !== 'all') params.status = statusFilter
+    if (paymentFilter !== 'all') params.paymentStatus = paymentFilter
+    return params
+  }, [sortBy, sortOrder, dateFrom, dateTo, dateFilterType, searchTerm, statusFilter, paymentFilter])
 
-    try {
-      setLoading(true)
-      const params: any = {
-        page: currentPage,
-        limit: 20,
-        sortBy,
-        sortOrder
-      }
-      
-      // Add date filter params if both dates are selected
-      if (dateFrom && dateTo) {
-        params.dateFrom = dateFrom
-        params.dateTo = dateTo
-        params.dateFilterType = dateFilterType
-      }
-      
-      // Add search param if provided
-      if (searchTerm && searchTerm.trim()) {
-        params.search = searchTerm.trim()
-      }
-      
-      // Add status filter if not 'all'
-      if (statusFilter && statusFilter !== 'all') {
-        params.status = statusFilter
-      }
-      
-      // Add payment status filter if not 'all'
-      if (paymentFilter && paymentFilter !== 'all') {
-        params.paymentStatus = paymentFilter
-      }
-      
-      const response = await axios.get('/api/bookings', { 
-        params,
-        timeout: 30000 // 30 seconds timeout
-      })
-      
-      if (response.data.bookings && response.data.pagination) {
-        // New API format with pagination
-        setBookings(response.data.bookings)
-        setPagination(response.data.pagination)
-      } else {
-        // Fallback for old API format
-        setBookings(response.data || [])
-        setPagination({
-          page: 1,
-          limit: response.data?.length || 0,
-          total: response.data?.length || 0,
-          totalPages: 1,
-          hasNextPage: false,
-          hasPrevPage: false
-        })
-      }
-    } catch (error: any) {
-      // Don't show error if request was aborted
-      if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
-        return
-      }
-      
-      console.error('Error fetching bookings:', error)
-      toast.error('ไม่สามารถโหลดข้อมูลการจองได้')
-    } finally {
-      setLoading(false)
-    }
-  }, [session, currentPage, sortBy, sortOrder, searchTerm, statusFilter, paymentFilter, dateFrom, dateTo, dateFilterType])
+  // Any filter/sort change starts again from page 1
+  const filtersKey = JSON.stringify(filterParams)
+  const previousFiltersKey = useRef(filtersKey)
 
   useEffect(() => {
-    // Middleware already handles authentication and authorization
-    // Just fetch the bookings data on initial load and when pagination/sorting changes
-    if (!session || !session.user) {
-      return
+    if (sessionStatus !== 'authenticated') return
+
+    if (previousFiltersKey.current !== filtersKey) {
+      previousFiltersKey.current = filtersKey
+      if (currentPage !== 1) {
+        setCurrentPage(1) // this effect runs again with page 1
+        return
+      }
     }
 
-    fetchBookings()
-  }, [session, fetchBookings])
+    // Abort the previous request so a slow, outdated response can't overwrite a newer one
+    const controller = new AbortController()
+    setLoading(true)
+    axios
+      .get('/api/bookings', {
+        params: { ...filterParams, page: currentPage, limit: PAGE_SIZE },
+        signal: controller.signal,
+        timeout: 30000,
+      })
+      .then(({ data }) => {
+        setBookings(data.bookings)
+        setPagination(data.pagination)
+        setHasLoaded(true)
+      })
+      .catch((error) => {
+        if (axios.isCancel(error)) return
+        console.error('Error fetching bookings:', error)
+        toast.error('ไม่สามารถโหลดข้อมูลการจองได้')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
 
-  const handleSort = (field: 'checkIn' | 'createdAt' | 'totalPrice') => {
+    return () => controller.abort()
+  }, [sessionStatus, filtersKey, filterParams, currentPage, reloadKey])
+
+  const reload = () => setReloadKey((key) => key + 1)
+
+  const handleSort = (field: SortField) => {
     if (sortBy === field) {
-      // Toggle order if same field
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
     } else {
-      // Set new field with ascending order
       setSortBy(field)
       setSortOrder('asc')
     }
-    setCurrentPage(1) // Reset to first page when sorting changes
   }
 
   const handleApplyFilters = () => {
-    // Apply all filters and reset to first page
     setSearchTerm(searchInput)
-    setCurrentPage(1) // Reset to first page when applying filters
-    // fetchBookings will be called automatically via useEffect when currentPage and filters change
   }
 
   const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleApplyFilters()
-    }
+    if (e.key === 'Enter') handleApplyFilters()
   }
-  
+
+  const clearAllFilters = () => {
+    setSearchInput('')
+    setSearchTerm('')
+    setStatusFilter('all')
+    setPaymentFilter('all')
+    setDateFilterType('createdAt')
+    setDateFrom('')
+    setDateTo('')
+  }
+
+  const hasActiveFilters = Boolean(searchTerm.trim() || statusFilter !== 'all' || paymentFilter !== 'all' || (dateFrom && dateTo))
+
   // Count active filters for UI display
   const getActiveFiltersCount = () => {
     let count = 0
@@ -183,399 +230,34 @@ export default function AdminBookings() {
     try {
       await axios.put(`/api/bookings/${id}`, { status })
       toast.success('อัพเดทสถานะสำเร็จ')
-      fetchBookings()
+      reload()
     } catch (error) {
       console.error('Error updating booking:', error)
       toast.error('ไม่สามารถอัพเดทสถานะได้')
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'CONFIRMED':
-        return 'bg-green-100 text-green-800'
-      case 'CANCELLED':
-        return 'bg-red-100 text-red-800'
-      case 'COMPLETED':
-        return 'bg-blue-100 text-blue-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getPaymentStatusColor = (status: string) => {
-    switch (status) {
-      case 'COMPLETED':
-        return 'bg-green-100 text-green-800'
-      case 'PENDING':
-      case 'PROCESSING':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'FAILED':
-        return 'bg-red-100 text-red-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  // All filtering is now done on backend via API
-  // No need to filter in frontend
-  const filteredBookings = bookings
-
-  // All filtering and pagination is done on backend via API
-  // Always use server-side pagination
-  const paginatedBookings = filteredBookings
-  
-  // Check if any filters are active (for UI display)
-  const hasActiveFilters = searchTerm.trim() || statusFilter !== 'all' || paymentFilter !== 'all' || (dateFrom && dateTo)
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'PENDING':
-        return <Clock className="text-yellow-500 w-4 h-4 sm:w-5 sm:h-5" />
-      case 'CONFIRMED':
-        return <CheckCircle className="text-green-500 w-4 h-4 sm:w-5 sm:h-5" />
-      case 'CANCELLED':
-        return <XCircle className="text-red-500 w-4 h-4 sm:w-5 sm:h-5" />
-      case 'COMPLETED':
-        return <CheckCircle className="text-blue-500 w-4 h-4 sm:w-5 sm:h-5" />
-      default:
-        return <AlertCircle className="text-gray-500 w-4 h-4 sm:w-5 sm:h-5" />
-    }
-  }
-
-  const getPaymentIcon = (status: string) => {
-    switch (status) {
-      case 'COMPLETED':
-        return <CheckCircle className="text-green-500 w-3 h-3 sm:w-4 sm:h-4" />
-      case 'PENDING':
-      case 'PROCESSING':
-        return <Clock className="text-yellow-500 w-3 h-3 sm:w-4 sm:h-4" />
-      case 'FAILED':
-        return <XCircle className="text-red-500 w-3 h-3 sm:w-4 sm:h-4" />
-      default:
-        return <AlertCircle className="text-gray-500 w-3 h-3 sm:w-4 sm:h-4" />
-    }
-  }
-
+  // Download every booking matching the current filters (the API filters and sorts them)
   const handleDownloadBookings = async () => {
+    const loadingToast = toast.loading('กำลังดึงข้อมูลการจองทั้งหมด...')
     try {
-      // Show loading toast
-      const loadingToast = toast.loading('กำลังดึงข้อมูลการจองทั้งหมด...')
-      
-      // Fetch all bookings from API (use a very large limit to get all)
-      const params: any = {
-        page: 1,
-        limit: 10000, // Large limit to get all bookings
-        sortBy,
-        sortOrder
-      }
-      
-      // Add date filter params if both dates are selected
-      if (dateFrom && dateTo) {
-        params.dateFrom = dateFrom
-        params.dateTo = dateTo
-        params.dateFilterType = dateFilterType
-      }
-      
-      // Add search param if provided
-      if (searchInput && searchInput.trim()) {
-        params.search = searchInput.trim()
-      }
-      
-      // Add status filter if not 'all'
-      if (statusFilter && statusFilter !== 'all') {
-        params.status = statusFilter
-      }
-      
-      // Add payment status filter if not 'all'
-      if (paymentFilter && paymentFilter !== 'all') {
-        params.paymentStatus = paymentFilter
-      }
-      
-      const response = await axios.get('/api/bookings', { params })
-      
-      let allBookings: any[] = []
-      
-      if (response.data.bookings) {
-        // New API format with pagination
-        allBookings = response.data.bookings
-        
-        // If there are more pages, fetch them
-        const totalPages = response.data.pagination?.totalPages || 1
-        if (totalPages > 1) {
-          const remainingPages: Promise<any>[] = []
-          for (let page = 2; page <= totalPages; page++) {
-            remainingPages.push(
-              (() => {
-                const pageParams: any = {
-                  page,
-                  limit: 10000,
-                  sortBy,
-                  sortOrder
-                }
-                
-                // Add date filter params if both dates are selected
-                if (dateFrom && dateTo) {
-                  pageParams.dateFrom = dateFrom
-                  pageParams.dateTo = dateTo
-                  pageParams.dateFilterType = dateFilterType
-                }
-                
-                // Add search param if provided
-                if (searchTerm && searchTerm.trim()) {
-                  pageParams.search = searchTerm.trim()
-                }
-                
-                // Add status filter if not 'all'
-                if (statusFilter && statusFilter !== 'all') {
-                  pageParams.status = statusFilter
-                }
-                
-                // Add payment status filter if not 'all'
-                if (paymentFilter && paymentFilter !== 'all') {
-                  pageParams.paymentStatus = paymentFilter
-                }
-                
-                return axios.get('/api/bookings', { params: pageParams })
-              })()
-            )
-          }
-          
-          const remainingResponses = await Promise.all(remainingPages)
-          remainingResponses.forEach(res => {
-            if (res.data.bookings) {
-              allBookings = [...allBookings, ...res.data.bookings]
-            }
-          })
-        }
-      } else {
-        // Fallback for old API format
-        allBookings = Array.isArray(response.data) ? response.data : []
-      }
-
-      // Apply filters if any are active (search and date filtering is done on backend)
-      let bookingsToDownload = allBookings
-      
-      // Only apply frontend filters (status and payment)
-      if (statusFilter !== 'all' || paymentFilter !== 'all') {
-        bookingsToDownload = allBookings.filter((booking: any) => {
-          const matchesStatus = statusFilter === 'all' || booking.status === statusFilter
-          const matchesPayment = paymentFilter === 'all' || booking.payment?.status === paymentFilter
-          
-          // Date and search filtering is now done on backend via API query
-          // No need to filter dates or search here
-          
-          return matchesStatus && matchesPayment
-        })
-      }
-
-      if (bookingsToDownload.length === 0) {
-        toast.dismiss(loadingToast)
+      const { data } = await axios.get('/api/bookings', { params: { ...filterParams, page: 1, limit: 10000 } })
+      if (data.bookings.length === 0) {
         toast.error('ไม่มีข้อมูลการจองให้ดาวน์โหลด')
         return
       }
-
-      // Sort bookings by check-in date for grouping
-      const sortedBookings = [...bookingsToDownload].sort((a: any, b: any) => {
-        const dateA = a.checkIn ? new Date(a.checkIn).getTime() : 0
-        const dateB = b.checkIn ? new Date(b.checkIn).getTime() : 0
-        return dateA - dateB
-      })
-
-      // Group bookings by check-in date
-      const groupedBookings = new Map<string, any[]>()
-      sortedBookings.forEach((booking: any) => {
-        const checkInDate = booking.checkIn 
-          ? new Date(booking.checkIn).toISOString().split('T')[0]
-          : 'N/A'
-        
-        if (!groupedBookings.has(checkInDate)) {
-          groupedBookings.set(checkInDate, [])
-        }
-        groupedBookings.get(checkInDate)!.push(booking)
-      })
-
-      // Format bookings data as text
-      let textContent = 'รายละเอียดการจองทั้งหมด\n'
-      textContent += '='.repeat(80) + '\n'
-      textContent += `จำนวนทั้งหมด: ${bookingsToDownload.length} รายการ\n`
-      textContent += `วันที่ดาวน์โหลด: ${formatDate(new Date())}\n`
-      textContent += '='.repeat(80) + '\n\n'
-
-      let globalIndex = 1
-      let totalRevenue = 0
-      let totalDiscount = 0
-
-      // Iterate through grouped bookings
-      Array.from(groupedBookings.entries())
-        .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-        .forEach(([checkInDateStr, groupBookings]) => {
-          // Group header
-          const checkInDateFormatted = checkInDateStr !== 'N/A'
-            ? formatDate(new Date(checkInDateStr))
-            : 'วันที่ไม่ระบุ'
-          
-          textContent += `\n${'='.repeat(80)}\n`
-          textContent += `วันที่เช็คอิน: ${checkInDateFormatted}\n`
-          textContent += `จำนวนการจอง: ${groupBookings.length} รายการ\n`
-          textContent += `${'='.repeat(80)}\n\n`
-
-          // Group totals
-          let groupTotalRevenue = 0
-          let groupTotalDiscount = 0
-
-          // Display bookings in this group
-          groupBookings.forEach((booking: any) => {
-            // Get room name(s)
-            const roomNames = booking.rooms && booking.rooms.length > 0
-              ? booking.rooms.map((r: any) => r?.name || 'N/A').join(', ')
-              : booking.room?.name || 'N/A'
-            
-            // Get camping block name(s) with guest counts
-            let campingBlockNames = ''
-            if (booking.campingBlocks && booking.campingBlocks.length > 0) {
-              const blockNames = booking.campingBlocks.map((block: any, index: number) => {
-                const guestCount = booking.guestCounts && booking.guestCounts[index] 
-                  ? booking.guestCounts[index] 
-                  : booking.guestCount || block.minCapacity || 1
-                return `${block?.name || 'N/A'} (${guestCount} คน)`
-              })
-              campingBlockNames = blockNames.join(', ')
-            } else if (booking.campingBlock) {
-              const guestCount = booking.guestCount || booking.campingBlock.minCapacity || 1
-              campingBlockNames = `${booking.campingBlock?.name || 'N/A'} (${guestCount} คน)`
-            }
-            
-            // Format dates
-            const checkInDate = booking.checkIn ? formatDate(booking.checkIn) : 'N/A'
-            const checkOutDate = booking.checkOut ? formatDate(booking.checkOut) : 'N/A'
-            
-            // Get guest information
-            const guestName = booking.guestName || 'N/A'
-            const guestEmail = booking.guestEmail || 'N/A'
-            const guestPhone = booking.guestPhone || 'N/A'
-
-            // Get payment type
-            const paymentType = booking.paymentType || booking.payment?.paymentType || 'FULL'
-            const paymentTypeText = paymentType === 'PARTIAL' ? 'จ่ายบางส่วน' : 'จ่ายเต็มจำนวน'
-
-            // Get paid amount
-            const paidAmount = booking.payment?.paidAmount || 0
-
-            // Calculate discount and prices
-            const totalPrice = booking.totalPrice || 0
-            const discountPercent = booking.discount || 0
-            const discountAmount = booking.discountAmount || 0
-            
-            // Calculate original price before discount
-            let originalPrice = totalPrice
-            if (discountAmount > 0) {
-              originalPrice = totalPrice + discountAmount
-            } else if (discountPercent > 0) {
-              originalPrice = Math.round(totalPrice / (1 - discountPercent / 100))
-            }
-            
-            const totalDiscountForBooking = originalPrice - totalPrice
-
-            // Update totals
-            groupTotalRevenue += totalPrice
-            groupTotalDiscount += totalDiscountForBooking
-            totalRevenue += totalPrice
-            totalDiscount += totalDiscountForBooking
-
-            textContent += `การจองที่ ${globalIndex}\n`
-            textContent += '-'.repeat(80) + '\n'
-            if (roomNames !== 'N/A' && campingBlockNames) {
-            textContent += `ห้องพัก: ${roomNames}\n`
-              textContent += `บล็อคกางเต๊นท์: ${campingBlockNames}\n`
-            } else if (roomNames !== 'N/A') {
-              textContent += `ห้องพัก: ${roomNames}\n`
-            } else if (campingBlockNames) {
-              textContent += `บล็อคกางเต๊นท์: ${campingBlockNames}\n`
-            }
-            textContent += `ชื่อลูกค้า: ${guestName}\n`
-            textContent += `เบอร์ติดต่อ: ${guestPhone}\n`
-            textContent += `อีเมล: ${guestEmail}\n`
-            textContent += `วันที่เช็คอิน: ${checkInDate}\n`
-            textContent += `วันที่เช็คเอ้าท์: ${checkOutDate}\n`
-            textContent += `ประเภทการจ่าย: ${paymentTypeText}\n`
-            
-            // Display pricing information
-            if (totalDiscountForBooking > 0) {
-              textContent += `ยอดก่อนส่วนลด: ${formatCurrency(originalPrice)}\n`
-              if (discountPercent > 0) {
-                textContent += `ส่วนลด: ${discountPercent}% (${formatCurrency(totalDiscountForBooking)})\n`
-              } else if (discountAmount > 0) {
-                textContent += `ส่วนลด: ${formatCurrency(discountAmount)}\n`
-              }
-            }
-            textContent += `ยอดทั้งหมด: ${formatCurrency(totalPrice)}\n`
-            textContent += `เงินที่ชำระมาแล้ว: ${formatCurrency(paidAmount)}\n`
-            textContent += '\n'
-
-            globalIndex++
-          })
-
-          // Group summary
-          textContent += `${'-'.repeat(80)}\n`
-          textContent += `สรุปรวมสำหรับวันที่เช็คอิน ${checkInDateFormatted}:\n`
-          if (groupTotalDiscount > 0) {
-            textContent += `ยอดรวมก่อนส่วนลด: ${formatCurrency(groupTotalRevenue + groupTotalDiscount)}\n`
-            textContent += `ส่วนลดรวม: ${formatCurrency(groupTotalDiscount)}\n`
-          }
-          textContent += `ยอดรวมทั้งหมด: ${formatCurrency(groupTotalRevenue)}\n`
-          textContent += `${'-'.repeat(80)}\n\n`
-        })
-
-      // Overall summary
-      textContent += `\n${'='.repeat(80)}\n`
-      textContent += 'สรุปรวมทั้งหมด\n'
-      textContent += `${'='.repeat(80)}\n`
-      if (totalDiscount > 0) {
-        textContent += `ยอดรวมก่อนส่วนลด: ${formatCurrency(totalRevenue + totalDiscount)}\n`
-        textContent += `ส่วนลดรวมทั้งหมด: ${formatCurrency(totalDiscount)}\n`
-      }
-      textContent += `ยอดรวมทั้งหมด: ${formatCurrency(totalRevenue)}\n`
-      textContent += `${'='.repeat(80)}\n`
-
-      // Create a blob and download
-      const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `bookings_all_${new Date().toISOString().split('T')[0]}.txt`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-      
-      toast.dismiss(loadingToast)
-      toast.success(`ดาวน์โหลดข้อมูลการจอง ${bookingsToDownload.length} รายการสำเร็จ`)
+      downloadTextFile(`bookings_all_${new Date().toISOString().split('T')[0]}.txt`, buildBookingsReport(data.bookings))
+      toast.success(`ดาวน์โหลดข้อมูลการจอง ${data.bookings.length} รายการสำเร็จ`)
     } catch (error) {
       console.error('Error downloading bookings:', error)
       toast.error('ไม่สามารถดาวน์โหลดข้อมูลการจองได้')
+    } finally {
+      toast.dismiss(loadingToast)
     }
   }
 
-  if (session === undefined) {
-    // Session is still loading
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!session || !session.user || (session.user.role !== 'ADMIN' && session.user.role !== 'OWNER')) {
-    return null
-  }
-
-  if (loading) {
+  // Full-page spinner only for the very first load; later reloads keep the list on screen
+  if (sessionStatus === 'loading' || (!hasLoaded && loading)) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
@@ -690,19 +372,7 @@ export default function AdminBookings() {
                 )}
               </div>
               <button
-                onClick={async () => {
-                  setSearchInput('')
-                  setStatusFilter('all')
-                  setPaymentFilter('all')
-                  setDateFilterType('createdAt')
-                  setDateFrom('')
-                  setDateTo('')
-                  setCurrentPage(1)
-                  // Fetch bookings after clearing filters
-                  setTimeout(() => {
-                    fetchBookings()
-                  }, 0)
-                }}
+                onClick={clearAllFilters}
                 className="text-xs text-primary-700 hover:text-primary-800 font-medium flex items-center gap-1"
               >
                 <X size={14} />
@@ -849,17 +519,20 @@ export default function AdminBookings() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
             <div className="flex flex-wrap items-center gap-2 sm:gap-4">
               <span className="text-xs sm:text-sm md:text-base text-gray-700 font-semibold">
-              แสดงผล {paginatedBookings.length} {hasActiveFilters ? 'จากการกรอง' : ''} จาก {hasActiveFilters ? filteredBookings.length : pagination.total} การจอง
+              แสดงผล {bookings.length} {hasActiveFilters ? 'จากการกรอง' : ''} จาก {pagination.total} การจอง
             </span>
             {dateFrom && dateTo && (
               <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                 {dateFilterType === 'checkIn' ? 'เช็คอิน' : 'สร้าง'}: {dateFrom} ถึง {dateTo}
               </span>
             )}
-            {!hasActiveFilters && (
-                <span className="text-gray-500 text-xs sm:text-sm">
+            {pagination.totalPages > 1 && (
+              <span className="text-gray-500 text-xs sm:text-sm">
                 (หน้า {pagination.page} จาก {pagination.totalPages})
               </span>
+            )}
+            {loading && (
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" aria-label="กำลังโหลด" />
             )}
           </div>
           
@@ -913,7 +586,7 @@ export default function AdminBookings() {
           </div>
         </div>
 
-        {bookings.length === 0 ? (
+        {bookings.length === 0 && !hasActiveFilters ? (
           <div className="bg-white rounded-xl shadow-lg p-8 sm:p-12 text-center">
             <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
               <Calendar className="text-gray-400 w-8 h-8 sm:w-8 sm:h-8" />
@@ -921,7 +594,7 @@ export default function AdminBookings() {
             <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">ยังไม่มีการจอง</h3>
             <p className="text-sm sm:text-base text-gray-500">เมื่อมีการจองใหม่จะแสดงที่นี่</p>
           </div>
-        ) : paginatedBookings.length === 0 ? (
+        ) : bookings.length === 0 ? (
           <div className="bg-white rounded-xl shadow-lg p-8 sm:p-12 text-center">
             <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
               <Search className="text-gray-400 w-8 h-8 sm:w-8 sm:h-8" />
@@ -949,7 +622,7 @@ export default function AdminBookings() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {paginatedBookings.map((booking) => (
+                  {bookings.map((booking) => (
                     <tr 
                       key={booking.id} 
                       className="hover:bg-gray-50 transition-colors cursor-pointer"
@@ -1124,7 +797,7 @@ export default function AdminBookings() {
 
             {/* Mobile/Tablet Card View */}
             <div className="lg:hidden space-y-4">
-              {paginatedBookings.map((booking) => (
+              {bookings.map((booking) => (
                 <div
                   key={booking.id}
                   className="bg-white rounded-xl shadow-lg p-4 sm:p-5 border border-gray-200 hover:shadow-xl transition-shadow cursor-pointer"

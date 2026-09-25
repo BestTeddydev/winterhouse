@@ -826,25 +826,36 @@ function replaceAtPath(obj: any, segments: string[], replace: (value: any) => an
 async function fetchByIds(model: ModelClass, ids: string[]): Promise<Map<string, Record<string, any>>> {
   const result = new Map<string, Record<string, any>>()
   const refs = ids.map((id) => model.collection().doc(id))
-  for (let i = 0; i < refs.length; i += 100) {
-    const snapshots = await getDb().getAll(...refs.slice(i, i + 100))
-    for (const snapshot of snapshots) {
-      const raw = snapshotToRaw(snapshot)
-      if (raw) result.set(raw._id, raw)
-    }
+  const batches: DocumentReference[][] = []
+  for (let i = 0; i < refs.length; i += 100) batches.push(refs.slice(i, i + 100))
+  // Batches run in parallel: each getAll is a network round trip
+  const snapshots = await Promise.all(batches.map((batch) => getDb().getAll(...batch)))
+  for (const snapshot of snapshots.flat()) {
+    const raw = snapshotToRaw(snapshot)
+    if (raw) result.set(raw._id, raw)
   }
   return result
 }
 
 async function populateDocs(model: ModelClass, docs: any[], specs: PopulateOptions[], lean: boolean) {
-  for (const spec of specs) {
+  // Independent paths are fetched in parallel; nested paths (a, a.b) must run in order
+  const nested = specs.some((a) => specs.some((b) => a !== b && b.path.startsWith(`${a.path}.`)))
+  if (nested) {
+    for (const spec of specs) await populateOne(model, docs, spec, lean)
+  } else {
+    await Promise.all(specs.map((spec) => populateOne(model, docs, spec, lean)))
+  }
+}
+
+async function populateOne(model: ModelClass, docs: any[], spec: PopulateOptions, lean: boolean) {
+  {
     const fieldSpec = model.schema.specAt(spec.path)
     const refName =
       typeof spec.model === 'string'
         ? spec.model
         : spec.model?.modelName ?? (fieldSpec?.kind === 'array' ? (fieldSpec.of as any).ref : (fieldSpec as any)?.ref)
     const target = refName ? models[refName] : undefined
-    if (!target) continue // strictPopulate: false - unknown paths are ignored
+    if (!target) return // strictPopulate: false - unknown paths are ignored
 
     const ids = new Set<string>()
     for (const doc of docs) {
@@ -855,7 +866,7 @@ async function populateDocs(model: ModelClass, docs: any[], specs: PopulateOptio
         }
       }
     }
-    if (!ids.size) continue
+    if (!ids.size) return
 
     const found = await fetchByIds(target, [...ids])
     const projection = parseProjection(spec.select)
@@ -943,6 +954,24 @@ class Query<T = any> implements PromiseLike<T> {
     return this.exec().catch(onrejected)
   }
 
+  // With an inclusive select() on a read-only query, fetch only the selected fields plus those
+  // the filter and sort need. Writes (update/delete) always need whole documents.
+  private fieldsToFetch(): string[] | undefined {
+    if (!this.projection || this.projection.mode !== 'include') return undefined
+    if (this.op !== 'find' && this.op !== 'findOne' && this.op !== 'count') return undefined
+    const fields = new Set<string>(this.projection.fields)
+    const collect = (filter: Record<string, any>) => {
+      for (const [key, value] of Object.entries(filter)) {
+        if (key === '$or' || key === '$and' || key === '$nor') (value as any[]).forEach(collect)
+        else if (!key.startsWith('$')) fields.add(key.split('.')[0])
+      }
+    }
+    collect(this.filter)
+    for (const [field] of this.sortSpec) fields.add(field.split('.')[0])
+    fields.delete('_id')
+    return [...fields]
+  }
+
   private hydrate(raw: Record<string, any>) {
     const projected = applyProjection(raw, this.projection)
     return this.isLean ? projected : new this.model(projected, { isNew: false, defaults: !this.projection })
@@ -956,7 +985,9 @@ class Query<T = any> implements PromiseLike<T> {
 
   private async run(): Promise<any> {
     const model = this.model
-    let matched = (await model.fetchCandidates(this.filter)).filter((doc) => matchesFilter(doc, this.filter))
+    let matched = (await model.fetchCandidates(this.filter, this.fieldsToFetch())).filter((doc) =>
+      matchesFilter(doc, this.filter)
+    )
     if (this.sortSpec.length) sortDocs(matched, this.sortSpec)
     if (this.skipCount) matched = matched.slice(this.skipCount)
     if (this.limitCount) matched = matched.slice(0, this.limitCount)
@@ -1020,7 +1051,7 @@ export interface ModelClass {
   schema: Schema
   collectionName: string
   collection(): FirebaseFirestore.CollectionReference
-  fetchCandidates(filter: Record<string, any>): Promise<Record<string, any>[]>
+  fetchCandidates(filter: Record<string, any>, fields?: string[]): Promise<Record<string, any>[]>
   castStored(raw: Record<string, any>): Record<string, any>
   updatedRaw(raw: Record<string, any>, update: Record<string, any>, options: Record<string, any>, isInsert: boolean): Record<string, any>
   find(filter?: Record<string, any>, projection?: any): Query<any[]>
@@ -1079,7 +1110,7 @@ export function model<T = any>(name: string, schema: Schema<T>): ModelClass {
       return getDb().collection(collectionName)
     }
 
-    static async fetchCandidates(filter: Record<string, any>): Promise<Record<string, any>[]> {
+    static async fetchCandidates(filter: Record<string, any>, fields?: string[]): Promise<Record<string, any>[]> {
       const idFilter = filter._id
       if (idFilter !== undefined && !isOperatorObject(idFilter)) {
         const id = idCondition(idFilter)
@@ -1094,6 +1125,8 @@ export function model<T = any>(name: string, schema: Schema<T>): ModelClass {
 
       let query: FirebaseFirestore.Query = this.collection()
       for (const [field, value] of pushdownFilters(schema, filter)) query = query.where(field, '==', value)
+      // Field mask: only transfer the fields the query needs
+      if (fields) query = query.select(...fields)
       const snapshot = await query.get()
       return snapshot.docs.map((doc) => snapshotToRaw(doc)!)
     }

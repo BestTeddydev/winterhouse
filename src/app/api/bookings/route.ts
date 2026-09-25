@@ -5,6 +5,7 @@ import { apiErrorResponse, findSessionUser } from '@/lib/api-auth'
 import connectDB from '@/lib/db'
 import Booking from '@/models/Booking'
 import Room from '@/models/Room'
+import Payment from '@/models/Payment'
 import User from '@/models/User'
 import CampingBlock from '@/models/CampingBlock'
 import CampingBlockBlock from '@/models/CampingBlockBlock'
@@ -16,6 +17,15 @@ import { isValidId } from '@/lib/odm'
 // Always read live data; never pre-render at build time
 export const dynamic = 'force-dynamic'
 
+const SORT_FIELDS = ['checkIn', 'createdAt', 'totalPrice']
+
+// Search text is matched literally (user input must not be interpreted as a regex)
+function escapeRegExp(text: string) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+const ROOM_FIELDS = 'name description price capacity imageUrls'
+const CAMPING_BLOCK_FIELDS = 'name description pricePerPerson minCapacity maxCapacity imageUrls'
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -26,8 +36,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
+    const limit = Math.min(10000, Math.max(1, parseInt(searchParams.get('limit') || '20') || 20))
     const sortBy = searchParams.get('sortBy') || 'checkIn' // Default sort by checkIn
     const sortOrder = searchParams.get('sortOrder') || 'asc' // Default ascending
     const dateFrom = searchParams.get('dateFrom')
@@ -78,7 +88,7 @@ export async function GET(request: NextRequest) {
 
     // Add search filter if provided
     if (search && search.trim()) {
-      const searchRegex = new RegExp(search.trim(), 'i') // Case-insensitive
+      const searchRegex = new RegExp(escapeRegExp(search.trim()), 'i') // Case-insensitive
       query.$or = [
         { guestName: searchRegex },
         { guestEmail: searchRegex },
@@ -97,102 +107,72 @@ export async function GET(request: NextRequest) {
       query.status = status
     }
     
-    // Build sort object
-    const sortObject: any = {}
-    if (sortBy === 'checkIn') {
-      sortObject.checkIn = sortOrder === 'desc' ? -1 : 1
-    } else if (sortBy === 'createdAt') {
-      sortObject.createdAt = sortOrder === 'desc' ? -1 : 1
-    } else if (sortBy === 'totalPrice') {
-      sortObject.totalPrice = sortOrder === 'desc' ? -1 : 1
-    } else {
-      sortObject.checkIn = 1 // Default to checkIn ascending
+    const sortField = SORT_FIELDS.includes(sortBy) ? sortBy : 'checkIn'
+    const sortObject = { [sortField]: sortOrder === 'desc' ? -1 : 1 }
+
+    // 1) Find matching booking ids with a light query (only the fields needed to filter and sort).
+    //    Payment status lives on the payment documents, fetched in parallel with one query.
+    const filterByPayment = Boolean(paymentStatus && paymentStatus !== 'all')
+    const [candidates, payments] = await Promise.all([
+      Booking.find(query).select('_id paymentId').sort(sortObject).lean().exec() as Promise<
+        Array<{ _id: string; paymentId?: string }>
+      >,
+      filterByPayment ? Payment.find({ status: paymentStatus }).select('_id').lean().exec() : Promise.resolve([]),
+    ])
+
+    let matches = candidates
+    if (filterByPayment) {
+      const paymentIds = new Set(payments.map((p: { _id: string }) => p._id))
+      // Bookings without a payment count as PENDING (as shown in the UI)
+      matches = matches.filter((b) =>
+        b.paymentId ? paymentIds.has(String(b.paymentId)) : paymentStatus === 'PENDING'
+      )
     }
 
-    // Fetch all bookings matching the query (before payment status filter)
-    // We need to fetch all to filter by payment status, then paginate
-    const allBookings = await Booking.find(query)
-      .populate({
-        path: 'roomId',
-        model: 'Room',
-        select: 'name description price capacity imageUrls'
-      })
-      .populate({
-        path: 'roomIds',
-        model: 'Room',
-        select: 'name description price capacity imageUrls'
-      })
-      .populate({
-        path: 'campingBlockId',
-        model: 'CampingBlock',
-        select: 'name description pricePerPerson minCapacity maxCapacity imageUrls'
-      })
-      .populate({
-        path: 'campingBlockIds',
-        model: 'CampingBlock',
-        select: 'name description pricePerPerson minCapacity maxCapacity imageUrls'
-      })
-      .populate({
-        path: 'paymentId',
-        model: 'Payment',
-        select: 'status amount totalAmount paidAmount remainingAmount paymentType'
-      })
-      .populate({
-        path: 'userId',
-        model: 'User',
-        select: 'name email lineUserId'
-      })
-      .sort(sortObject)
+    const total = matches.length
+    const totalPages = Math.ceil(total / limit)
+    const pageIds = matches.slice((page - 1) * limit, page * limit).map((b) => b._id)
 
-    // Transform the data to match frontend expectations
-    let transformedBookings = allBookings.map(booking => {
-      const bookingObj = booking.toObject()
-      // Get all rooms: use roomIds if available, otherwise use roomId
-      const allRooms = (booking.roomIds && booking.roomIds.length > 0) 
-        ? booking.roomIds 
-        : (booking.roomId ? [booking.roomId] : [])
-      
-      // Get all camping blocks: use campingBlockIds if available, otherwise use campingBlockId
-      const allCampingBlocks = (booking.campingBlockIds && booking.campingBlockIds.length > 0)
-        ? booking.campingBlockIds
-        : (booking.campingBlockId ? [booking.campingBlockId] : [])
-      
-      return {
-        ...bookingObj,
-        id: bookingObj._id, // Ensure id is properly set
+    // 2) Load and populate only the bookings on this page
+    const pageBookings = pageIds.length
+      ? await Booking.find({ _id: { $in: pageIds } })
+          .populate('roomId', ROOM_FIELDS)
+          .populate('roomIds', ROOM_FIELDS)
+          .populate('campingBlockId', CAMPING_BLOCK_FIELDS)
+          .populate('campingBlockIds', CAMPING_BLOCK_FIELDS)
+          .populate('paymentId', 'status amount totalAmount paidAmount remainingAmount paymentType')
+          .populate('userId', 'name email lineUserId')
+      : []
+    // Hydrated (not lean) so schema defaults like empty arrays are present
+    const byId = new Map(pageBookings.map((b: any) => [b._id, b.toObject()]))
+
+    const bookings = pageIds
+      .map((id) => byId.get(id))
+      .filter(Boolean)
+      .map((booking: any) => ({
+        ...booking,
+        id: booking._id,
         room: booking.roomId,
-        rooms: allRooms, // Array of all rooms
+        rooms: booking.roomIds?.length ? booking.roomIds : booking.roomId ? [booking.roomId] : [],
         campingBlock: booking.campingBlockId,
-        campingBlocks: allCampingBlocks, // Array of all camping blocks
-        payment: booking.paymentId || { status: 'PENDING', amount: 0 }
-      }
-    })
-    
-    // Filter by payment status if provided (after populate)
-    if (paymentStatus && paymentStatus !== 'all') {
-      transformedBookings = transformedBookings.filter(booking => {
-        return booking.payment?.status === paymentStatus
-      })
-    }
+        campingBlocks: booking.campingBlockIds?.length
+          ? booking.campingBlockIds
+          : booking.campingBlockId
+            ? [booking.campingBlockId]
+            : [],
+        payment: booking.paymentId || { status: 'PENDING', amount: 0 },
+      }))
 
-    // Calculate pagination after payment status filter
-    const totalBookings = transformedBookings.length
-    const skip = (page - 1) * limit
-    const totalPages = Math.ceil(totalBookings / limit)
-    
-    // Apply pagination
-    const paginatedBookings = transformedBookings.slice(skip, skip + limit)
-    
     return NextResponse.json({
-      bookings: paginatedBookings,
+      bookings,
       pagination: {
         page,
         limit,
-        total: totalBookings,
+        total,
         totalPages,
         hasNextPage: page < totalPages,
-        hasPrevPage: page > 1
-      }
+        hasPrevPage: page > 1,
+      },
     })
   } catch (error) {
     return apiErrorResponse(error, 'ไม่สามารถดึงข้อมูลการจองได้')
@@ -634,7 +614,6 @@ export async function POST(request: NextRequest) {
     await booking.populate('userId', 'lineUserId')
 
     // Create payment record
-    const { default: Payment } = await import('@/models/Payment')
     
     // Calculate payment amounts based on payment type
     let paymentAmount: number
