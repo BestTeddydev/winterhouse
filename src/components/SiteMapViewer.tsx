@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Image from 'next/image'
+import MapCanvas from '@/components/MapCanvas'
 import { MapPin } from 'lucide-react'
 
 interface BuildingHotspot {
@@ -323,32 +323,23 @@ export default function SiteMapViewer({
     <div className="space-y-6">
 
       {/* Map Image with Hotspots */}
-      <div className={`relative w-full border-4 border-gray-200 rounded-xl overflow-hidden shadow-lg bg-gray-100 ${
-        mapType === 'camping' ? 'aspect-[16/9] max-h-[500px]' : 'h-[600px]'
-      }`}>
-        {imageError ? (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="text-center">
-              <MapPin className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-              <p className="text-gray-500 mb-2">ไม่สามารถโหลดแผนผังได้</p>
-              <p className="text-sm text-gray-400">กรุณาติดต่อแอดมิน</p>
-            </div>
+      {imageError ? (
+        <div className="flex h-[400px] w-full items-center justify-center rounded-xl border-4 border-gray-200 bg-gray-100">
+          <div className="text-center">
+            <MapPin className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+            <p className="text-gray-500 mb-2">ไม่สามารถโหลดแผนผังได้</p>
+            <p className="text-sm text-gray-400">กรุณาติดต่อแอดมิน</p>
           </div>
-        ) : (
-          <div className="relative w-full h-full">
-            <Image
-              key={imageUrl} // Force re-render when imageUrl changes
-              src={imageUrl || '/placeholder-map.svg'}
-              alt={mapType === 'camping' ? 'แผนผังลานกางเต๊นท์' : 'แผนผังอาคาร'}
-              fill
-              className={mapType === 'camping' ? 'object-cover' : 'object-contain'}
-              priority
-              onError={handleImageError}
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 70vw"
-            />
-
+        </div>
+      ) : (
+        <MapCanvas
+          imageUrl={imageUrl || '/placeholder-map.svg'}
+          alt={mapType === 'camping' ? 'แผนผังลานกางเต๊นท์' : 'แผนผังอาคาร'}
+          maxHeight={mapType === 'camping' ? 500 : 600}
+          onImageError={handleImageError}
+        >
             {/* Building Hotspots */}
-            {!imageError && hotspots.map((hotspot) => {
+            {hotspots.map((hotspot) => {
               const icon = buildingTypes[hotspot.buildingType as keyof typeof buildingTypes] || '📍'
               const roomCount = hotspot.rooms.length
               const availabilityStatus = getBuildingAvailabilityStatus(hotspot)
@@ -457,10 +448,8 @@ export default function SiteMapViewer({
                 </div>
               )
             })}
-          </div>
-        )}
-      </div>
-
+        </MapCanvas>
+      )}
     </div>
   )
 }

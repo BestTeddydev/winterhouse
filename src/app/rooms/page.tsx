@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import SiteMapViewer from '@/components/SiteMapViewer'
+import BookingCalendar from '@/components/BookingCalendar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { 
@@ -21,9 +22,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Clock,
-  CheckCircle,
-  XCircle,
   Plus,
   MinusCircle
 } from 'lucide-react'
@@ -162,24 +160,12 @@ export default function RoomsPage() {
     return `${year}-${month}-${day}`
   })
   const [nights, setNights] = useState(1)
-  const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [selectedDateRange, setSelectedDateRange] = useState<{start: Date | null, end: Date | null}>({start: null, end: null})
   const [hoveredRoom, setHoveredRoom] = useState<Room | null>(null)
   const [allBookings, setAllBookings] = useState<any[]>([])
 
   useEffect(() => {
     fetchData()
-    
-    // Initialize selected date range
-    const today = new Date()
-    setCurrentMonth(today)
-    if (checkInDate) {
-      const selectedDate = new Date(checkInDate)
-      setSelectedDateRange({
-        start: selectedDate,
-        end: new Date(selectedDate.getTime() + (nights - 1) * 24 * 60 * 60 * 1000)
-      })
-    }
+
 
     // Show info modal on page load
     setShowInfoModal(true)
@@ -242,18 +228,6 @@ export default function RoomsPage() {
     // Reset selected building when switching map types
     setSelectedBuilding(null)
   }, [mapType])
-
-  // Sync calendar with form date selection
-  useEffect(() => {
-    if (checkInDate) {
-      const selectedDate = new Date(checkInDate)
-      setCurrentMonth(selectedDate)
-      setSelectedDateRange({
-        start: selectedDate,
-        end: new Date(selectedDate.getTime() + (nights - 1) * 24 * 60 * 60 * 1000)
-      })
-    }
-  }, [checkInDate, nights])
 
   const fetchData = async () => {
     try {
@@ -452,92 +426,16 @@ export default function RoomsPage() {
     return checkOut.toISOString().split('T')[0]
   }
 
-  const checkBookingConflicts = () => {
-    if (!roomAvailability || !checkInDate) return []
-
-    const checkOutDate = calculateCheckOutDate()
-    const conflicts: any[] = []
-
-    roomAvailability.bookings.forEach(booking => {
-      const bookingCheckIn = new Date(booking.checkIn)
-      const bookingCheckOut = new Date(booking.checkOut)
-      const selectedCheckIn = new Date(checkInDate)
-      const selectedCheckOut = new Date(checkOutDate)
-
-      // Check for overlap
-      if (
-        (selectedCheckIn < bookingCheckOut && selectedCheckOut > bookingCheckIn) ||
-        (bookingCheckIn < selectedCheckOut && bookingCheckOut > selectedCheckIn)
-      ) {
-        conflicts.push(booking)
-      }
-    })
-
-    return conflicts
-  }
 
 
 
 
 
-  // Calendar helper functions
-  const getDaysInMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
-  }
 
-  const getFirstDayOfMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay()
-  }
 
-  const isDateInRange = (date: Date, start: Date | null, end: Date | null) => {
-    if (!start || !end) return false
-    return date >= start && date <= end
-  }
 
-  const isDateSelected = (date: Date) => {
-    if (!selectedDateRange.start) return false
-    if (!selectedDateRange.end) return date.getTime() === selectedDateRange.start.getTime()
-    return isDateInRange(date, selectedDateRange.start, selectedDateRange.end)
-  }
 
-  const handleDateClick = (date: Date) => {
-    if (!selectedDateRange.start || selectedDateRange.end) {
-      setSelectedDateRange({ start: date, end: null })
-      // Use local date format to avoid timezone issues
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const day = String(date.getDate()).padStart(2, '0')
-      setCheckInDate(`${year}-${month}-${day}`)
-      setNights(1)
-    } else {
-      const start = selectedDateRange.start
-      const end = date
-      if (end < start) {
-        setSelectedDateRange({ start: end, end: start })
-        // Use local date format to avoid timezone issues
-        const year = end.getFullYear()
-        const month = String(end.getMonth() + 1).padStart(2, '0')
-        const day = String(end.getDate()).padStart(2, '0')
-        setCheckInDate(`${year}-${month}-${day}`)
-        const calculatedNights = Math.ceil((start.getTime() - end.getTime()) / (1000 * 60 * 60 * 24)) + 1
-        setNights(calculatedNights)
-      } else {
-        setSelectedDateRange({ start, end })
-        const calculatedNights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-        setNights(calculatedNights)
-      }
-    }
-  }
 
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    const newMonth = new Date(currentMonth)
-    if (direction === 'prev') {
-      newMonth.setMonth(newMonth.getMonth() - 1)
-    } else {
-      newMonth.setMonth(newMonth.getMonth() + 1)
-    }
-    setCurrentMonth(newMonth)
-  }
 
   // Check if room is available for selected dates
   const isRoomAvailable = (room: Room) => {
@@ -798,11 +696,6 @@ export default function RoomsPage() {
   const handleRoomSelect = (room: Room) => {
     setSelectedRoom(room)
     fetchRoomAvailability(room.id)
-    // Reset calendar to current month if no date is selected
-    if (!checkInDate) {
-      setCurrentMonth(new Date())
-      setSelectedDateRange({ start: null, end: null })
-    }
   }
 
   // Image Gallery Modal Component
@@ -868,221 +761,19 @@ export default function RoomsPage() {
     )
   }
 
-  // Interactive Calendar Component
-  const InteractiveCalendar = ({ roomId }: { roomId?: string }) => {
 
-    const today = new Date()
-    const daysInMonth = getDaysInMonth(currentMonth)
-    const firstDay = getFirstDayOfMonth(currentMonth)
-    const monthNames = [
-      'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
-    ]
-    const dayNames = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 
-    const conflicts = checkBookingConflicts()
-
-    // Debug: Log room availability info
-
-    return (
-      <div className="mt-4">
-        <h4 className="text-sm font-semibold text-gray-900 mb-3">ปฏิทินการจองล่วงหน้า</h4>
-        <p className="text-xs text-gray-600 mb-3">
-          <span className="inline-flex items-center gap-1"><CheckCircle size={12} className="text-green-600" /> เขียว = ว่าง</span>{' '}
-          <span className="inline-flex items-center gap-1 ml-2"><XCircle size={12} className="text-red-600" /> แดง = จองแล้ว</span>
-        </p>
-        
-        {/* Calendar Header */}
-        <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={() => navigateMonth('prev')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            title="เดือนก่อนหน้า"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          
-          {/* Month/Year Selector */}
-          <div className="flex items-center gap-2">
-            <select
-              value={currentMonth.getMonth()}
-              onChange={(e) => {
-                const newMonth = new Date(currentMonth)
-                newMonth.setMonth(parseInt(e.target.value))
-                setCurrentMonth(newMonth)
-              }}
-              className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              {monthNames.map((month, index) => (
-                <option key={index} value={index}>{month}</option>
-              ))}
-            </select>
-            
-            <select
-              value={currentMonth.getFullYear()}
-              onChange={(e) => {
-                const newMonth = new Date(currentMonth)
-                newMonth.setFullYear(parseInt(e.target.value))
-                setCurrentMonth(newMonth)
-              }}
-              className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              {Array.from({ length: 5 }, (_, i) => {
-                const year = new Date().getFullYear() - 1 + i
-                return (
-                  <option key={year} value={year}>{year}</option>
-                )
-              })}
-            </select>
-            
-            {/* Today Button */}
-            <button
-              onClick={() => setCurrentMonth(new Date())}
-              className="px-3 py-1 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700 transition-colors"
-              title="กลับไปวันนี้"
-            >
-              วันนี้
-            </button>
-          </div>
-          
-          <button
-            onClick={() => navigateMonth('next')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            title="เดือนถัดไป"
-          >
-            <ChevronRight size={20} />
-          </button>
-        </div>
-
-        {/* Selected Date Info */}
-        {(selectedDateRange.start || checkInDate) && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="text-sm text-blue-800">
-              <strong>วันที่เลือก:</strong> 
-              {selectedDateRange.start 
-                ? selectedDateRange.start.toLocaleDateString('th-TH')
-                : new Date(checkInDate).toLocaleDateString('th-TH')
-              }
-              {(selectedDateRange.end || (checkInDate && nights > 1)) && (
-                <>
-                  {' - '}
-                  {selectedDateRange.end 
-                    ? selectedDateRange.end.toLocaleDateString('th-TH')
-                    : new Date(calculateCheckOutDate()).toLocaleDateString('th-TH')
-                  }
-                  {' ('}
-                  {selectedDateRange.end && selectedDateRange.start
-                    ? Math.ceil((selectedDateRange.end.getTime() - selectedDateRange.start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-                    : nights
-                  }
-                  {' คืน)'}
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Conflict Warning */}
-        {conflicts.length > 0 && (
-          <div className="mb-3 p-2 bg-orange-50 border border-orange-200 rounded text-xs">
-            <div className="flex items-center gap-1 text-orange-800 font-medium mb-1">
-              <XCircle size={12} />
-              มีการจองที่ทับซ้อนกับวันที่ที่เลือก
-            </div>
-            {conflicts.map((conflict, index) => (
-              <div key={index} className="text-orange-700">
-                • {new Date(conflict.checkIn).toLocaleDateString('th-TH')} - {new Date(conflict.checkOut).toLocaleDateString('th-TH')} ({conflict.status})
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Calendar Grid */}
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          {/* Day Headers */}
-          <div className="grid grid-cols-7 bg-gray-50">
-            {dayNames.map(day => (
-              <div key={day} className="p-2 text-center text-sm font-semibold text-gray-600 border-r border-gray-200 last:border-r-0">
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar Days */}
-          <div className="grid grid-cols-7">
-            {/* Empty cells for days before month starts */}
-            {Array.from({ length: firstDay }, (_, i) => (
-              <div key={`empty-${i}`} className="h-12 border-r border-b border-gray-200 last:border-r-0"></div>
-            ))}
-
-            {/* Days of the month */}
-            {Array.from({ length: daysInMonth }, (_, i) => {
-              const day = i + 1
-              const year = currentMonth.getFullYear()
-              const month = currentMonth.getMonth() + 1 // getMonth() returns 0-11, we need 1-12
-              const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
-              const date = new Date(year, currentMonth.getMonth(), day)
-              const status = getCalendarAvailabilityStatus(dateStr, roomId)              
-    
-              const isToday = date.toDateString() === today.toDateString()
-              const isSelected = isDateSelected(date)
-              const isInRange = selectedDateRange.start && selectedDateRange.end && 
-                isDateInRange(date, selectedDateRange.start, selectedDateRange.end)
-              const isPast = date < today
-
-              return (
-                <button
-                  key={day}
-                  onClick={() => !isPast && handleDateClick(date)}
-                  disabled={isPast}
-                  className={`h-12 border-r border-b border-gray-200 last:border-r-0 text-sm transition-colors ${
-                    isPast 
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : isSelected
-                      ? 'bg-primary-600 text-white hover:bg-primary-700'
-                      : isInRange
-                      ? 'bg-primary-100 text-primary-800 hover:bg-primary-200'
-                      : status === 'available'
-                      ? 'bg-green-50 text-green-800 hover:bg-green-100'
-                      : status === 'booked'
-                      ? 'bg-red-50 text-red-800 hover:bg-red-100'
-                      : 'bg-yellow-50 text-yellow-800 hover:bg-yellow-100'
-                  } ${isToday ? 'ring-2 ring-blue-500' : ''}`}
-                >
-                  <div className="flex flex-col items-center justify-center h-full">
-                    <span className={`text-xs font-medium ${status === 'booked' ? 'text-red-900' : ''}`}>{day}</span>
-                    {!isPast && (
-                      <div className="text-xs">
-                        {status === 'available' && <CheckCircle size={8} />}
-                        {status === 'booked' && <XCircle size={8} />}
-                        {status === 'partial' && <Clock size={8} />}
-                      </div>
-                    )}
-                    {status === 'booked' && !isPast && (
-                      <span className="text-[8px] text-red-700 font-bold mt-0.5">X</span>
-                    )}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Legend */}
-        <div className="flex gap-4 mt-3 text-xs">
-          <div className="flex items-center gap-1">
-            <CheckCircle size={12} className="text-green-600" />
-            <span className='text-green-600'>ว่าง</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <XCircle size={12} className="text-red-600" />
-            <span className='text-red-600'>จองแล้ว</span>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
+  const renderCalendar = (roomId: string) => (
+    <BookingCalendar
+      checkIn={checkInDate}
+      nights={nights}
+      isNightBooked={(date) => getCalendarAvailabilityStatus(date, roomId) === 'booked'}
+      onChange={(newCheckIn, newNights) => {
+        setCheckInDate(newCheckIn)
+        setNights(newNights)
+      }}
+    />
+  )
 
   // CampingBlocksView Component
   const CampingBlocksView = ({
@@ -1445,41 +1136,6 @@ export default function RoomsPage() {
                         </div>
                       )}
 
-                      {/* Current Bookings Info */}
-                      {(() => {
-                        const roomBookings = allBookings.filter(booking => {
-                          const bookingRoomId = booking.roomId?._id?.toString() || booking.roomId?.toString() || booking.roomId
-                          let isForThisRoom = bookingRoomId === room.id
-                          
-                          if (!isForThisRoom && booking.roomIds) {
-                            isForThisRoom = booking.roomIds.some((rid: any) => {
-                              const ridStr = rid?._id?.toString() || rid?.toString() || rid
-                              return ridStr === room.id
-                            })
-                          }
-                          
-                          // Show only CONFIRMED bookings in the UI
-                          return isForThisRoom && booking.status === 'CONFIRMED'
-                        })
-                        
-                        return roomBookings.length > 0 ? (
-                          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                            <h6 className="text-sm font-semibold text-red-900 mb-2">การจองที่มีอยู่</h6>
-                            <div className="text-xs text-red-800 space-y-1 max-h-32 overflow-y-auto">
-                              {roomBookings.map((booking: any, idx: number) => (
-                                <div key={idx} className="flex justify-between items-center">
-                                  <span>
-                                    {new Date(booking.checkIn).toLocaleDateString('th-TH')} - {new Date(booking.checkOut).toLocaleDateString('th-TH')}
-                                  </span>
-                                  <span className="px-2 py-0.5 rounded text-xs bg-red-100 text-red-700">
-                                    {booking.status}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null
-                      })()}
 
                       {/* Booking Conflicts Info */}
                       {checkInDate && (
@@ -1495,7 +1151,7 @@ export default function RoomsPage() {
                       )}
 
                       {/* Interactive Calendar */}
-                      <InteractiveCalendar roomId={room.id} />
+                      {renderCalendar(room.id)}
                     </div>
                   )}
                 </div>
@@ -1899,7 +1555,7 @@ export default function RoomsPage() {
                 onChange={(e) => setNights(parseInt(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
-                {[1, 2, 3, 4, 5, 6, 7, 14, 30].map(n => (
+                {Array.from(new Set([1, 2, 3, 4, 5, 6, 7, 14, 30, nights])).sort((a, b) => a - b).map(n => (
                   <option key={n} value={n}>{n} คืน</option>
                 ))}
               </select>
@@ -2216,39 +1872,6 @@ export default function RoomsPage() {
                               </div>
                             )}
 
-                            {/* Current Bookings Info */}
-                            {(() => {
-                              const roomBookings = allBookings.filter(booking => {
-                                const bookingRoomId = booking.roomId?._id?.toString() || booking.roomId?.toString() || booking.roomId
-                                let isForThisRoom = bookingRoomId === room.id
-                                
-                                if (!isForThisRoom && booking.roomIds) {
-                                  isForThisRoom = booking.roomIds.some((rid: any) => {
-                                    const ridStr = rid?._id?.toString() || rid?.toString() || rid
-                                    return ridStr === room.id
-                                  })
-                                }
-                                
-                                // Show only CONFIRMED bookings in the UI
-                          return isForThisRoom && booking.status === 'CONFIRMED'
-                              })
-                              
-                              return roomBookings.length > 0 ? (
-                                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                                  <h6 className="text-xs font-semibold text-red-900 mb-2">การจองที่มีอยู่</h6>
-                                  <div className="text-xs text-red-800 space-y-1 max-h-32 overflow-y-auto">
-                                    {roomBookings.map((booking: any, idx: number) => (
-                                      <div key={idx} className="flex justify-between items-center">
-                                        <span>
-                                          {new Date(booking.checkIn).toLocaleDateString('th-TH')} - {new Date(booking.checkOut).toLocaleDateString('th-TH')}
-                                        </span>
-                                      
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ) : null
-                            })()}
 
                             {/* Booking Calendar Info */}
                             {checkInDate && (
@@ -2266,7 +1889,7 @@ export default function RoomsPage() {
                             {/* Interactive Calendar */}
                             <div className="mb-4">
                               <h6 className="text-xs font-semibold text-gray-900 mb-2">ความพร้อมของห้อง</h6>
-                              <InteractiveCalendar roomId={room.id} />
+                              {renderCalendar(room.id)}
                             </div>
                           </div>
                         )}
@@ -2380,69 +2003,11 @@ export default function RoomsPage() {
                                       </button>
                                     </div>
                                     
-                                    {/* Current Bookings Info */}
-                                    {allBookings.length > 0 && (
-                                      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                        <h6 className="text-sm font-semibold text-blue-900 mb-2">ข้อมูลการจองปัจจุบัน</h6>
-                                        {(() => {
-                                          const roomBookings = allBookings.filter(booking => {
-                                            const bookingRoomId = booking.roomId?._id?.toString() || booking.roomId?.toString() || booking.roomId
-                                            let isForThisRoom = bookingRoomId === room.id
-                                            
-                                            if (!isForThisRoom && booking.roomIds) {
-                                              isForThisRoom = booking.roomIds.some((rid: any) => {
-                                                const ridStr = rid?._id?.toString() || rid?.toString() || rid
-                                                return ridStr === room.id
-                                              })
-                                            }
-                                            
-                                            // Show only CONFIRMED bookings in the UI
-                          return isForThisRoom && booking.status === 'CONFIRMED'
-                                          })
-                                          
-                                          if (roomBookings.length === 0) {
-                                            return (
-                                              <p className="text-xs text-green-700">
-                                                ✅ ยังไม่มีการจอง
-                                              </p>
-                                            )
-                                          }
-                                          
-                                          return (
-                                            <div className="space-y-2">
-                                              {roomBookings.map((booking, index) => (
-                                                <div key={index} className="text-xs bg-white border border-blue-200 rounded p-2">
-                                                  <div className="flex justify-between items-center">
-                                                    <span className="font-medium">
-                                                      {new Date(booking.checkIn).toLocaleDateString('th-TH')} - {new Date(booking.checkOut).toLocaleDateString('th-TH')}
-                                                    </span>
-                                                    <span className={`px-2 py-1 rounded text-xs ${
-                                                      booking.status === 'CONFIRMED' ? 'bg-green-100 text-green-800' :
-                                                      booking.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                                      'bg-gray-100 text-gray-800'
-                                                    }`}>
-                                                      {booking.status === 'CONFIRMED' ? 'ยืนยันแล้ว' :
-                                                       booking.status === 'PENDING' ? 'รอยืนยัน' :
-                                                       booking.status}
-                                                    </span>
-                                                  </div>
-                                                  {booking.guestName && (
-                                                    <div className="text-gray-600 mt-1">
-                                                      ผู้จอง: {booking.guestName}
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              ))}
-                                            </div>
-                                          )
-                                        })()}
-                                      </div>
-                                    )}
 
                                     {/* Interactive Calendar */}
                                     <div className="mb-4">
                                       <h6 className="text-sm font-semibold text-gray-900 mb-2">ปฏิทินการจอง</h6>
-                                      <InteractiveCalendar roomId={room.id} />
+                                      {renderCalendar(room.id)}
                                     </div>
                                   </div>
                                 )}

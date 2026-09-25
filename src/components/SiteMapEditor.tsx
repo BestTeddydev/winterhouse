@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import Image from 'next/image'
+import MapCanvas from '@/components/MapCanvas'
 import { X, Plus, Edit, Trash2, Upload, Building2, MapPin } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -401,19 +401,15 @@ export default function SiteMapEditor({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Map Image with Hotspots */}
-        <div
+        <div className="self-start">
+        <MapCanvas
           ref={imageRef}
-          className={`relative w-full border-4 rounded-xl overflow-hidden shadow-lg ${
-            mapType === 'camping' ? 'aspect-[16/9] max-h-[500px]' : 'h-[600px]'
-          }`}
+          imageUrl={imageUrl || '/placeholder-map.svg'}
+          alt={mapType === 'camping' ? 'แผนผังลานกางเต๊นท์' : 'แผนผังอาคาร'}
+          maxHeight={mapType === 'camping' ? 500 : 600}
+          className={isAddingHotspot ? 'cursor-crosshair' : ''}
           onClick={handleImageClick}
         >
-          <Image 
-            src={imageUrl || '/placeholder-map.jpg'} 
-            alt={mapType === 'camping' ? 'แผนผังลานกางเต๊นท์' : 'แผนผังอาคาร'}
-            fill 
-            className={mapType === 'camping' ? 'object-cover bg-gray-100' : 'object-contain bg-gray-100'}
-          />
 
           {/* Building Hotspots */}
           {hotspots.map((hotspot, index) => (
@@ -491,16 +487,7 @@ export default function SiteMapEditor({
               </div>
             </div>
           )}
-          
-          {/* Cursor overlay style */}
-          {isAddingHotspot && (
-            <style jsx global>{`
-              div[ref="${imageRef}"] {
-                cursor: crosshair !important;
-              }
-            `}</style>
-          )}
-          
+        </MapCanvas>
         </div>
 
         {/* Building List and Editor */}
