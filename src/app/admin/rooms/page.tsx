@@ -13,12 +13,11 @@ import {
   Eye, 
   EyeOff, 
   Search, 
-  Filter, 
   Grid, 
   List,
   Users,
   DollarSign,
-  MoreVertical,
+  
   Star,
   Wifi,
   Car,
@@ -40,7 +39,6 @@ export default function AdminRooms() {
     // Middleware already handles authentication and authorization
     // Just fetch the rooms data
     if (session && session.user) {
-      console.log('✅ Admin rooms - User authenticated')
       fetchRooms()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useRef } from 'react'
-import { Home, Calendar, User, LogOut, Settings, Coffee, Bed, Phone, Menu, X, Clock, LayoutDashboard } from 'lucide-react'
+import { Home, Calendar, User, LogOut, Settings, Bed, Menu, X, Clock, LayoutDashboard } from 'lucide-react'
 
 export default function Navbar() {
   const { data: session } = useSession()
@@ -192,8 +192,6 @@ export default function Navbar() {
                 <Bed size={20} />
                 จองห้องพัก
               </Link>
-
-            
 
               {/* User Actions for Mobile */}
               {session ? (

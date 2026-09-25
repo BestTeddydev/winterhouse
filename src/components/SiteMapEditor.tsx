@@ -232,7 +232,7 @@ export default function SiteMapEditor({
 
     setIsUploadingImage(true)
     try {
-      const url = await onImageUpload(file)
+      await onImageUpload(file)
       // Image URL will be updated by parent component
     } catch (error) {
       console.error('Error uploading image:', error)

@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { apiErrorResponse, findSessionUser } from '@/lib/api-auth'
 import connectDB from '@/lib/db'
 import Booking from '@/models/Booking'
 import Room from '@/models/Room'
 import User from '@/models/User'
-import Payment from '@/models/Payment'
+import CampingBlock from '@/models/CampingBlock'
+import CampingBlockBlock from '@/models/CampingBlockBlock'
+import RoomBlock from '@/models/RoomBlock'
 import { sendLineNotification, formatBookingNotification } from '@/lib/line'
-import { calculateMultipleRoomsPrice, calculateRoomPriceRange } from '@/lib/pricing'
-import * as mongoose from '@/lib/odm'
+import { calculateRoomPriceRange } from '@/lib/pricing'
+import { isValidId } from '@/lib/odm'
+
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,26 +38,6 @@ export async function GET(request: NextRequest) {
     const paymentStatus = searchParams.get('paymentStatus') || ''
 
     await connectDB()
-    
-    // Set strictPopulate to false to avoid schema validation errors
-    mongoose.set('strictPopulate', false)
-    
-    // Ensure models are registered
-    if (!mongoose.models.Room) {
-      require('@/models/Room')
-    }
-    if (!mongoose.models.Booking) {
-      require('@/models/Booking')
-    }
-    if (!mongoose.models.User) {
-      require('@/models/User')
-    }
-    if (!mongoose.models.Payment) {
-      require('@/models/Payment')
-    }
-    if (!mongoose.models.CampingBlock) {
-      require('@/models/CampingBlock')
-    }
 
     let query: any = {}
     
@@ -74,15 +60,7 @@ export async function GET(request: NextRequest) {
     }
     
     if (session.user.role === 'CUSTOMER') {
-      // Query user based on session.user.id
-      // If session.user.id is a valid ObjectId, query by _id
-      // Otherwise, query by lineUserId
-      let user
-      if (mongoose.Types.ObjectId.isValid(session.user.id)) {
-        user = await User.findById(session.user.id)
-      } else {
-        user = await User.findOne({ lineUserId: session.user.id })
-      }
+      const user = await findSessionUser(session)
       
       if (!user) {
         return NextResponse.json({ error: 'ไม่พบผู้ใช้ในระบบ' }, { status: 404 })
@@ -91,11 +69,11 @@ export async function GET(request: NextRequest) {
       query.userId = user._id
     } else if (userId) {
       // Validate userId from query params
-      if (!mongoose.Types.ObjectId.isValid(userId)) {
+      if (!isValidId(userId)) {
         return NextResponse.json({ error: 'รูปแบบ userId ไม่ถูกต้อง' }, { status: 400 })
       }
       
-      query.userId = new mongoose.Types.ObjectId(userId)
+      query.userId = userId
     }
 
     // Add search filter if provided
@@ -107,10 +85,10 @@ export async function GET(request: NextRequest) {
         { guestPhone: searchRegex }
       ]
       
-      // Also search by booking ID if it looks like an ObjectId
-      if (mongoose.Types.ObjectId.isValid(search.trim())) {
+      // Also search by booking ID if it looks like a document id
+      if (isValidId(search.trim())) {
         if (!query.$or) query.$or = []
-        query.$or.push({ _id: new mongoose.Types.ObjectId(search.trim()) })
+        query.$or.push({ _id: search.trim() })
       }
     }
     
@@ -217,23 +195,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error fetching bookings:', error)
-    
-    // Handle specific error types
-    if (error instanceof mongoose.Error.CastError) {
-      return NextResponse.json({ 
-        error: `รูปแบบ ID ไม่ถูกต้อง: ${error.path}` 
-      }, { status: 400 })
-    }
-    
-    if (error instanceof mongoose.Error.ValidationError) {
-      return NextResponse.json({ 
-        error: 'ข้อมูลไม่ถูกต้อง', 
-        details: Object.values(error.errors).map(err => err.message)
-      }, { status: 400 })
-    }
-    
-    return NextResponse.json({ error: 'ไม่สามารถดึงข้อมูลการจองได้' }, { status: 500 })
+    return apiErrorResponse(error, 'ไม่สามารถดึงข้อมูลการจองได้')
   }
 }
 
@@ -266,7 +228,6 @@ export async function POST(request: NextRequest) {
       bookingStatus,
       isManualBooking = false,
       paymentSlipUrl, // URL of payment slip image
-      addOns, // อ๊อฟชั่นเสริม
     } = body
 
     // Handle discount values - use nullish coalescing to allow 0 values
@@ -337,10 +298,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ประเภทการชำระเงินไม่ถูกต้อง' }, { status: 400 })
     }
 
-    // Validate ObjectId formats
+    // Validate id formats
     if (selectedCampingBlockIds.length > 0) {
       for (const id of selectedCampingBlockIds) {
-        if (!mongoose.Types.ObjectId.isValid(id)) {
+        if (!isValidId(id)) {
           return NextResponse.json({ error: `รูปแบบ Camping Block ID ไม่ถูกต้อง: ${id}` }, { status: 400 })
         }
       }
@@ -348,7 +309,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'จำนวน guestCounts ต้องเท่ากับจำนวน campingBlockIds' }, { status: 400 })
       }
     } else if (selectedCampingBlockId) {
-      if (!mongoose.Types.ObjectId.isValid(selectedCampingBlockId)) {
+      if (!isValidId(selectedCampingBlockId)) {
         return NextResponse.json({ error: `รูปแบบ Camping Block ID ไม่ถูกต้อง: ${selectedCampingBlockId}` }, { status: 400 })
       }
       if (!guestCount || guestCount < 1) {
@@ -360,12 +321,12 @@ export async function POST(request: NextRequest) {
       if (!id || typeof id !== 'string') {
         return NextResponse.json({ error: `Room ID ไม่ถูกต้อง: ${id}` }, { status: 400 })
       }
-      if (!mongoose.Types.ObjectId.isValid(id)) {
+      if (!isValidId(id)) {
         return NextResponse.json({ error: `รูปแบบ Room ID ไม่ถูกต้อง: ${id}` }, { status: 400 })
       }
     }
     
-    // if (!session.user.id || !mongoose.Types.ObjectId.isValid(session.user.id)) {
+    // if (!session.user.id || !isValidId(session.user.id)) {
     //   return NextResponse.json({ error: 'รูปแบบ User ID ไม่ถูกต้อง' }, { status: 400 })
     // }
 
@@ -393,32 +354,8 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB()
-    
-    // Set strictPopulate to false to avoid schema validation errors
-    mongoose.set('strictPopulate', false)
-    
-    // Ensure models are registered
-    if (!mongoose.models.Room) {
-      require('@/models/Room')
-    }
-    if (!mongoose.models.Booking) {
-      require('@/models/Booking')
-    }
-    if (!mongoose.models.User) {
-      require('@/models/User')
-    }
-    if (!mongoose.models.Payment) {
-      require('@/models/Payment')
-    }
 
-    // Find user document that matches the current session user
-    // รองรับทั้งกรณีที่ session.user.id เป็น ObjectId และ lineUserId
-    let user
-    if (mongoose.Types.ObjectId.isValid(session.user.id)) {
-      user = await User.findById(session.user.id)
-    } else {
-      user = await User.findOne({ lineUserId: session.user.id })
-    }
+    const user = await findSessionUser(session)
 
     // ถ้าไม่พบ user ให้ตอบเป็น 404 / 400 แทนที่จะปล่อยให้ไป error เป็น 500 ภายหลัง
     if (!user?._id) {
@@ -428,11 +365,8 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    const ObjectId = mongoose.Types.ObjectId
 
     // Check availability for camping block(s) or rooms
-    const CampingBlock = require('@/models/CampingBlock').default
-    const CampingBlockBlock = require('@/models/CampingBlockBlock').default
     
     // Cache for camping blocks to avoid duplicate queries
     const campingBlockCache = new Map<string, any>()
@@ -469,7 +403,7 @@ export async function POST(request: NextRequest) {
       
       // Check for camping block blocks (locks) in one query
       const allCampingBlockBlocks = await CampingBlockBlock.find({
-        campingBlockId: { $in: selectedCampingBlockIds.map(id => new mongoose.Types.ObjectId(id)) },
+        campingBlockId: { $in: selectedCampingBlockIds },
         isActive: true,
         $and: [
           { startDate: { $lt: checkOutDate } },
@@ -521,7 +455,7 @@ export async function POST(request: NextRequest) {
       
       // Check for camping block blocks (locks)
       const campingBlockBlocks = await CampingBlockBlock.find({
-        campingBlockId: new mongoose.Types.ObjectId(selectedCampingBlockId),
+        campingBlockId: selectedCampingBlockId,
         isActive: true,
         $and: [
           { startDate: { $lt: checkOutDate } },
@@ -540,15 +474,14 @@ export async function POST(request: NextRequest) {
     
     // Check room availability
     if (selectedRoomIds.length > 0) {
-      const RoomBlock = require('@/models/RoomBlock').default
       
       // Check availability for all selected rooms
       for (const roomIdToCheck of selectedRoomIds) {
         // Check for existing bookings
         const existingBookings = await Booking.find({
           $or: [
-            { roomId: new mongoose.Types.ObjectId(roomIdToCheck) },
-            { roomIds: new mongoose.Types.ObjectId(roomIdToCheck) }
+            { roomId: roomIdToCheck },
+            { roomIds: roomIdToCheck }
           ],
           status: { $in: ['CONFIRMED'] }, // Only check against confirmed bookings to prevent duplicate bookings
           $and: [
@@ -568,7 +501,7 @@ export async function POST(request: NextRequest) {
         
         // Check for room blocks (locks)
         const roomBlocks = await RoomBlock.find({
-          roomId: new mongoose.Types.ObjectId(roomIdToCheck),
+          roomId: roomIdToCheck,
           isActive: true,
           $and: [
             { startDate: { $lt: checkOutDate } },
@@ -616,7 +549,7 @@ export async function POST(request: NextRequest) {
     // Calculate price for rooms (can be combined with camping blocks)
     if (selectedRoomIds.length > 0) {
       const rooms = await Room.find({
-        _id: { $in: selectedRoomIds.map((id: string) => new mongoose.Types.ObjectId(id)) }
+        _id: { $in: selectedRoomIds }
       })
 
       // Calculate prices for each room
@@ -637,13 +570,12 @@ export async function POST(request: NextRequest) {
     // Use calculated price or provided price
     const finalTotalPrice = totalPrice || calculatedTotalPrice
 
-    
     // Determine booking status: manual bookings from admin are always CONFIRMED, others are PENDING
     const finalBookingStatus = isManualBooking ? 'CONFIRMED' : (bookingStatus || 'PENDING')
     
     // Process add-ons if provided
     const processedAddOns = body.addOns && Array.isArray(body.addOns) ? body.addOns.map((addOn: any) => ({
-      addOnId: new mongoose.Types.ObjectId(addOn.addOnId),
+      addOnId: addOn.addOnId,
       name: addOn.name,
       price: addOn.price,
       quantity: addOn.quantity || 1,
@@ -652,8 +584,7 @@ export async function POST(request: NextRequest) {
 
     // Create booking
     const bookingData: any = {
-      // userId ต้องเป็น ObjectId ที่ถูกต้องเสมอ (ผ่านการเช็คข้างบนแล้ว)
-      userId: new ObjectId(user._id),
+      userId: user._id,
       checkIn: checkInDate,
       checkOut: checkOutDate,
       totalPrice: finalTotalPrice,
@@ -672,21 +603,21 @@ export async function POST(request: NextRequest) {
     // Add camping block(s) data
     if (selectedCampingBlockIds.length > 0) {
       // Multiple camping blocks - store in a custom field (we'll need to add this to the model)
-      bookingData.campingBlockIds = selectedCampingBlockIds.map((id: string) => new mongoose.Types.ObjectId(id))
+      bookingData.campingBlockIds = selectedCampingBlockIds
       bookingData.guestCounts = selectedGuestCounts
       // For backward compatibility, also set guestCount to the sum
       bookingData.guestCount = selectedGuestCounts.reduce((sum, count) => sum + count, 0)
     } else if (selectedCampingBlockId) {
-      bookingData.campingBlockId = new mongoose.Types.ObjectId(selectedCampingBlockId)
+      bookingData.campingBlockId = selectedCampingBlockId
       bookingData.guestCount = guestCount
     }
     
     // Add room(s) data
     if (selectedRoomIds.length > 0) {
-      bookingData.roomId = new mongoose.Types.ObjectId(selectedRoomIds[0]) // Keep first room for backward compatibility
-      bookingData.roomIds = selectedRoomIds.map((id: string) => new mongoose.Types.ObjectId(id)) // Multiple rooms
+      bookingData.roomId = selectedRoomIds[0] // Keep first room for backward compatibility
+      bookingData.roomIds = selectedRoomIds // Multiple rooms
       bookingData.rooms = roomPrices.map(rp => ({
-        roomId: new mongoose.Types.ObjectId(rp.roomId),
+        roomId: rp.roomId,
         price: rp.price
       }))
     }
@@ -694,9 +625,6 @@ export async function POST(request: NextRequest) {
     const booking = new Booking(bookingData)
 
     await booking.save()
-    
-    // Verify discount was saved
-    const savedBooking = await Booking.findById(booking._id)
 
     // Populate for response
     await booking.populate('roomId', 'name description price capacity imageUrls pricing')
@@ -785,38 +713,19 @@ export async function POST(request: NextRequest) {
               )
             
             await Promise.allSettled(notificationPromises)
-            console.log(`Sent booking notification to ${ownerUsers.length} OWNER user(s) for manual booking`)
           }
         } catch (error) {
           // Log error but don't fail the booking creation
           console.error('Error sending LINE notifications to OWNER:', error)
         }
-      }).catch(err => {
-        console.error('Error in async LINE notification handler:', err)
       })
     }
 
     // Return response immediately (don't wait for LINE notifications)
     return NextResponse.json(transformedBooking, { status: 201 })
-  } 
-catch (error) {
-  console.error('Error creating booking:', error)
-  
-  // Handle specific error types
-  if (error instanceof mongoose.Error.CastError) {
-    return NextResponse.json({ 
-      error: `รูปแบบ ID ไม่ถูกต้อง: ${error.path}` 
-    }, { status: 400 })
+  } catch (error) {
+    return apiErrorResponse(error, 'ไม่สามารถสร้างการจองได้')
   }
-  
-  if (error instanceof mongoose.Error.ValidationError) {
-    return NextResponse.json({ 
-      error: 'ข้อมูลไม่ถูกต้อง', 
-      details: Object.values(error.errors).map(err => err.message)
-    }, { status: 400 })
-  }
-  
-  return NextResponse.json({ error: 'ไม่สามารถสร้างการจองได้' }, { status: 500 })
 }
-}
+
 

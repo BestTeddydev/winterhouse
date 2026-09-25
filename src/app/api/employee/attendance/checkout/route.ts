@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { apiErrorResponse, findSessionUser } from '@/lib/api-auth'
 import connectDB from '@/lib/db'
 import EmployeeAttendance from '@/models/EmployeeAttendance'
-import User from '@/models/User'
-import * as mongoose from '@/lib/odm'
 import { sendLineNotification } from '@/lib/line'
 
 export async function POST(request: NextRequest) {
@@ -23,12 +22,7 @@ export async function POST(request: NextRequest) {
     await connectDB()
 
     // Get employee user
-    let employee
-    if (mongoose.Types.ObjectId.isValid(session.user.id)) {
-      employee = await User.findById(session.user.id)
-    } else {
-      employee = await User.findOne({ lineUserId: session.user.id })
-    }
+    const employee = await findSessionUser(session)
 
     if (!employee) {
       return NextResponse.json({ error: 'ไม่พบข้อมูลพนักงาน' }, { status: 404 })
@@ -144,13 +138,8 @@ ${notes ? `📝 หมายเหตุออกงาน: ${notes}` : ''}
       attendance
     }, { status: 200 })
 
-  } catch (error: any) {
-    console.error('Error checking out:', error)
-    
-    return NextResponse.json({ 
-      error: 'ไม่สามารถเช็คเอาท์ได้',
-      details: error.message 
-    }, { status: 500 })
+  } catch (error) {
+    return apiErrorResponse(error, 'ไม่สามารถเช็คเอาท์ได้')
   }
 }
 

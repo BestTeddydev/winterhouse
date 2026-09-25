@@ -1,100 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ApiError, apiErrorResponse, requireSession } from '@/lib/api-auth'
 import connectDB from '@/lib/db'
 import User from '@/models/User'
 
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
+
 /**
- * GET /api/admin/users
- * ดึงรายการ users ทั้งหมด (เฉพาะ admin)
+ * GET /api/admin/users?role=EMPLOYEE
+ * รายชื่อ user (ADMIN / OWNER)
  */
 export async function GET(req: NextRequest) {
   try {
+    await requireSession('ADMIN', 'OWNER')
     await connectDB()
 
-    const { searchParams } = new URL(req.url)
-    const role = searchParams.get('role')
+    const role = req.nextUrl.searchParams.get('role')
+    const users = await User.find(role ? { role } : {}).lean()
 
-    const query: any = {}
-    if (role) {
-      query.role = role
-    }
-
-    const users = await User.find(query).select('-__v').lean()
-    
     return NextResponse.json({
       success: true,
-      users: users,
-      data: users // Keep backward compatibility
+      users,
+      data: users, // Keep backward compatibility
     })
-  } catch (error: any) {
-    console.error('Error fetching users:', error)
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error.message || 'Failed to fetch users' 
-      },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiErrorResponse(error, 'ไม่สามารถดึงข้อมูลผู้ใช้ได้')
   }
 }
 
 /**
  * POST /api/admin/users
- * สร้าง user ใหม่ (เฉพาะ admin)
+ * สร้าง user ใหม่ (ADMIN เท่านั้น)
  */
 export async function POST(req: NextRequest) {
   try {
+    await requireSession('ADMIN')
     await connectDB()
 
-    const body = await req.json()
-    const { name, email, lineUserId, role, image } = body
+    const { name, email, lineUserId, role, image } = await req.json()
+    if (!name || !email) throw new ApiError(400, 'ต้องระบุชื่อและอีเมล')
 
-    // Validate required fields
-    if (!name || !email) {
-      return NextResponse.json(
-        { success: false, error: 'Name and email are required' },
-        { status: 400 }
-      )
+    const conditions: Record<string, string>[] = [{ email }]
+    if (lineUserId) conditions.push({ lineUserId })
+    if (await User.findOne({ $or: conditions })) {
+      throw new ApiError(409, 'มีผู้ใช้อีเมลหรือ LINE ID นี้อยู่แล้ว')
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { lineUserId }] 
-    })
+    const user = await User.create({ name, email, lineUserId, role: role || 'CUSTOMER', image: image || '' })
 
-    if (existingUser) {
-      return NextResponse.json(
-        { success: false, error: 'User already exists with this email or LINE ID' },
-        { status: 409 }
-      )
-    }
-
-    // Create new user
-    const user = new User({
-      name,
-      email,
-      lineUserId,
-      role: role || 'CUSTOMER',
-      image: image || '',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    })
-
-    await user.save()
-
-    return NextResponse.json({
-      success: true,
-      data: user,
-      message: 'User created successfully'
-    })
-  } catch (error: any) {
-    console.error('Error creating user:', error)
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error.message || 'Failed to create user' 
-      },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: true, data: user, message: 'User created successfully' })
+  } catch (error) {
+    return apiErrorResponse(error, 'ไม่สามารถสร้างผู้ใช้ได้')
   }
 }
-

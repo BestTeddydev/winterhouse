@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react'
 import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Save, Package } from 'lucide-react'
+import { ArrowLeft, Save } from 'lucide-react'
 import Link from 'next/link'
 
 export default function EditAddOn() {

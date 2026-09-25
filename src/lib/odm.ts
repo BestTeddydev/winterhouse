@@ -29,7 +29,16 @@ function generateObjectId(): string {
   return time + processUnique + objectIdCounter.toString(16).padStart(6, '0')
 }
 
-export class ObjectId {
+// Document ids are 24-char hex strings (MongoDB ObjectId format, kept from the migrated data)
+export function isValidId(value: unknown): boolean {
+  return value instanceof ObjectId || (typeof value === 'string' && OBJECT_ID_PATTERN.test(value))
+}
+
+export function newId(): string {
+  return generateObjectId()
+}
+
+class ObjectId {
   private readonly hex: string
 
   constructor(id?: string | ObjectId | { _id: any } | null) {
@@ -44,8 +53,7 @@ export class ObjectId {
   }
 
   static isValid(value: unknown): boolean {
-    if (value instanceof ObjectId) return true
-    return typeof value === 'string' && OBJECT_ID_PATTERN.test(value)
+    return isValidId(value)
   }
 
   toHexString() {
@@ -87,13 +95,6 @@ export class ValidationError extends Error {
   constructor(public errors: Record<string, ValidatorError | CastError>) {
     super(`Validation failed: ${Object.values(errors).map((e) => `${(e as any).path}: ${e.message}`).join(', ')}`)
     this.name = 'ValidationError'
-  }
-}
-
-class DocumentNotFoundError extends Error {
-  constructor(collection: string, id: string) {
-    super(`No document found for ${collection}/${id}`)
-    this.name = 'DocumentNotFoundError'
   }
 }
 
@@ -1196,19 +1197,4 @@ export function model<T = any>(name: string, schema: Schema<T>): ModelClass {
   return registered
 }
 
-// Mongoose-compatible namespace: `import * as mongoose from '@/lib/odm'`
 export type Document = ModelDocument & { _id: any; createdAt?: Date; updatedAt?: Date }
-
-const ObjectIdClass = ObjectId
-type ObjectIdType = ObjectId
-
-export namespace Types {
-  export type ObjectId = ObjectIdType
-  export const ObjectId = ObjectIdClass
-}
-
-const errorClasses = { CastError, ValidationError, ValidatorError, DocumentNotFoundError }
-export { errorClasses as Error }
-
-// Mongoose options such as strictPopulate have no meaning here
-export function set(_option: string, _value: unknown) {}

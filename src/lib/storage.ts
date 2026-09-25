@@ -22,12 +22,3 @@ export async function uploadToStorage(file: Buffer, filename: string, contentTyp
     throw new Error('Failed to upload file to Firebase Storage')
   }
 }
-
-export async function deleteFromStorage(filename: string): Promise<void> {
-  try {
-    await getBucket().file(filename).delete()
-  } catch (error) {
-    console.error('Error deleting from Firebase Storage:', error)
-    throw new Error('Failed to delete file from Firebase Storage')
-  }
-}

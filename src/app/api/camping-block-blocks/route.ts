@@ -3,7 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import connectDB from '@/lib/db'
 import CampingBlockBlock from '@/models/CampingBlockBlock'
-import * as mongoose from '@/lib/odm'
+
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
 
 // GET - ดึงข้อมูลการล็อคบล็อคกางเต๊นท์ทั้งหมด
 export async function GET(request: NextRequest) {
@@ -25,7 +27,7 @@ export async function GET(request: NextRequest) {
     let query: any = {}
     
     if (campingBlockId) {
-      query.campingBlockId = new mongoose.Types.ObjectId(campingBlockId)
+      query.campingBlockId = campingBlockId
     }
     
     if (activeOnly) {
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     // Check if there's an overlapping block
     const overlappingBlock = await CampingBlockBlock.findOne({
-      campingBlockId: new mongoose.Types.ObjectId(campingBlockId),
+      campingBlockId: campingBlockId,
       isActive: true,
       $or: [
         {
@@ -113,12 +115,12 @@ export async function POST(request: NextRequest) {
     }
 
     const campingBlockBlock = new CampingBlockBlock({
-      campingBlockId: new mongoose.Types.ObjectId(campingBlockId),
+      campingBlockId: campingBlockId,
       startDate: start,
       endDate: end,
       reason: reason || '',
       isActive: true,
-      createdBy: session.user?.id ? new mongoose.Types.ObjectId(session.user.id) : undefined
+      createdBy: session.user?.id ? session.user.id : undefined
     })
 
     await campingBlockBlock.save()

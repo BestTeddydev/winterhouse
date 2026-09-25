@@ -1,100 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { apiErrorResponse, findSessionUser, isStaff, requireSession } from '@/lib/api-auth'
 import connectDB from '@/lib/db'
 import Booking from '@/models/Booking'
 import Payment from '@/models/Payment'
-import User from '@/models/User'
 import { createCheckoutSession, createQRCodePayment } from '@/lib/stripe'
-import * as mongoose from '@/lib/odm'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session) {
-      return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
-    }
-
-    const body = await request.json()
-    const { bookingId, source, paymentMethod, amount, paymentType } = body
+    const session = await requireSession()
+    const { bookingId, paymentMethod } = await request.json()
 
     await connectDB()
-    
-    // Set strictPopulate to false to avoid schema validation errors
-    mongoose.set('strictPopulate', false)
-    
-    // Ensure models are registered
-    if (!mongoose.models.Booking) {
-      require('@/models/Booking')
-    }
-    if (!mongoose.models.Payment) {
-      require('@/models/Payment')
-    }
-    if (!mongoose.models.Room) {
-      require('@/models/Room')
-    }
-    if (!mongoose.models.User) {
-      require('@/models/User')
-    }
 
-    // Get booking
     const booking = await Booking.findById(bookingId)
-      .populate({
-        path: 'paymentId',
-        model: 'Payment',
-        select: 'status amount'
-      })
-      .populate({
-        path: 'roomId',
-        model: 'Room',
-        select: 'name description price'
-      })
+      .populate('paymentId', 'status amount')
+      .populate('roomId', 'name description price')
 
     if (!booking) {
       return NextResponse.json({ error: 'ไม่พบข้อมูลการจอง' }, { status: 404 })
     }
 
-    // Calculate payment amount based on payment type
-    const paymentAmount = amount || (paymentType === 'PARTIAL' 
-      ? Math.round(booking.totalPrice * 0.5) 
-      : booking.totalPrice)
-
-    // Check if booking is pending payment - if not, it might be a remaining payment
-    const isInitialPayment = booking.status === 'PENDING'
-
-   
-    // Check if user has permission to access this booking
-    const bookingUserId = booking.userId instanceof mongoose.Types.ObjectId 
-      ? booking.userId 
-      : new mongoose.Types.ObjectId(booking.userId._id || booking.userId)
-    
-    // Query user based on session.user.id
-    // If session.user.id is a valid ObjectId, query by _id
-    // Otherwise, query by lineUserId
-    let user
-    if (mongoose.Types.ObjectId.isValid(session.user.id)) {
-      user = await User.findById(session.user.id)
-    } else {
-      user = await User.findOne({ lineUserId: session.user.id })
+    // Customers may only pay for their own bookings
+    if (!isStaff(session)) {
+      const user = await findSessionUser(session)
+      if (!user || String(booking.userId) !== user._id) {
+        return NextResponse.json({ error: 'ไม่มีสิทธิ์เข้าถึงการจองนี้' }, { status: 403 })
+      }
     }
-    
-    // if (!user) {
-    //   return NextResponse.json({ error: 'ไม่พบผู้ใช้ในระบบ' }, { status: 404 })
-    // }
-    
-    const sessionUserId = user._id
-    console.log(session.user.id,user?._id);
-    
-    // Allow both CUSTOMER (their own booking) and ADMIN
-    // if (session.user.role === 'CUSTOMER' && bookingUserId.toString() !== sessionUserId.toString()) {
-    //   console.error('Payment permission denied:', {
-    //     sessionUserId: sessionUserId.toString(),
-    //     bookingUserId: bookingUserId.toString(),
-    //     sessionRole: session.user.role
-    //   })
-    //   return NextResponse.json({ error: 'ไม่มีสิทธิ์เข้าถึงการจองนี้' }, { status: 403 })
-    // }
+
+    // The amount is always derived from the booking; never trust an amount sent by the client
+    const paymentType = booking.paymentType === 'PARTIAL' ? 'PARTIAL' : 'FULL'
+    const paymentAmount = paymentType === 'PARTIAL' ? Math.round(booking.totalPrice * 0.5) : booking.totalPrice
 
     if (!booking.paymentId) {
       return NextResponse.json({ error: 'ไม่พบข้อมูลการชำระเงิน' }, { status: 404 })
@@ -120,7 +56,7 @@ export async function POST(request: NextRequest) {
           metadata: {
             bookingId: bookingId.toString(),
             userId: session.user.id,
-            paymentType: paymentType || 'FULL',
+            paymentType,
           },
         })
 
@@ -149,7 +85,7 @@ export async function POST(request: NextRequest) {
           metadata: {
             bookingId: bookingId.toString(),
             userId: session.user.id,
-            paymentType: paymentType || 'FULL',
+            paymentType,
           },
           success_url: `${process.env.NEXT_PUBLIC_APP_URL}/bookings?payment=success&booking=${bookingId}`,
           cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/bookings/${bookingId}/payment-result?canceled=true`,
@@ -178,30 +114,7 @@ export async function POST(request: NextRequest) {
 
       throw error
     }
-  } catch (error: any) {
-    console.error('Error processing payment:', error)
-    
-    // More detailed error logging
-    if (error.response) {
-      console.error('Payment API Error Response:', error.response.data)
-      console.error('Status:', error.response.status)
-    } else if (error.request) {
-      console.error('Network Error:', error.request)
-    } else {
-      console.error('Error Message:', error.message)
-    }
-    
-    // Return more specific error message
-    let errorMessage = 'ไม่สามารถดำเนินการชำระเงินได้'
-    if (error.response?.data?.message) {
-      errorMessage = error.response.data.message
-    } else if (error.message) {
-      errorMessage = error.message
-    }
-    
-    return NextResponse.json(
-      { error: errorMessage, details: error.response?.data || error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiErrorResponse(error, 'ไม่สามารถดำเนินการชำระเงินได้')
   }
 }

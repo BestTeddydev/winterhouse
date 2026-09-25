@@ -3,7 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import connectDB from '@/lib/db'
 import RoomBlock from '@/models/RoomBlock'
-import * as mongoose from '@/lib/odm'
+
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
 
 // GET - ดึงข้อมูลการล็อคห้องทั้งหมด
 export async function GET(request: NextRequest) {
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest) {
     let query: any = {}
     
     if (roomId) {
-      query.roomId = new mongoose.Types.ObjectId(roomId)
+      query.roomId = roomId
     }
     
     if (activeOnly) {
@@ -61,7 +63,7 @@ export async function GET(request: NextRequest) {
       .sort({ startDate: 1 })
 
     // Transform the data to ensure roomId is always a string for consistent comparison
-    // This handles both populated (object with _id) and non-populated (ObjectId) cases
+    // This handles both populated (object with _id) and non-populated (id string) cases
     const transformedBlocks = blocks.map(block => {
       const blockObj = block.toObject ? block.toObject() : block
       
@@ -69,10 +71,10 @@ export async function GET(request: NextRequest) {
       let roomIdStr: string
       if (blockObj.roomId) {
         if (typeof blockObj.roomId === 'object' && '_id' in blockObj.roomId) {
-          // Populated: { _id: ObjectId, name: string }
+          // Populated: { _id: string, name: string }
           roomIdStr = (blockObj.roomId as any)._id.toString()
         } else {
-          // Non-populated: ObjectId
+          // Non-populated: id string
           roomIdStr = blockObj.roomId.toString()
         }
       } else {
@@ -124,7 +126,7 @@ export async function POST(request: NextRequest) {
 
     // Check if there's an overlapping block
     const overlappingBlock = await RoomBlock.findOne({
-      roomId: new mongoose.Types.ObjectId(roomId),
+      roomId: roomId,
       isActive: true,
       $or: [
         {
@@ -148,12 +150,12 @@ export async function POST(request: NextRequest) {
     }
 
     const roomBlock = new RoomBlock({
-      roomId: new mongoose.Types.ObjectId(roomId),
+      roomId: roomId,
       startDate: start,
       endDate: end,
       reason: reason || '',
       isActive: true,
-      createdBy: session.user?.id ? new mongoose.Types.ObjectId(session.user.id) : undefined
+      createdBy: session.user?.id ? session.user.id : undefined
     })
 
     await roomBlock.save()

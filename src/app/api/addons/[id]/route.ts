@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { apiErrorResponse } from '@/lib/api-auth'
 import connectDB from '@/lib/db'
 import AddOn from '@/models/AddOn'
-import * as mongoose from '@/lib/odm'
+import { isValidId } from '@/lib/odm'
+
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -17,14 +21,9 @@ export async function GET(
     }
 
     await connectDB()
-    
-    // Ensure model is registered
-    if (!mongoose.models.AddOn) {
-      require('@/models/AddOn')
-    }
 
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    // Validate id format
+    if (!isValidId(params.id)) {
       return NextResponse.json({ error: 'รูปแบบ AddOn ID ไม่ถูกต้อง' }, { status: 400 })
     }
 
@@ -58,14 +57,9 @@ export async function PUT(
     }
 
     await connectDB()
-    
-    // Ensure model is registered
-    if (!mongoose.models.AddOn) {
-      require('@/models/AddOn')
-    }
 
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    // Validate id format
+    if (!isValidId(params.id)) {
       return NextResponse.json({ error: 'รูปแบบ AddOn ID ไม่ถูกต้อง' }, { status: 400 })
     }
 
@@ -113,21 +107,12 @@ export async function PUT(
 
     return NextResponse.json(addOn, { status: 200 })
   } catch (error: any) {
-    console.error('Error updating add-on:', error)
-    
-    if (error instanceof mongoose.Error.ValidationError) {
-      return NextResponse.json({ 
-        error: 'ข้อมูลไม่ถูกต้อง', 
-        details: Object.values(error.errors).map(err => err.message)
-      }, { status: 400 })
-    }
-    
-    return NextResponse.json({ error: 'ไม่สามารถแก้ไขอ๊อฟชั่นเสริมได้' }, { status: 500 })
+    return apiErrorResponse(error, 'ไม่สามารถแก้ไขอ๊อฟชั่นเสริมได้')
   }
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -143,14 +128,9 @@ export async function DELETE(
     }
 
     await connectDB()
-    
-    // Ensure model is registered
-    if (!mongoose.models.AddOn) {
-      require('@/models/AddOn')
-    }
 
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    // Validate id format
+    if (!isValidId(params.id)) {
       return NextResponse.json({ error: 'รูปแบบ AddOn ID ไม่ถูกต้อง' }, { status: 400 })
     }
 

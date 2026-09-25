@@ -1,13 +1,12 @@
-import * as mongoose from '@/lib/odm'
-import { Document, Schema } from '@/lib/odm'
+import { Document, Schema, model } from '@/lib/odm'
 
 export interface IRoomBlock extends Document {
-  roomId: mongoose.Types.ObjectId
+  roomId: string
   startDate: Date
   endDate: Date
   reason?: string // เหตุผลในการล็อค เช่น "ซ่อมแซม", "ปิดใช้งานชั่วคราว"
   isActive: boolean
-  createdBy: mongoose.Types.ObjectId
+  createdBy: string
   createdAt: Date
   updatedAt: Date
 }
@@ -52,5 +51,5 @@ const RoomBlockSchema = new Schema<IRoomBlock>({
 RoomBlockSchema.index({ roomId: 1, startDate: 1, endDate: 1 })
 RoomBlockSchema.index({ isActive: 1, startDate: 1, endDate: 1 })
 
-export default mongoose.models.RoomBlock || mongoose.model<IRoomBlock>('RoomBlock', RoomBlockSchema)
+export default model<IRoomBlock>('RoomBlock', RoomBlockSchema)
 

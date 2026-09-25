@@ -7,7 +7,6 @@ import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { formatCurrency } from '@/lib/utils'
-import { loadStripe } from '@stripe/stripe-js'
 
 export default function RemainingPayment() {
   const params = useParams()

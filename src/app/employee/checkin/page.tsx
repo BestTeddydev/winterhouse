@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -13,19 +12,15 @@ import {
   XCircle,
   MapPin,
   FileText,
-  Calendar,
   User,
   AlertCircle,
   LogOut
 } from 'lucide-react'
-import Image from 'next/image'
 
 export default function EmployeeCheckIn() {
   const { data: session } = useSession()
-  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
-  const [checkingToday, setCheckingToday] = useState(false)
   const [todayAttendance, setTodayAttendance] = useState<any>(null)
   const [formData, setFormData] = useState({
     location: '',
@@ -72,7 +67,6 @@ export default function EmployeeCheckIn() {
 
     try {
       setLoading(true)
-      setCheckingToday(true)
 
       const response = await axios.post('/api/employee/attendance/checkin', {
         location: formData.location,
@@ -94,7 +88,6 @@ export default function EmployeeCheckIn() {
       }
     } finally {
       setLoading(false)
-      setCheckingToday(false)
     }
   }
 

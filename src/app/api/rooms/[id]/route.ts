@@ -3,10 +3,12 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import connectDB from '@/lib/db'
 import Room from '@/models/Room'
-import * as mongoose from '@/lib/odm'
+
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -111,7 +113,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {

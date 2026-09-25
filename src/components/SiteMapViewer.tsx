@@ -54,10 +54,6 @@ export default function SiteMapViewer({
     setImageError(false)
   }, [imageUrl])
 
-  console.log('SiteMapViewer - ImageUrl:', imageUrl)
-  console.log('SiteMapViewer - Hotspots:', hotspots)
-  console.log('SiteMapViewer - Selected Building:', selectedBuilding)
-
   // Check if room is locked
   const isRoomLocked = (roomId: string): boolean => {
     if (!checkInDate || !checkOutDate || roomBlocks.length === 0) return false
@@ -139,9 +135,6 @@ export default function SiteMapViewer({
         // Check if booked
         let isBooked = false
         if (roomBookings) {
-          const selectedCheckIn = new Date(checkInDate)
-          const selectedCheckOut = new Date(checkOutDate)
-          
           isBooked = roomBookings.some((booking: any) => {
             if (!['PENDING', 'CONFIRMED'].includes(booking.status)) return false
             
@@ -355,7 +348,7 @@ export default function SiteMapViewer({
             />
 
             {/* Building Hotspots */}
-            {!imageError && hotspots.map((hotspot, index) => {
+            {!imageError && hotspots.map((hotspot) => {
               const icon = buildingTypes[hotspot.buildingType as keyof typeof buildingTypes] || '📍'
               const roomCount = hotspot.rooms.length
               const availabilityStatus = getBuildingAvailabilityStatus(hotspot)
@@ -407,7 +400,6 @@ export default function SiteMapViewer({
                       transform: 'translate(-50%, -50%)'
                     }}
                     onClick={() => {
-                      console.log('Hotspot clicked:', hotspot)
                       onBuildingSelect(hotspot)
                     }}
                     title={`${hotspot.buildingName} - ${availabilityStatus === 'available' ? 'ว่าง' : availabilityStatus === 'partial' ? 'เกือบเต็ม' : availabilityStatus === 'locked' ? 'ถูกล็อค' : 'เต็มแล้ว'}`}

@@ -1,271 +1,52 @@
-# Winterhouse - ระบบจองห้องพักออนไลน์
+# บ้านลมหนาว (Winterhouse) — ระบบจองห้องพัก / ลานกางเต็นท์
 
-ระบบจองห้องพักที่ทันสมัย พร้อมฟีเจอร์ครบครัน รองรับการเข้าสู่ระบบด้วย LINE Login, การชำระเงินผ่าน Stripe Payment Gateway, และระบบแจ้งเตือนผ่าน LINE Messaging API
+Next.js 14 (App Router) + Firestore + Firebase Storage, เข้าสู่ระบบด้วย LINE, ชำระเงินผ่าน Stripe
 
-## ✨ คุณสมบัติหลัก
+## โครงสร้าง
 
-### สำหรับลูกค้า
-- 🔐 **LINE Login SSO** - เข้าสู่ระบบง่ายด้วยบัญชี LINE
-- 🏠 **เลือกห้องพักพร้อม Hotspot** - คลิกดูรายละเอียดจุดสนใจต่างๆ บนรูปห้องพัก
-- 📅 **ตรวจสอบห้องว่าง** - เช็คความพร้อมของห้องตามวันที่ต้องการ
-- 💳 **ชำระเงินออนไลน์** - รองรับบัตรเครดิต/เดบิต และ PromptPay ผ่าน Stripe
-- 🔔 **แจ้งเตือนผ่าน LINE** - รับการอัพเดทสถานะการจองทันที
-- 📱 **Responsive Design** - ใช้งานได้ทุกอุปกรณ์
+| ส่วน | ที่อยู่ |
+|---|---|
+| หน้าเว็บ (ลูกค้า / แอดมิน / เจ้าของ / พนักงาน) | `src/app/**/page.tsx` |
+| API | `src/app/api/**/route.ts` |
+| Model (schema, validation) | `src/models/*.ts` |
+| Model layer บน Firestore (API แบบ Mongoose: `find`, `populate`, `save`, ...) | `src/lib/odm.ts` |
+| Firebase Admin SDK (Firestore / Storage) | `src/lib/firebase.ts` |
+| สิทธิ์ใน API (`requireSession`, `findSessionUser`, `apiErrorResponse`) | `src/lib/api-auth.ts` |
+| สิทธิ์ของหน้าเว็บ | `src/middleware.ts` |
+| LINE Login (NextAuth) | `src/lib/auth.ts` |
+| อัปโหลดรูป | `src/lib/storage.ts`, `src/app/api/upload/route.ts` |
+| Security rules | `firestore.rules`, `storage.rules` |
 
-### สำหรับแอดมิน
-- 🎨 **Hotspot Editor** - สร้างและจัดการจุดสนใจบนรูปห้องพักแบบ Interactive
-- 📊 **จัดการห้องพัก** - เพิ่ม แก้ไข ลบ และเปิด/ปิดห้องพัก
-- 📋 **จัดการการจอง** - ดูและอัพเดทสถานะการจองทั้งหมด
-- 🔔 **แจ้งเตือนอัตโนมัติ** - รับแจ้งเตือนเมื่อมีการจองใหม่
+บทบาทผู้ใช้: `CUSTOMER` (ค่าเริ่มต้น), `EMPLOYEE`, `OWNER`, `ADMIN`
 
-## 🚀 เทคโนโลยีที่ใช้
+## รันบนเครื่อง
 
-- **Frontend**: Next.js 14, React 18, TypeScript, Tailwind CSS
-- **Backend**: Next.js API Routes
-- **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: NextAuth.js with LINE Provider
-- **Payment**: Stripe Payment Gateway
-- **Notifications**: LINE Messaging API
-- **State Management**: React Query, Zustand
-- **UI Components**: Custom components with Tailwind CSS
-
-## 📋 ความต้องการของระบบ
-
-- Node.js 18+ 
-- PostgreSQL 14+
-- บัญชี LINE Developers (สำหรับ LINE Login และ Messaging API)
-- บัญชี Stripe (สำหรับ Payment Gateway)
-
-## 🛠️ การติดตั้ง
-
-### 1. Clone โปรเจกต์
-
-```bash
-git clone <repository-url>
-cd winterhouse
-```
-
-### 2. ติดตั้ง Dependencies
+ต้องใช้ Node.js 22+
 
 ```bash
 npm install
-```
-
-### 3. ตั้งค่า Environment Variables
-
-สร้างไฟล์ `.env` ในโฟลเดอร์ root และกรอกข้อมูลดังนี้:
-
-```env
-# Database
-DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/winterhouse?schema=public"
-
-# NextAuth
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="your-nextauth-secret-key-here"
-
-# LINE Login
-LINE_CHANNEL_ID="your-line-channel-id"
-LINE_CHANNEL_SECRET="your-line-channel-secret"
-
-# LINE Messaging API
-LINE_CHANNEL_ACCESS_TOKEN="your-line-messaging-api-access-token"
-LINE_ADMIN_USER_ID="admin-line-user-id"
-
-# Stripe
-STRIPE_PUBLIC_KEY="your-stripe-public-key"
-STRIPE_SECRET_KEY="your-stripe-secret-key"
-
-# App
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-NEXT_PUBLIC_STRIPE_PUBLIC_KEY="your-stripe-public-key"
-```
-
-### 4. ตั้งค่า Database
-
-```bash
-# สร้าง Database
-npx prisma db push
-
-# หรือใช้ Migration
-npx prisma migrate dev --name init
-
-# Generate Prisma Client
-npx prisma generate
-```
-
-### 5. เริ่มต้นใช้งาน
-
-```bash
+cp .env.example .env.local   # แล้วใส่ค่า
+# วาง service account key ของ Firebase ไว้ที่ secrets/baanlomnow-firebase.json
 npm run dev
 ```
 
-เปิดเบราว์เซอร์ที่ [http://localhost:3000](http://localhost:3000)
-
-## 📱 การตั้งค่า LINE Login
-
-### 1. สร้าง LINE Login Channel
-
-1. ไปที่ [LINE Developers Console](https://developers.line.biz/console/)
-2. สร้าง Provider ใหม่ (ถ้ายังไม่มี)
-3. สร้าง Channel ประเภท "LINE Login"
-4. ตั้งค่า Callback URL: `http://localhost:3000/api/auth/callback/line`
-5. คัดลอก Channel ID และ Channel Secret ไปใส่ใน `.env`
-
-### 2. ตั้งค่า LINE Messaging API
-
-1. ไปที่ [LINE Developers Console](https://developers.line.biz/console/)
-2. สร้าง Channel ประเภท "Messaging API"
-3. Issue Channel Access Token
-4. คัดลอก Channel Access Token ไปใส่ใน `.env`
-5. เพิ่ม Webhook URL (ถ้าต้องการ): `https://your-domain.com/api/webhooks/line`
-
-## 💳 การตั้งค่า Stripe Payment Gateway
-
-### 1. สร้างบัญชี Stripe
-
-1. ไปที่ [Stripe Dashboard](https://dashboard.stripe.com/)
-2. สร้างบัญชีและทำการยืนยันตัวตน
-3. ไปที่ Keys เพื่อดู Public Key และ Secret Key
-4. คัดลอก Keys ทั้งสองไปใส่ใน `.env`
-
-### 2. ตั้งค่า Webhook (Optional)
-
-1. ไปที่ Webhooks ใน Stripe Dashboard
-2. เพิ่ม Webhook URL: `https://your-domain.com/api/payments/webhook`
-3. เลือก Events: `payment_intent.succeeded`
-
-## 🏗️ โครงสร้างโปรเจกต์
-
-```
-winterhouse/
-├── app/                      # Next.js App Router
-│   ├── api/                 # API Routes
-│   │   ├── auth/           # Authentication endpoints
-│   │   ├── rooms/          # Room management
-│   │   ├── bookings/       # Booking management
-│   │   └── payments/       # Payment processing
-│   ├── admin/              # Admin pages
-│   │   ├── rooms/         # Room management UI
-│   │   └── bookings/      # Booking management UI
-│   ├── auth/              # Auth pages
-│   ├── bookings/          # Customer booking pages
-│   └── rooms/             # Room listing & details
-├── components/             # Reusable components
-│   ├── Navbar.tsx
-│   ├── HotspotImage.tsx
-│   ├── HotspotEditor.tsx
-│   └── RoomCard.tsx
-├── lib/                    # Utilities & configurations
-│   ├── auth.ts            # NextAuth config
-│   ├── prisma.ts          # Prisma client
-│   ├── stripe.ts          # Stripe integration
-│   ├── line.ts            # LINE messaging
-│   └── utils.ts           # Helper functions
-├── prisma/
-│   └── schema.prisma      # Database schema
-└── types/                 # TypeScript type definitions
-```
-
-## 📊 Database Schema
-
-### Models
-
-- **User** - ผู้ใช้งานระบบ (ADMIN, CUSTOMER)
-- **Room** - ห้องพัก พร้อม hotspots
-- **Booking** - การจอง
-- **Payment** - การชำระเงิน
-- **Account, Session** - NextAuth tables
-
-## 🎨 Hotspot Feature
-
-ระบบ Hotspot ช่วยให้แอดมินสร้างจุดสนใจบนรูปห้องพักได้แบบ Interactive:
-
-1. **สำหรับแอดมิน**:
-   - คลิก "เพิ่มจุดสนใจ"
-   - คลิกบนรูปภาพเพื่อวางจุด hotspot
-   - กรอกหัวข้อและรายละเอียด
-   - บันทึก
-
-2. **สำหรับลูกค้า**:
-   - เห็นจุด hotspot เป็นวงกลมสีน้ำเงิน
-   - คลิกเพื่อดูรายละเอียด
-   - ปิดโดยคลิก X
-
-## 💰 Payment Flow
-
-1. ลูกค้าเลือกห้องและวันที่ต้องการ
-2. กรอกข้อมูลผู้เข้าพัก
-3. เลือกวิธีชำระเงิน (บัตรเครดิต/PromptPay)
-4. ระบบสร้าง payment intent ผ่าน Stripe
-5. ลูกค้าชำระเงิน
-6. ระบบอัพเดทสถานะและแจ้งเตือนผ่าน LINE
-
-## 🔔 LINE Notification
-
-### การแจ้งเตือนที่มี:
-
-- **แจ้งแอดมิน**: เมื่อมีการจองใหม่
-- **แจ้งลูกค้า**: เมื่อสถานะการจองเปลี่ยน (CONFIRMED, CANCELLED, COMPLETED)
-
-## 👨‍💼 การสร้าง Admin User
-
-เนื่องจากระบบใช้ LINE Login แบบ SSO ต้องทำการอัพเดท role ใน database โดยตรง:
-
-```sql
-UPDATE "User" 
-SET role = 'ADMIN' 
-WHERE email = 'your-email@example.com';
-```
-
-หรือใช้ Prisma Studio:
+ถ้าไม่อยากต่อ Firestore จริงระหว่างพัฒนา ใช้ Firestore emulator ได้:
 
 ```bash
-npx prisma studio
+docker run -d --rm -p 8089:8080 gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators \
+  gcloud emulators firestore start --host-port=0.0.0.0:8080
+FIRESTORE_EMULATOR_HOST=localhost:8089 npm run dev
 ```
 
-## 🚀 Production Deployment
+## Scripts
 
-### 1. Deploy บน Vercel
+| คำสั่ง | ใช้ทำอะไร |
+|---|---|
+| `node scripts/create-admin-user.js --email a@b.com --name "Admin"` | สร้าง / เลื่อนผู้ใช้เป็น ADMIN |
+| `node scripts/migrate-to-firebase.js [--dry-run]` | ย้ายข้อมูลจาก MongoDB + GCS เดิมมา Firestore / Firebase Storage (ใช้ตอน cutover) |
 
-```bash
-# Install Vercel CLI
-npm i -g vercel
+## Deploy
 
-# Deploy
-vercel
-```
+ดู [DEPLOY_DIGITALOCEAN.md](DEPLOY_DIGITALOCEAN.md) — Docker Compose (app + Caddy HTTPS) บน droplet
 
-### 2. ตั้งค่า Environment Variables
-
-เพิ่ม Environment Variables ทั้งหมดใน Vercel Dashboard
-
-### 3. ตั้งค่า Database
-
-ใช้ Database Provider เช่น:
-- Supabase
-- Railway
-- Neon
-- PlanetScale
-
-### 4. อัพเดท URLs
-
-- อัพเดท `NEXTAUTH_URL` และ `NEXT_PUBLIC_APP_URL`
-- อัพเดท Callback URL ใน LINE Developers
-- อัพเดท Webhook URLs ใน Stripe
-
-## 📝 License
-
-MIT License
-
-## 🤝 Contributing
-
-Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
-
-## 📧 Support
-
-หากมีปัญหาหรือข้อสงสัย สามารถติดต่อได้ที่ [your-email@example.com]
-
----
-
-Made with ❤️ by Winterhouse Team
-
+การตั้งค่า LINE Login: [LINE_SETUP_GUIDE.md](LINE_SETUP_GUIDE.md)

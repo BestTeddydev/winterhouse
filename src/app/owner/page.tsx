@@ -21,13 +21,12 @@ import {
   Bed,
   ChevronLeft,
   ChevronRight,
-  Eye,
   Plus,
-  Settings,
+  
   TrendingUp,
   FileText,
-  Users,
-  MapPin
+  
+  
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'

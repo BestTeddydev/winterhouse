@@ -1,5 +1,4 @@
-import * as mongoose from '@/lib/odm'
-import { Document, Schema } from '@/lib/odm'
+import { Document, Schema, model } from '@/lib/odm'
 
 export interface IUser extends Document {
   name?: string
@@ -23,4 +22,4 @@ const UserSchema = new Schema<IUser>({
   timestamps: true,
 })
 
-export default mongoose.models.User || mongoose.model<IUser>('User', UserSchema)
+export default model<IUser>('User', UserSchema)

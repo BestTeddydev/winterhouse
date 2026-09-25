@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/db'
 import Room from '@/models/Room'
-import { calculateRoomPriceRange, getRoomPriceForDate, getPriceBreakdown } from '@/lib/pricing'
+import { calculateRoomPriceRange, getPriceBreakdown } from '@/lib/pricing'
+
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
 
 /**
  * POST /api/rooms/pricing

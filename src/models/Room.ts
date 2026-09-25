@@ -1,5 +1,4 @@
-import * as mongoose from '@/lib/odm'
-import { Document, Schema } from '@/lib/odm'
+import { Document, Schema, model } from '@/lib/odm'
 
 export interface IRoom extends Document {
   name: string
@@ -21,7 +20,7 @@ export interface IRoom extends Document {
   }>
   capacity: number
   amenities: string[]
-  buildingId?: mongoose.Types.ObjectId
+  buildingId?: string
   isActive: boolean
   createdAt: Date
   updatedAt: Date
@@ -87,4 +86,4 @@ RoomSchema.index({ buildingId: 1 })
 RoomSchema.index({ isActive: 1 })
 RoomSchema.index({ price: 1 })
 
-export default mongoose.models.Room || mongoose.model<IRoom>('Room', RoomSchema)
+export default model<IRoom>('Room', RoomSchema)

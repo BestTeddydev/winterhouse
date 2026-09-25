@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import { formatDateTime } from '@/lib/utils'
 import { 
   Clock,
   CheckCircle,
@@ -14,7 +13,6 @@ import {
   AlertCircle,
   MapPin,
   FileText,
-  Calendar,
   User,
   Filter,
   Search,
@@ -22,7 +20,6 @@ import {
   ChevronRight,
   BarChart3
 } from 'lucide-react'
-import Image from 'next/image'
 import Link from 'next/link'
 
 export default function AdminEmployeeAttendance() {

@@ -6,10 +6,9 @@ import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import { formatCurrency, formatDateTime } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import { 
   Calendar, 
-  User, 
   Phone, 
   Mail, 
   Clock, 
@@ -17,7 +16,7 @@ import {
   XCircle, 
   AlertCircle,
   DollarSign,
-  MapPin,
+  
   CalendarDays,
   ArrowRight,
   Home,

@@ -7,8 +7,8 @@ import Navbar from '@/components/Navbar'
 import HotspotImage from '@/components/HotspotImage'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import { formatCurrency, formatDate } from '@/lib/utils'
-import { Users, Wifi, Coffee, Tv, Calendar } from 'lucide-react'
+import { formatCurrency } from '@/lib/utils'
+import { Users } from 'lucide-react'
 
 interface Room {
   id: string

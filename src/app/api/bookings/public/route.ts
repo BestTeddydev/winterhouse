@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiErrorResponse } from '@/lib/api-auth'
 import connectDB from '@/lib/db'
 import Booking from '@/models/Booking'
-import * as mongoose from '@/lib/odm'
 
-export async function GET(request: NextRequest) {
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
+
+export async function GET(_request: NextRequest) {
   try {
     await connectDB()
-    
-    // Set strictPopulate to false to avoid schema validation errors
-    mongoose.set('strictPopulate', false)
-    
-    // Ensure models are registered
-    if (!mongoose.models.Room) {
-      require('@/models/Room')
-    }
-    if (!mongoose.models.Booking) {
-      require('@/models/Booking')
-    }
 
     // Fetch only confirmed bookings - PENDING bookings don't count as booked until payment is completed
     const bookings = await Booking.find({
@@ -26,28 +18,12 @@ export async function GET(request: NextRequest) {
     // Transform the data to match frontend expectations
     const transformedBookings = bookings.map(booking => ({
       ...booking,
-      id: (booking._id as mongoose.Types.ObjectId).toString()
+      id: booking._id
     }))
 
     return NextResponse.json(transformedBookings)
   } catch (error) {
-    console.error('Error fetching public bookings:', error)
-    
-    // Handle specific error types
-    if (error instanceof mongoose.Error.CastError) {
-      return NextResponse.json({ 
-        error: `รูปแบบ ID ไม่ถูกต้อง: ${error.path}` 
-      }, { status: 400 })
-    }
-    
-    if (error instanceof mongoose.Error.ValidationError) {
-      return NextResponse.json({ 
-        error: 'ข้อมูลไม่ถูกต้อง', 
-        details: Object.values(error.errors).map(err => err.message)
-      }, { status: 400 })
-    }
-    
-    return NextResponse.json({ error: 'ไม่สามารถดึงข้อมูลการจองได้' }, { status: 500 })
+    return apiErrorResponse(error, 'ไม่สามารถดึงข้อมูลการจองได้')
   }
 }
 

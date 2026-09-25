@@ -1,5 +1,4 @@
-import * as mongoose from '@/lib/odm'
-import { Document, Schema } from '@/lib/odm'
+import { Document, Schema, model } from '@/lib/odm'
 
 export interface ICampingBlock extends Document {
   name: string
@@ -9,7 +8,7 @@ export interface ICampingBlock extends Document {
   maxCapacity: number // ความจุสูงสุด (จำนวนคน)
   minCapacity?: number // ความจุขั้นต่ำ (จำนวนคน)
   amenities: string[] // สิ่งอำนวยความสะดวก
-  buildingId?: mongoose.Types.ObjectId // เชื่อมโยงกับ Building (ถ้ามี)
+  buildingId?: string // เชื่อมโยงกับ Building (ถ้ามี)
   isActive: boolean
   createdAt: Date
   updatedAt: Date
@@ -67,5 +66,5 @@ CampingBlockSchema.index({ buildingId: 1 })
 CampingBlockSchema.index({ isActive: 1 })
 CampingBlockSchema.index({ pricePerPerson: 1 })
 
-export default mongoose.models.CampingBlock || mongoose.model<ICampingBlock>('CampingBlock', CampingBlockSchema)
+export default model<ICampingBlock>('CampingBlock', CampingBlockSchema)
 

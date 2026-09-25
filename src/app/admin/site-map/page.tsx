@@ -113,7 +113,6 @@ export default function AdminSiteMapPage() {
         }
       } catch (error) {
         // Site map doesn't exist yet, use default
-        console.log('No site map found, using default')
         setSiteMap({
           imageUrl: '/placeholder-map.jpg',
           hotspots: [],

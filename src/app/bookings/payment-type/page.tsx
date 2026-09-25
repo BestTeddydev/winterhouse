@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import Navbar from '@/components/Navbar'
 import { CreditCard, Percent, CheckCircle, ArrowLeft } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
@@ -21,7 +20,6 @@ interface BookingData {
 export default function PaymentTypeSelection() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { data: session } = useSession()
   const [selectedType, setSelectedType] = useState<'FULL' | 'PARTIAL' | null>(null)
   const [loading, setLoading] = useState(false)
   const [bookingData, setBookingData] = useState<BookingData | null>(null)

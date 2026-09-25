@@ -11,16 +11,14 @@ import { formatCurrency } from '@/lib/utils'
 import { 
   Calendar, 
   User, 
-  Phone, 
-  Mail, 
   MapPin,
   DollarSign,
   MessageSquare,
   Save,
   ArrowLeft,
-  Clock,
+  
   CreditCard,
-  AlertCircle,
+  
   CheckCircle,
   X,
   Upload,
@@ -60,7 +58,6 @@ export default function NewBooking() {
   const [selectedCampingBlocks, setSelectedCampingBlocks] = useState<Array<{ block: any; guestCount: number }>>([])
   const [paymentSlipFile, setPaymentSlipFile] = useState<File | null>(null)
   const [paymentSlipPreview, setPaymentSlipPreview] = useState<string | null>(null)
-  const [uploadingSlip, setUploadingSlip] = useState(false)
   const [addOns, setAddOns] = useState<any[]>([])
   const [selectedAddOns, setSelectedAddOns] = useState<Array<{ addOnId: string; name: string; price: number; quantity: number; unit?: string }>>([])
   const [bookingType, setBookingType] = useState<'room' | 'camping' | 'both'>('room')
@@ -160,14 +157,6 @@ export default function NewBooking() {
     }
   }, [session, router])
 
-  const handleRoomSelect = (room: Room) => {
-    setSelectedRoom(room)
-    setFormData(prev => ({
-      ...prev,
-      roomId: room.id,
-      totalPrice: room.price
-    }))
-  }
 
   const handleRoomToggle = (room: Room) => {
     setSelectedRooms(prev => {
@@ -383,8 +372,7 @@ export default function NewBooking() {
         bookingData.guestCount = selectedCampingBlocks.reduce((sum, item) => sum + item.guestCount, 0)
       }
 
-      console.log('Sending booking data:', bookingData)
-      const response = await axios.post('/api/bookings', bookingData)
+      await axios.post('/api/bookings', bookingData)
       toast.success('สร้างการจองสำเร็จ')
       router.push('/admin/bookings')
     } catch (error: any) {
@@ -441,7 +429,6 @@ export default function NewBooking() {
   const uploadPaymentSlip = async (): Promise<string | null> => {
     if (!paymentSlipFile) return null
 
-    setUploadingSlip(true)
     try {
       const formData = new FormData()
       formData.append('file', paymentSlipFile)
@@ -463,7 +450,6 @@ export default function NewBooking() {
       toast.error('ไม่สามารถอัปโหลดรูปภาพสลิปโอนเงินได้')
       return null
     } finally {
-      setUploadingSlip(false)
     }
   }
 

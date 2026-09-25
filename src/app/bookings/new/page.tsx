@@ -104,11 +104,9 @@ export default function NewBooking() {
 
   const fetchMultipleRooms = async () => {
     try {
-      console.log('Fetching multiple rooms:', roomIds)
       const roomPromises = roomIds.map(id => axios.get(`/api/rooms/${id}`))
       const responses = await Promise.all(roomPromises)
       const roomsData = responses.map(res => res.data)
-      console.log('Fetched rooms data:', roomsData)
       setRooms(roomsData)
       
       // Show first room as the primary display
@@ -154,7 +152,7 @@ export default function NewBooking() {
 
   const fetchMultipleCampingBlocks = async () => {
     try {
-      const blockPromises = campingBlockIds.map((id, index) => 
+      const blockPromises = campingBlockIds.map((id) => 
         axios.get(`/api/camping-blocks/${id}`)
       )
       const responses = await Promise.all(blockPromises)
@@ -311,7 +309,6 @@ export default function NewBooking() {
       }
 
       // Check if this is camping block(s), multi-room, or single-room booking
-      console.log('Submitting booking - campingBlocks:', campingBlocks, 'campingBlock:', campingBlock, 'rooms:', rooms, 'roomId:', roomId)
       
       // Handle multiple camping blocks
       if (campingBlocks.length > 0) {
@@ -335,7 +332,6 @@ export default function NewBooking() {
         const validRoomIds = rooms
           .map(r => r.id || r._id)
           .filter(id => id && id !== 'null' && typeof id === 'string')
-        console.log('Valid room IDs:', validRoomIds)
         
         if (validRoomIds.length > 0) {
           bookingData.roomIds = validRoomIds

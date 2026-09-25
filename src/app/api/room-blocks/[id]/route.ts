@@ -3,11 +3,13 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import connectDB from '@/lib/db'
 import RoomBlock from '@/models/RoomBlock'
-import * as mongoose from '@/lib/odm'
+
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
 
 // GET - ดึงข้อมูลการล็อคห้องตาม ID
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -109,7 +111,7 @@ export async function PUT(
 
 // DELETE - ลบการล็อคห้อง
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {

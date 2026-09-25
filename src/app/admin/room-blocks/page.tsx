@@ -7,7 +7,6 @@ import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { 
-  Calendar, 
   Lock, 
   Plus, 
   Edit, 
@@ -15,7 +14,7 @@ import {
   X,
   Save,
   ArrowLeft,
-  AlertCircle,
+  
   CheckCircle
 } from 'lucide-react'
 

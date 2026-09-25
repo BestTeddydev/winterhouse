@@ -7,15 +7,14 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import { 
   Plus, 
-  Edit, 
   Trash2, 
-  Eye, 
-  EyeOff, 
+  
+  
   Search, 
-  Filter, 
+  
   Building2,
   MapPin,
-  MoreVertical
+  
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -39,7 +38,6 @@ export default function AdminBuildings() {
     // Middleware already handles authentication and authorization
     // Just fetch the buildings data
     if (session && session.user) {
-      console.log('✅ Admin buildings - User authenticated')
       fetchBuildings()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

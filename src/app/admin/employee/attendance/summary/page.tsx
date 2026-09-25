@@ -6,27 +6,22 @@ import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import { formatDateTime } from '@/lib/utils'
 import { 
   Clock,
   CheckCircle,
   XCircle,
-  AlertCircle,
-  MapPin,
-  FileText,
   Calendar,
   User,
-  Filter,
+  
   Search,
   TrendingUp,
   TrendingDown,
-  Download,
+  
   Users,
-  BarChart3,
+  
   ArrowLeft
 } from 'lucide-react'
 import Link from 'next/link'
-import Image from 'next/image'
 
 export default function EmployeeAttendanceSummary() {
   const { data: session } = useSession()

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
 import Navbar from '@/components/Navbar'
@@ -9,7 +8,6 @@ import { publicAssetUrl } from '@/lib/storageUrl'
 import { 
   Coffee, 
   HomeIcon, 
-  Wifi, 
   Car, 
   Utensils, 
   Star, 

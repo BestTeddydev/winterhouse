@@ -1,11 +1,10 @@
-import * as mongoose from '@/lib/odm'
-import { Document, Schema } from '@/lib/odm'
+import { Document, Schema, model } from '@/lib/odm'
 
 export type PaymentStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'REFUNDED'
 export type PaymentType = 'FULL' | 'PARTIAL' | 'REMAINING'
 
 export interface IPayment extends Document {
-  bookingId: mongoose.Types.ObjectId
+  bookingId: string
   amount: number
   currency: string
   status: PaymentStatus
@@ -52,4 +51,4 @@ const PaymentSchema = new Schema<IPayment>({
   timestamps: true,
 })
 
-export default mongoose.models.Payment || mongoose.model<IPayment>('Payment', PaymentSchema)
+export default model<IPayment>('Payment', PaymentSchema)

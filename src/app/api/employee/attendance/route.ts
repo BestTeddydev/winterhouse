@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { apiErrorResponse, findSessionUser } from '@/lib/api-auth'
 import connectDB from '@/lib/db'
 import EmployeeAttendance from '@/models/EmployeeAttendance'
-import User from '@/models/User'
-import * as mongoose from '@/lib/odm'
+import { isValidId } from '@/lib/odm'
+
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,12 +31,7 @@ export async function GET(request: NextRequest) {
 
     // If user is EMPLOYEE, only show their own attendance
     if (session.user.role === 'EMPLOYEE') {
-      let employee
-      if (mongoose.Types.ObjectId.isValid(session.user.id)) {
-        employee = await User.findById(session.user.id)
-      } else {
-        employee = await User.findOne({ lineUserId: session.user.id })
-      }
+      const employee = await findSessionUser(session)
 
       if (!employee) {
         return NextResponse.json({ error: 'ไม่พบข้อมูลพนักงาน' }, { status: 404 })
@@ -42,8 +40,8 @@ export async function GET(request: NextRequest) {
       query.employeeId = employee._id
     } else if (session.user.role === 'ADMIN' || session.user.role === 'OWNER') {
       // Admin/Owner can see all or filter by employeeId
-      if (employeeId && mongoose.Types.ObjectId.isValid(employeeId)) {
-        query.employeeId = new mongoose.Types.ObjectId(employeeId)
+      if (employeeId && isValidId(employeeId)) {
+        query.employeeId = employeeId
       }
     } else {
       return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 403 })
@@ -94,12 +92,8 @@ export async function GET(request: NextRequest) {
       }
     })
 
-  } catch (error: any) {
-    console.error('Error fetching attendance:', error)
-    return NextResponse.json({ 
-      error: 'ไม่สามารถดึงข้อมูลการเช็คอินได้',
-      details: error.message 
-    }, { status: 500 })
+  } catch (error) {
+    return apiErrorResponse(error, 'ไม่สามารถดึงข้อมูลการเช็คอินได้')
   }
 }
 

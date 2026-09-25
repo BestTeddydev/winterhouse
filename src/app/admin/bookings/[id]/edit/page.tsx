@@ -12,13 +12,11 @@ import Image from 'next/image'
 import { 
   Calendar, 
   User, 
-  Phone, 
-  Mail, 
   Save,
   ArrowLeft,
-  Clock,
+  
   CreditCard,
-  AlertCircle,
+  
   Settings,
   MessageSquare,
   MapPin,

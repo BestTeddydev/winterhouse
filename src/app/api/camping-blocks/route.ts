@@ -2,20 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import connectDB from '@/lib/db'
-import * as mongoose from '@/lib/odm'
 import CampingBlock from '@/models/CampingBlock'
-import Building from '@/models/Building'
+
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
 
 // GET - ดึงข้อมูลบล็อคกางเต๊นท์ทั้งหมด
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     await connectDB()
-    
-    // Ensure Building model is registered
-    if (!mongoose.models.Building) {
-      require('@/models/Building')
-    }
-    
+
     const campingBlocks = await CampingBlock.find({ isActive: true })
       .populate('buildingId', 'name buildingType x y')
       .sort({ createdAt: 1 })

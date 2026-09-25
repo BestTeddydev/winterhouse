@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { apiErrorResponse } from '@/lib/api-auth'
 import connectDB from '@/lib/db'
 import AddOn from '@/models/AddOn'
-import * as mongoose from '@/lib/odm'
+
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,11 +17,6 @@ export async function GET(request: NextRequest) {
     }
 
     await connectDB()
-    
-    // Ensure model is registered
-    if (!mongoose.models.AddOn) {
-      require('@/models/AddOn')
-    }
 
     const { searchParams } = new URL(request.url)
     const activeOnly = searchParams.get('activeOnly') === 'true'
@@ -53,11 +51,6 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB()
-    
-    // Ensure model is registered
-    if (!mongoose.models.AddOn) {
-      require('@/models/AddOn')
-    }
 
     const body = await request.json()
     const { name, description, price, unit, isActive } = body
@@ -84,16 +77,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(addOn, { status: 201 })
   } catch (error: any) {
-    console.error('Error creating add-on:', error)
-    
-    if (error instanceof mongoose.Error.ValidationError) {
-      return NextResponse.json({ 
-        error: 'ข้อมูลไม่ถูกต้อง', 
-        details: Object.values(error.errors).map(err => err.message)
-      }, { status: 400 })
-    }
-    
-    return NextResponse.json({ error: 'ไม่สามารถสร้างอ๊อฟชั่นเสริมได้' }, { status: 500 })
+    return apiErrorResponse(error, 'ไม่สามารถสร้างอ๊อฟชั่นเสริมได้')
   }
 }
 

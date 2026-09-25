@@ -1,5 +1,4 @@
-import * as mongoose from '@/lib/odm'
-import { Document, Schema } from '@/lib/odm'
+import { Document, Schema, model } from '@/lib/odm'
 
 export interface ISiteMap extends Document {
   name: string
@@ -44,5 +43,5 @@ const SiteMapSchema = new Schema<ISiteMap>({
 // Index for efficient queries
 SiteMapSchema.index({ isActive: 1, type: 1 })
 
-export default mongoose.models.SiteMap || mongoose.model<ISiteMap>('SiteMap', SiteMapSchema)
+export default model<ISiteMap>('SiteMap', SiteMapSchema)
 

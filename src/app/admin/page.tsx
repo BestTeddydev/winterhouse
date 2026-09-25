@@ -8,8 +8,6 @@ import axios from 'axios'
 import { 
   Home, 
   Calendar, 
-  Settings, 
-  Users, 
   TrendingUp, 
   DollarSign,
   Clock,
@@ -17,7 +15,7 @@ import {
   AlertCircle,
   XCircle,
   Eye,
-  EyeOff,
+  
   MapPin,
   LogOut,
   UserCheck,
@@ -60,7 +58,6 @@ export default function AdminDashboard() {
     // Middleware already handles authentication and authorization
     // Just fetch the dashboard stats
     if (session && session.user) {
-      console.log('✅ Admin dashboard - User authenticated:', session.user.email, 'Role:', session.user.role)
       fetchDashboardStats()
       fetchAttendanceStats()
       fetchAddOnsStats()
@@ -443,8 +440,6 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
-
-       
 
         {/* Recent Activity */}
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 md:p-6">

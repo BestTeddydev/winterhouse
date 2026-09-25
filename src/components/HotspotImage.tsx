@@ -30,8 +30,6 @@ export default function HotspotImage({
   const [selectedHotspot, setSelectedHotspot] = useState<Hotspot | null>(null)
   const [imageError, setImageError] = useState(false)
 
-  console.log('HotspotImage props:', { imageUrl, hotspots: hotspots.length })
-
   const handleHotspotClick = (hotspot: Hotspot) => {
     setSelectedHotspot(hotspot)
     onHotspotClick?.(hotspot)
@@ -78,9 +76,7 @@ export default function HotspotImage({
         
         const icon = buildingTypes[hotspot.buildingType as keyof typeof buildingTypes] || '📍'
         const title = hotspot.buildingName || hotspot.title || `จุด ${index + 1}`
-        
-        console.log(`Hotspot ${index}: x=${hotspot.x}%, y=${hotspot.y}%, building=${hotspot.buildingName}`)
-        
+
         return (
           <div key={hotspot.id || index}>
             {/* Debug position indicator */}

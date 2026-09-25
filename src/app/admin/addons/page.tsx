@@ -14,7 +14,6 @@ import {
   Eye, 
   EyeOff,
   Package,
-  DollarSign
 } from 'lucide-react'
 import Link from 'next/link'
 

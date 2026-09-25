@@ -1,5 +1,4 @@
-import * as mongoose from '@/lib/odm'
-import { Document, Schema } from '@/lib/odm'
+import { Document, Schema, model } from '@/lib/odm'
 
 export interface IBuilding extends Document {
   name: string
@@ -58,4 +57,4 @@ const BuildingSchema = new Schema<IBuilding>({
 BuildingSchema.index({ isActive: 1 })
 BuildingSchema.index({ buildingType: 1 })
 
-export default mongoose.models.Building || mongoose.model<IBuilding>('Building', BuildingSchema)
+export default model<IBuilding>('Building', BuildingSchema)

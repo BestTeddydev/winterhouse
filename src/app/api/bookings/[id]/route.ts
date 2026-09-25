@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { apiErrorResponse, findSessionUser, isStaff } from '@/lib/api-auth'
 import connectDB from '@/lib/db'
+import { isValidId } from '@/lib/odm'
 import Booking from '@/models/Booking'
-import * as mongoose from '@/lib/odm'
-import User from '@/models/User'
+import Payment from '@/models/Payment'
+
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -18,29 +22,13 @@ export async function GET(
     }
 
     await connectDB()
-    
-    // Set strictPopulate to false to avoid schema validation errors
-    mongoose.set('strictPopulate', false)
-    
-    // Ensure models are registered
-    if (!mongoose.models.Room) {
-      require('@/models/Room')
-    }
-    if (!mongoose.models.Booking) {
-      require('@/models/Booking')
-    }
-    if (!mongoose.models.Payment) {
-      require('@/models/Payment')
-    }
-    if (!mongoose.models.User) {
-      require('@/models/User')
-    }
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+
+    // Validate id format
+    if (!isValidId(params.id)) {
       return NextResponse.json({ error: 'รูปแบบ Booking ID ไม่ถูกต้อง' }, { status: 400 })
     }
 
-    const bookingId = new mongoose.Types.ObjectId(params.id)
+    const bookingId = params.id
 
     // Get booking with populated data
     const booking = await Booking.findById(bookingId)
@@ -77,53 +65,18 @@ export async function GET(
       return NextResponse.json({ error: 'ไม่พบการจอง' }, { status: 404 })
     }
     
-    // Check if user has permission to view this booking
-    // Both CUSTOMER and ADMIN can view, but CUSTOMER can only view their own bookings
-    if (session.user.role === 'CUSTOMER') {
-      if (!session.user.id) {
-        return NextResponse.json({ error: 'ไม่พบ User ID ใน session' }, { status: 400 })
+    // Customers may only view their own bookings
+    if (!isStaff(session)) {
+      const user = await findSessionUser(session)
+      const bookingUserId = booking.userId?._id ?? booking.userId
+      if (!user || String(bookingUserId) !== user._id) {
+        return NextResponse.json({ error: 'ไม่มีสิทธิ์เข้าถึงการจองนี้' }, { status: 403 })
       }
-      
-      // Query user based on session.user.id
-      // If session.user.id is a valid ObjectId, query by _id
-      // Otherwise, query by lineUserId
-      let user
-      
-      
-      if (mongoose.Types.ObjectId.isValid(session.user.id)) {
-        user = await User.findById(session.user.id)
-      } else {
-        user = await User.findOne({ lineUserId: session.user.id })
-      }
-      console.log(session.user.id,user?._id);
-      // if (!user) {
-      //   return NextResponse.json({ error: 'ไม่พบผู้ใช้ในระบบ' }, { status: 404 })
-      // }
-      
-      const userId = user._id
-      
-      const bookingUserId = booking.userId instanceof mongoose.Types.ObjectId 
-        ? booking.userId 
-        : new mongoose.Types.ObjectId(booking.userId._id || booking.userId)
-      
-      // if (bookingUserId.toString() !== userId.toString()) {
-      //   console.error('Permission denied:', {
-      //     sessionUserId: session.user.id,
-      //     dbUserId: userId.toString(),
-      //     bookingUserId: bookingUserId.toString(),
-      //     bookingData: booking.userId
-      //   })
-      //   return NextResponse.json({ error: 'ไม่มีสิทธิ์เข้าถึงการจองนี้' }, { status: 403 })
-      // }
     }
 
     return NextResponse.json(booking)
-  } catch (error: any) {
-    console.error('Error fetching booking:', error)
-    return NextResponse.json(
-      { error: 'ไม่สามารถโหลดข้อมูลการจองได้', details: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiErrorResponse(error, 'ไม่สามารถโหลดข้อมูลการจองได้')
   }
 }
 
@@ -144,30 +97,13 @@ export async function PUT(
     }
 
     await connectDB()
-    
-    // Set strictPopulate to false to avoid schema validation errors
-    mongoose.set('strictPopulate', false)
-    
-    // Ensure models are registered
-    if (!mongoose.models.Room) {
-      require('@/models/Room')
-    }
-    if (!mongoose.models.Booking) {
-      require('@/models/Booking')
-    }
-    if (!mongoose.models.Payment) {
-      require('@/models/Payment')
-    }
-    if (!mongoose.models.User) {
-      require('@/models/User')
-    }
 
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    // Validate id format
+    if (!isValidId(params.id)) {
       return NextResponse.json({ error: 'รูปแบบ Booking ID ไม่ถูกต้อง' }, { status: 400 })
     }
 
-    const bookingId = new mongoose.Types.ObjectId(params.id)
+    const bookingId = params.id
     const body = await request.json()
 
     // Get the existing booking first
@@ -199,7 +135,7 @@ export async function PUT(
     // Update rooms - handle both roomId (single) and roomIds (multiple)
     if (body.roomIds !== undefined) {
       if (Array.isArray(body.roomIds) && body.roomIds.length > 0) {
-        updateData.roomIds = body.roomIds.map((id: string) => new mongoose.Types.ObjectId(id))
+        updateData.roomIds = body.roomIds
         // Clear single roomId if switching to multiple rooms
         updateData.roomId = null
       } else {
@@ -212,7 +148,7 @@ export async function PUT(
         // Explicitly clear roomId
         updateData.roomId = null
       } else if (body.roomId) {
-        updateData.roomId = new mongoose.Types.ObjectId(body.roomId)
+        updateData.roomId = body.roomId
         // Clear roomIds if switching to single room
         updateData.roomIds = []
       }
@@ -221,7 +157,7 @@ export async function PUT(
     // Update camping blocks - handle both campingBlockId (single) and campingBlockIds (multiple)
     if (body.campingBlockIds !== undefined) {
       if (Array.isArray(body.campingBlockIds) && body.campingBlockIds.length > 0) {
-        updateData.campingBlockIds = body.campingBlockIds.map((id: string) => new mongoose.Types.ObjectId(id))
+        updateData.campingBlockIds = body.campingBlockIds
         // Clear single campingBlockId if switching to multiple blocks
         updateData.campingBlockId = null
       } else {
@@ -234,7 +170,7 @@ export async function PUT(
         // Explicitly clear campingBlockId
         updateData.campingBlockId = null
       } else if (body.campingBlockId) {
-        updateData.campingBlockId = new mongoose.Types.ObjectId(body.campingBlockId)
+        updateData.campingBlockId = body.campingBlockId
         // Clear campingBlockIds if switching to single block
         updateData.campingBlockIds = []
       }
@@ -251,7 +187,7 @@ export async function PUT(
     if (body.addOns !== undefined) {
       if (Array.isArray(body.addOns)) {
         updateData.addOns = body.addOns.map((addOn: any) => ({
-          addOnId: new mongoose.Types.ObjectId(addOn.addOnId),
+          addOnId: addOn.addOnId,
           name: addOn.name,
           price: addOn.price,
           quantity: addOn.quantity || 1,
@@ -295,7 +231,6 @@ export async function PUT(
 
     // Update payment status if provided
     if (body.paymentStatus && existingBooking.paymentId) {
-      const Payment = mongoose.models.Payment
       await Payment.findByIdAndUpdate(
         existingBooking.paymentId,
         { status: body.paymentStatus },
@@ -308,11 +243,7 @@ export async function PUT(
       booking: updatedBooking
     })
 
-  } catch (error: any) {
-    console.error('Error updating booking:', error)
-    return NextResponse.json(
-      { error: 'ไม่สามารถอัพเดทการจองได้', details: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    return apiErrorResponse(error, 'ไม่สามารถอัพเดทการจองได้')
   }
 }

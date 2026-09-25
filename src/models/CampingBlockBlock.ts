@@ -1,13 +1,12 @@
-import * as mongoose from '@/lib/odm'
-import { Document, Schema } from '@/lib/odm'
+import { Document, Schema, model } from '@/lib/odm'
 
 export interface ICampingBlockBlock extends Document {
-  campingBlockId: mongoose.Types.ObjectId
+  campingBlockId: string
   startDate: Date
   endDate: Date
   reason?: string // เหตุผลในการล็อค เช่น "ซ่อมแซม", "ปิดใช้งานชั่วคราว"
   isActive: boolean
-  createdBy: mongoose.Types.ObjectId
+  createdBy: string
   createdAt: Date
   updatedAt: Date
 }
@@ -52,5 +51,5 @@ const CampingBlockBlockSchema = new Schema<ICampingBlockBlock>({
 CampingBlockBlockSchema.index({ campingBlockId: 1, startDate: 1, endDate: 1 })
 CampingBlockBlockSchema.index({ isActive: 1, startDate: 1, endDate: 1 })
 
-export default mongoose.models.CampingBlockBlock || mongoose.model<ICampingBlockBlock>('CampingBlockBlock', CampingBlockBlockSchema)
+export default model<ICampingBlockBlock>('CampingBlockBlock', CampingBlockBlockSchema)
 

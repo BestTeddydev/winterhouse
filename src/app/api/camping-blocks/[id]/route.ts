@@ -4,9 +4,12 @@ import { authOptions } from '@/lib/auth'
 import connectDB from '@/lib/db'
 import CampingBlock from '@/models/CampingBlock'
 
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
+
 // GET - ดึงข้อมูลบล็อคกางเต๊นท์ตาม ID
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -111,7 +114,7 @@ export async function PUT(
 
 // DELETE - ลบบล็อคกางเต๊นท์ (soft delete)
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {

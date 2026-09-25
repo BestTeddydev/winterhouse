@@ -1,54 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { apiErrorResponse, findSessionUser, isStaff, requireSession } from '@/lib/api-auth'
 import connectDB from '@/lib/db'
 import Booking from '@/models/Booking'
 import Payment from '@/models/Payment'
 import { createCheckoutSession, createQRCodePayment } from '@/lib/stripe'
-import * as mongoose from '@/lib/odm'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session) {
-      return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
-    }
-
-    const body = await request.json()
-    const { bookingId, source, paymentMethod, amount, paymentType } = body
+    const session = await requireSession()
+    const { bookingId, paymentMethod } = await request.json()
 
     await connectDB()
-    
-    // Set strictPopulate to false to avoid schema validation errors
-    mongoose.set('strictPopulate', false)
-    
-    // Ensure models are registered
-    if (!mongoose.models.Booking) {
-      require('@/models/Booking')
-    }
-    if (!mongoose.models.Payment) {
-      require('@/models/Payment')
-    }
-    if (!mongoose.models.Room) {
-      require('@/models/Room')
-    }
 
-    // Get booking
     const booking = await Booking.findById(bookingId)
-      .populate({
-        path: 'paymentId',
-        model: 'Payment',
-        select: 'status amount totalAmount paidAmount remainingAmount'
-      })
-      .populate({
-        path: 'roomId',
-        model: 'Room',
-        select: 'name description price'
-      })
+      .populate('paymentId', 'status amount totalAmount paidAmount remainingAmount')
+      .populate('roomId', 'name description price')
 
     if (!booking) {
       return NextResponse.json({ error: 'ไม่พบข้อมูลการจอง' }, { status: 404 })
+    }
+
+    // Customers may only pay for their own bookings
+    if (!isStaff(session)) {
+      const user = await findSessionUser(session)
+      if (!user || String(booking.userId) !== user._id) {
+        return NextResponse.json({ error: 'ไม่มีสิทธิ์เข้าถึงการจองนี้' }, { status: 403 })
+      }
     }
 
     // Validate that this is a partial payment booking
@@ -67,24 +44,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ไม่มีการชำระเงินที่ค้างอยู่' }, { status: 400 })
     }
 
-    // Calculate payment amount (should be the remaining amount)
-    const paymentAmount = amount || remainingAmount
-
-    // Debug logging
-    console.log('Remaining payment booking found:', {
-      id: booking._id,
-      userId: booking.userId,
-      roomId: booking.roomId,
-      paymentId: booking.paymentId,
-      totalPrice: booking.totalPrice,
-      paymentType: paymentType,
-      remainingAmount: remainingAmount,
-      paymentAmount: paymentAmount
-    })
-
-    if (booking.userId.toString() !== session.user.id) {
-      return NextResponse.json({ error: 'ไม่ได้รับอนุญาต' }, { status: 401 })
-    }
+    // Always charge the outstanding balance; never trust an amount sent by the client
+    const paymentAmount = remainingAmount
 
     // Update existing payment record for remaining amount
     const updatedPayment = await Payment.findByIdAndUpdate(
@@ -171,22 +132,6 @@ export async function POST(request: NextRequest) {
       throw error
     }
   } catch (error: any) {
-    console.error('Error processing remaining payment:', error)
-    
-    // Handle specific error types
-    if (error instanceof mongoose.Error.CastError) {
-      return NextResponse.json({ 
-        error: `รูปแบบ ID ไม่ถูกต้อง: ${error.path}` 
-      }, { status: 400 })
-    }
-    
-    if (error instanceof mongoose.Error.ValidationError) {
-      return NextResponse.json({ 
-        error: 'ข้อมูลไม่ถูกต้อง', 
-        details: Object.values(error.errors).map(err => err.message)
-      }, { status: 400 })
-    }
-    
-    return NextResponse.json({ error: 'ไม่สามารถดำเนินการชำระเงินได้' }, { status: 500 })
+    return apiErrorResponse(error, 'ไม่สามารถดำเนินการชำระเงินได้')
   }
 }

@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import connectDB from '@/lib/db'
-import * as mongoose from '@/lib/odm'
+import { isValidId } from '@/lib/odm'
 import SiteMap from '@/models/SiteMap'
 import Building from '@/models/Building'
 import Room from '@/models/Room'
+
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
 
 // GET - ดึงข้อมูลแผนผังพร้อมอาคารและห้องพัก
 export async function GET(request: NextRequest) {
@@ -70,9 +73,7 @@ export async function GET(request: NextRequest) {
               return blockBuildingId === buildingIdStr
             })
             .map(block => block._id.toString())
-          
-          console.log(`Building ${building.name} (${buildingIdStr}) has ${linkedBlocks.length} linked camping blocks:`, linkedBlocks)
-          
+
           return {
             id: building._id.toString(),
             x: building.x,
@@ -138,18 +139,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { imageUrl, name, description, type, hotspots } = body
-    
-    console.log('Site map POST - Received data:', {
-      mapType: type,
-      hotspotsCount: hotspots?.length,
-      hotspots: hotspots?.map((h: any) => ({
-        id: h.id,
-        buildingName: h.buildingName,
-        buildingType: h.buildingType,
-        campingBlocks: h.campingBlocks,
-        campingBlocksCount: h.campingBlocks?.length
-      }))
-    })
 
     // Validate data
     if (!imageUrl) {
@@ -167,7 +156,7 @@ export async function POST(request: NextRequest) {
       
       for (const hotspot of hotspots) {
         // Validate hotspot.id
-        if (!hotspot.id || !mongoose.Types.ObjectId.isValid(hotspot.id)) {
+        if (!hotspot.id || !isValidId(hotspot.id)) {
           console.error(`Invalid hotspot.id: ${hotspot.id}`)
           continue
         }
@@ -184,35 +173,23 @@ export async function POST(request: NextRequest) {
 
         // สำหรับ camping: อัปเดต camping blocks ที่เชื่อมโยงกับ building
         if (mapType === 'camping' && hotspot.campingBlocks) {
-          const buildingObjectId = new mongoose.Types.ObjectId(hotspot.id)
-          
-          console.log(`Updating camping blocks for building ${hotspot.id}:`, {
-            buildingId: buildingObjectId.toString(),
-            campingBlocks: hotspot.campingBlocks
-          })
-          
+          const buildingId = hotspot.id
+
           // Unlink all camping blocks from this building first
-          const unlinkResult = await CampingBlock.updateMany(
-            { buildingId: buildingObjectId },
+          await CampingBlock.updateMany(
+            { buildingId },
             { $unset: { buildingId: 1 } }
           )
-          console.log(`Unlinked ${unlinkResult.modifiedCount} camping blocks from building ${hotspot.id}`)
           
           // Link selected camping blocks to this building
           if (hotspot.campingBlocks.length > 0) {
-            const campingBlockIds = hotspot.campingBlocks
-              .filter((id: string) => id && mongoose.Types.ObjectId.isValid(id))
-              .map((id: string) => new mongoose.Types.ObjectId(id))
-            
-            console.log(`Linking ${campingBlockIds.length} camping blocks to building ${hotspot.id}:`, 
-              campingBlockIds.map((id: any) => id.toString()))
-            
+            const campingBlockIds = hotspot.campingBlocks.filter((id: string) => id && isValidId(id))
+
             if (campingBlockIds.length > 0) {
-              const linkResult = await CampingBlock.updateMany(
+              await CampingBlock.updateMany(
                 { _id: { $in: campingBlockIds } },
-                { buildingId: buildingObjectId }
+                { buildingId }
               )
-              console.log(`Linked ${linkResult.modifiedCount} camping blocks to building ${hotspot.id}`)
             }
           }
         }
@@ -266,7 +243,7 @@ export async function POST(request: NextRequest) {
 }
 
 // DELETE - ลบแผนผัง (soft delete)
-export async function DELETE(request: NextRequest) {
+export async function DELETE(_request: NextRequest) {
   try {
     // ตรวจสอบ authentication
     const session = await getServerSession(authOptions)

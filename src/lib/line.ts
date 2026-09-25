@@ -91,7 +91,6 @@ export function formatBookingNotification(booking: any) {
     const addOnsList = booking.addOns.map((addOn: any) => {
       const quantity = addOn.quantity || 1
       const unit = addOn.unit ? ` ${addOn.unit}` : ''
-      const price = addOn.price || 0
       return `  • ${addOn.name || 'N/A'} (${quantity}${unit})`
     }).join('\n')
     addOnsDetails = `🎁 ออปชั่นเสริม:\n${addOnsList}\n`
@@ -204,82 +203,6 @@ ${isPartialPayment && !isRemainingPayment ? '📝 หมายเหตุ: ก�
 📱 ${process.env.ADMIN_PHONE || '064-553-5691, 064-554-6591'}
 
 เราหวังว่าจะได้ต้อนรับคุณในเร็วๆ นี้! 🏡✨
-  `.trim()
-}
-
-export function formatAdminPaymentNotification(booking: any, payment: any) {
-  const checkInDate = new Date(booking.checkIn).toLocaleDateString('th-TH')
-  const checkOutDate = new Date(booking.checkOut).toLocaleDateString('th-TH')
-  
-  // Check if this is a partial payment booking
-  const isPartialPayment = booking.paymentType === 'PARTIAL'
-  const isRemainingPayment = payment.paymentType === 'REMAINING'
-  
-  let paymentInfo = ''
-  let paymentStatus = ''
-  
-  if (isPartialPayment && !isRemainingPayment) {
-    // Initial deposit payment
-    paymentInfo = `มัดจำ: ฿${payment.amount.toLocaleString()}
-ราคารวม: ฿${payment.totalAmount.toLocaleString()}
-ส่วนที่เหลือ: ฿${payment.remainingAmount.toLocaleString()}`
-    paymentStatus = 'ชำระมัดจำแล้ว ✅'
-  } else if (isPartialPayment && isRemainingPayment) {
-    // Remaining payment
-    paymentInfo = `มัดจำ: ฿${(payment.totalAmount - payment.amount).toLocaleString()}
-ส่วนที่เหลือ: ฿${payment.amount.toLocaleString()}
-ราคารวม: ฿${payment.totalAmount.toLocaleString()}`
-    paymentStatus = 'ชำระเงินครบแล้ว ✅'
-  } else {
-    // Full payment
-    paymentInfo = `จำนวนเงิน: ฿${payment.totalAmount.toLocaleString()}`
-    paymentStatus = 'ชำระเงินแล้ว ✅'
-  }
-  
-  return `
-💰 การชำระเงินใหม่
-
-ห้อง: ${booking.roomId?.name || 'Room'}
-ผู้จอง: ${booking.guestName}
-เช็คอิน: ${checkInDate}
-เช็คเอาท์: ${checkOutDate}
-
-💳 ข้อมูลการชำระเงิน:
-${paymentInfo}
-สถานะ: ${paymentStatus}
-
-กรุณาตรวจสอบในระบบแอดมิน
-  `.trim()
-}
-
-export function formatBookingStatusUpdate(booking: any, oldStatus: string, newStatus: string) {
-  const checkInDate = new Date(booking.checkIn).toLocaleDateString('th-TH')
-  const checkOutDate = new Date(booking.checkOut).toLocaleDateString('th-TH')
-  
-  const statusMessages: { [key: string]: string } = {
-    'PENDING': 'รอการยืนยัน',
-    'CONFIRMED': 'ยืนยันแล้ว',
-    'CANCELLED': 'ยกเลิก',
-    'COMPLETED': 'เสร็จสิ้น',
-    'CHECKED_IN': 'เช็คอินแล้ว',
-    'CHECKED_OUT': 'เช็คเอาท์แล้ว'
-  }
-  
-  const oldStatusText = statusMessages[oldStatus] || oldStatus
-  const newStatusText = statusMessages[newStatus] || newStatus
-  
-  return `
-📋 อัพเดทสถานะการจอง
-
-ห้อง: ${booking.roomId?.name || 'Room'}
-ผู้จอง: ${booking.guestName}
-เช็คอิน: ${checkInDate}
-เช็คเอาท์: ${checkOutDate}
-
-สถานะเปลี่ยนจาก: ${oldStatusText}
-เป็น: ${newStatusText}
-
-เลขที่การจอง: ${booking._id}
   `.trim()
 }
 

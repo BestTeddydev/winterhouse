@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/db'
 import Booking from '@/models/Booking'
 import RoomBlock from '@/models/RoomBlock'
-import * as mongoose from '@/lib/odm'
+
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -22,11 +24,11 @@ export async function GET(
     const bookings = await Booking.find({
       $or: [
         // Single room bookings
-        { roomId: new mongoose.Types.ObjectId(roomId) },
+        { roomId: roomId },
         // Multi-room bookings where this room is included
-        { roomIds: new mongoose.Types.ObjectId(roomId) },
+        { roomIds: roomId },
         // Room details in rooms array
-        { 'rooms.roomId': new mongoose.Types.ObjectId(roomId) }
+        { 'rooms.roomId': roomId }
       ],
       status: { $in: ['CONFIRMED'] }, // Only count confirmed bookings as unavailable
       // Find bookings that overlap with the date range
@@ -49,7 +51,7 @@ export async function GET(
     
     // Get room blocks (locks) for this room
     const roomBlocks = await RoomBlock.find({
-      roomId: new mongoose.Types.ObjectId(roomId),
+      roomId: roomId,
       isActive: true,
       $and: [
         { startDate: { $lt: endDate } },

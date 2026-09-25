@@ -36,7 +36,6 @@ export default function MyBookings() {
 
     // Fetch bookings if session exists
     if (session && session.user) {
-      console.log('✅ My bookings - User authenticated')
       fetchBookings()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,20 +54,15 @@ export default function MyBookings() {
       } else {
         bookingsData = []
       }
-      
-      console.log('Raw bookings data:', bookingsData)
-      console.log('Bookings count:', bookingsData.length)
-      
+
       // Filter out bookings with missing room or payment data
       const validBookings = bookingsData.filter((booking: any) => {
         const isValid = booking && booking.roomId
         if (!isValid) {
-          console.log('Invalid booking (missing roomId):', booking)
         }
         return isValid
       })
       
-      console.log('Valid bookings count:', validBookings.length)
       setBookings(validBookings)
     } catch (error: any) {
       console.error('Error fetching bookings:', error)
@@ -175,7 +169,6 @@ export default function MyBookings() {
               </p>
             </div>
             {bookings.map((booking) => {
-              console.log('Rendering booking:', booking)
               return (
               <div
                 key={booking.id || booking._id || Math.random()}

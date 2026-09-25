@@ -31,10 +31,8 @@ services:
 
       # LINE Messaging API
       - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
-      - LINE_ADMIN_USER_ID=${LINE_ADMIN_USER_ID}
 
       # Stripe Payment Gateway
-      - STRIPE_PUBLIC_KEY=${STRIPE_PUBLIC_KEY}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
 
@@ -46,7 +44,6 @@ services:
 
       # App URLs
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
-      - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${STRIPE_PUBLIC_KEY}
 
       # Node
       - NODE_ENV=production

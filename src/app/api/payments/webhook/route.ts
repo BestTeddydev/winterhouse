@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/db'
 import Payment from '@/models/Payment'
 import Booking from '@/models/Booking'
-import Room from '@/models/Room'
 import User from '@/models/User'
 import stripe from '@/lib/stripe'
 import { Stripe } from 'stripe'
@@ -11,7 +10,6 @@ import { sendLineNotification, formatPaymentThankYouMessage, formatBookingNotifi
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('Webhook received, processing...')
     
     if (!stripe) {
       return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
@@ -43,19 +41,14 @@ export async function POST(request: NextRequest) {
         signature,
         process.env.STRIPE_WEBHOOK_SECRET
       )
-      console.log('Event constructed successfully:', event.type, event.id)
     } catch (err: any) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
-    console.log('Webhook received:', event.type, 'Event ID:', event.id)
-    
     await connectDB()
-    console.log('Database connected')
     
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session
-      console.log('Session metadata:', session.metadata)
       
       // Find payment by session ID first, then by bookingId from metadata
       let payment = await Payment.findOne({ stripeSessionId: session.id })
@@ -68,7 +61,6 @@ export async function POST(request: NextRequest) {
         console.error('Payment not found for session:', session.id, 'metadata:', session.metadata)
         return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
       }
-      
 
       // Get booking to check current status
       const booking = await Booking.findById(payment.bookingId)
@@ -122,7 +114,6 @@ export async function POST(request: NextRequest) {
           },
           { new: true }
         )
-        console.log('Booking confirmed after initial payment:', updatedBooking?._id)
       } else if (booking.status === 'CONFIRMED' && payment.paymentType === 'REMAINING') {
         // Remaining payment - just update the booking timestamp
         updatedBooking = await Booking.findByIdAndUpdate(
@@ -132,9 +123,7 @@ export async function POST(request: NextRequest) {
           },
           { new: true }
         )
-        console.log('Remaining payment completed for booking:', updatedBooking?._id)
       } else {
-        console.log('Booking already confirmed, no status update needed')
       }
 
       // Send notifications after successful payment
@@ -157,7 +146,6 @@ export async function POST(request: NextRequest) {
                 subject: `💰 การชำระเงินใหม่ - ${bookingWithRoom.roomId?.name || 'Room'}`,
                 html: adminEmailHtml
               })
-              console.log('Admin email notification sent')
             }
 
             // Send LINE notification to customer if they have LINE ID
@@ -167,9 +155,7 @@ export async function POST(request: NextRequest) {
                 userId: bookingWithRoom.userId.lineUserId,
                 message: thankYouMessage
               })
-              console.log('Customer LINE thank you message sent')
             } else {
-              console.log('No LINE user ID found for customer')
             }
 
             // Send LINE notification to OWNER users for customer bookings (not manual bookings)
@@ -198,14 +184,12 @@ export async function POST(request: NextRequest) {
                     )
                   
                   await Promise.allSettled(notificationPromises)
-                  console.log(`Sent booking notification to ${ownerUsers.length} OWNER user(s) after payment success`)
                 }
               } catch (ownerNotificationError) {
                 console.error('Error sending LINE notifications to OWNER:', ownerNotificationError)
                 // Don't fail the webhook if owner notifications fail
               }
             } else {
-              console.log('Manual booking - owner notification already sent when booking was created')
             }
 
           }
@@ -215,7 +199,6 @@ export async function POST(request: NextRequest) {
         }
       }
     } else {
-      console.log('Unhandled event type:', event.type)
       // Return success for unhandled events to prevent retries
       return NextResponse.json({ received: true, message: `Unhandled event type: ${event.type}` })
     }

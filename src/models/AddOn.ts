@@ -1,5 +1,4 @@
-import * as mongoose from '@/lib/odm'
-import { Document, Schema } from '@/lib/odm'
+import { Document, Schema, model } from '@/lib/odm'
 
 export interface IAddOn extends Document {
   name: string
@@ -42,5 +41,5 @@ const AddOnSchema = new Schema<IAddOn>({
 // Index for efficient queries
 AddOnSchema.index({ isActive: 1 })
 
-export default mongoose.models.AddOn || mongoose.model<IAddOn>('AddOn', AddOnSchema)
+export default model<IAddOn>('AddOn', AddOnSchema)
 

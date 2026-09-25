@@ -1,15 +1,14 @@
-import * as mongoose from '@/lib/odm'
-import { Document, Schema } from '@/lib/odm'
+import { Document, Schema, model } from '@/lib/odm'
 
 export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
 
 export interface IBooking extends Document {
-  roomId?: mongoose.Types.ObjectId // Optional for camping block bookings
-  roomIds?: mongoose.Types.ObjectId[] // สำหรับจองหลายห้อง
-  campingBlockId?: mongoose.Types.ObjectId // สำหรับจองบล็อคกางเต๊นท์ (single)
-  campingBlockIds?: mongoose.Types.ObjectId[] // สำหรับจองหลายบล็อคกางเต๊นท์
-  userId: mongoose.Types.ObjectId
-  paymentId?: mongoose.Types.ObjectId
+  roomId?: string // Optional for camping block bookings
+  roomIds?: string[] // สำหรับจองหลายห้อง
+  campingBlockId?: string // สำหรับจองบล็อคกางเต๊นท์ (single)
+  campingBlockIds?: string[] // สำหรับจองหลายบล็อคกางเต๊นท์
+  userId: string
+  paymentId?: string
   checkIn: Date
   checkOut: Date
   totalPrice: number
@@ -22,16 +21,16 @@ export interface IBooking extends Document {
   specialRequests?: string
   isManualBooking?: boolean
   manualBookingNotes?: string
-  createdBy?: mongoose.Types.ObjectId
+  createdBy?: string
   paymentType?: 'FULL' | 'PARTIAL'
   discount?: number // Discount percentage (0-100)
   discountAmount?: number // Fixed discount amount in THB
   rooms?: Array<{
-    roomId: mongoose.Types.ObjectId
+    roomId: string
     price: number
   }> // ราคาแต่ละห้อง
   addOns?: Array<{
-    addOnId: mongoose.Types.ObjectId
+    addOnId: string
     name: string // Store name for reference
     price: number // Store price at time of booking
     quantity: number // จำนวนหน่วย
@@ -87,4 +86,4 @@ const BookingSchema = new Schema<IBooking>({
 BookingSchema.index({ roomId: 1, checkIn: 1, checkOut: 1 })
 BookingSchema.index({ userId: 1 })
 
-export default mongoose.models.Booking || mongoose.model<IBooking>('Booking', BookingSchema)
+export default model<IBooking>('Booking', BookingSchema)

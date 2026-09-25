@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -18,17 +18,16 @@ import {
   CheckCircle, 
   XCircle, 
   AlertCircle,
-  DollarSign,
   CreditCard,
   MapPin,
-  MessageSquare,
-  Eye,
-  MoreVertical,
-  TrendingUp,
-  TrendingDown,
+  
+  
+  
+  
+  
   Plus,
   Edit,
-  Settings,
+  
   ShoppingCart,
   UserCog,
   ChevronLeft,
@@ -449,17 +448,9 @@ export default function AdminBookings() {
               campingBlockNames = `${booking.campingBlock?.name || 'N/A'} (${guestCount} คน)`
             }
             
-            // Combine room and camping block names
-            const allNames = [roomNames !== 'N/A' ? `🏠 ${roomNames}` : null, campingBlockNames ? `🏕️ ${campingBlockNames}` : null]
-              .filter(Boolean)
-              .join(' | ') || 'N/A'
-            
             // Format dates
             const checkInDate = booking.checkIn ? formatDate(booking.checkIn) : 'N/A'
             const checkOutDate = booking.checkOut ? formatDate(booking.checkOut) : 'N/A'
-            
-            // Use combined names for display
-            const displayNames = allNames
             
             // Get guest information
             const guestName = booking.guestName || 'N/A'

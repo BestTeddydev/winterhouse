@@ -10,27 +10,17 @@
     "postinstall": "echo 'Dependencies installed'"
   },
   "dependencies": {
-    "@stripe/stripe-js": "^8.1.0",
-    "@tanstack/react-query": "^5.90.3",
-    "@types/qrcode": "^1.5.5",
     "axios": "^1.12.2",
-    "clsx": "^2.1.1",
-    "date-fns": "^4.1.0",
     "firebase-admin": "^14.5.0",
     "lucide-react": "^0.545.0",
     "next": "14.2.5",
     "next-auth": "^4.24.7",
-    "qrcode": "^1.5.4",
     "react": "^18.3.1",
-    "react-calendar": "^6.0.0",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.6.0",
     "resend": "^6.2.0",
     "sharp": "^0.33.5",
-    "stripe": "^19.1.0",
-    "tailwind-merge": "^3.3.1",
-    "zod": "^4.1.12",
-    "zustand": "^5.0.8"
+    "stripe": "^19.1.0"
   },
   "devDependencies": {
     "@google-cloud/storage": "^8.2.0",

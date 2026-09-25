@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react'
 import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Upload, X, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Upload, X, Plus } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 

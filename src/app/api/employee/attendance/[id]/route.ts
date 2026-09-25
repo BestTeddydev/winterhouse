@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { apiErrorResponse, findSessionUser } from '@/lib/api-auth'
 import connectDB from '@/lib/db'
 import EmployeeAttendance from '@/models/EmployeeAttendance'
-import * as mongoose from '@/lib/odm'
 
 export async function PATCH(
   request: NextRequest,
@@ -54,12 +54,7 @@ export async function PATCH(
     }
 
     // Get admin user
-    let admin
-    if (mongoose.Types.ObjectId.isValid(session.user.id)) {
-      admin = await mongoose.models.User?.findById(session.user.id)
-    } else {
-      admin = await mongoose.models.User?.findOne({ lineUserId: session.user.id })
-    }
+    const admin = await findSessionUser(session)
 
     if (!admin) {
       return NextResponse.json({ error: 'ไม่พบข้อมูลผู้ดูแลระบบ' }, { status: 404 })
@@ -85,19 +80,8 @@ export async function PATCH(
       attendance
     })
 
-  } catch (error: any) {
-    console.error('Error updating attendance:', error)
-    
-    if (error instanceof mongoose.Error.CastError) {
-      return NextResponse.json({ 
-        error: 'รูปแบบ ID ไม่ถูกต้อง' 
-      }, { status: 400 })
-    }
-    
-    return NextResponse.json({ 
-      error: 'ไม่สามารถอัพเดทสถานะการเช็คอินได้',
-      details: error.message 
-    }, { status: 500 })
+  } catch (error) {
+    return apiErrorResponse(error, 'ไม่สามารถอัพเดทสถานะการเช็คอินได้')
   }
 }
 

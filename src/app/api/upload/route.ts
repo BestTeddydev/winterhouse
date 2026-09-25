@@ -1,29 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ApiError, apiErrorResponse, requireSession } from '@/lib/api-auth'
 import { uploadFile } from '@/lib/fileUtils'
 
+// Image upload for admin screens (rooms, camping blocks, site map, payment slips)
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData()
-    const file = formData.get('file') as File
+    await requireSession('ADMIN', 'OWNER')
 
-    if (!file) {
-      return NextResponse.json(
-        { error: 'ไม่พบไฟล์' },
-        { status: 400 }
-      )
-    }
+    const file = (await request.formData()).get('file')
+    if (!(file instanceof File)) throw new ApiError(400, 'ไม่พบไฟล์')
 
-    // Upload file using utility function
-    const result = await uploadFile(file)
-
-    return NextResponse.json(result)
-
+    return NextResponse.json(await uploadFile(file))
   } catch (error) {
-    console.error('Error uploading file:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการอัปโหลดไฟล์' },
-      { status: 500 }
-    )
+    return apiErrorResponse(error, 'เกิดข้อผิดพลาดในการอัปโหลดไฟล์')
   }
 }
-

@@ -4,8 +4,11 @@ import { authOptions } from '@/lib/auth'
 import connectDB from '@/lib/db'
 import Building from '@/models/Building'
 
+// Always read live data; never pre-render at build time
+export const dynamic = 'force-dynamic'
+
 // GET - ดึงข้อมูลอาคารทั้งหมด
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     await connectDB()
     const buildings = await Building.find({ isActive: true }).sort({ createdAt: -1 })

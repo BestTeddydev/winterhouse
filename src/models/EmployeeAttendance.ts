@@ -1,17 +1,16 @@
-import * as mongoose from '@/lib/odm'
-import { Document, Schema } from '@/lib/odm'
+import { Document, Schema, model } from '@/lib/odm'
 
 export type AttendanceStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export interface IEmployeeAttendance extends Document {
-  employeeId: mongoose.Types.ObjectId
+  employeeId: string
   checkInDate: Date
   checkInTime: Date
   checkoutTime?: Date
   location?: string
   notes?: string
   status: AttendanceStatus
-  approvedBy?: mongoose.Types.ObjectId
+  approvedBy?: string
   approvedAt?: Date
   rejectionReason?: string
   createdAt: Date
@@ -74,5 +73,5 @@ EmployeeAttendanceSchema.index(
   }
 )
 
-export default mongoose.models.EmployeeAttendance || mongoose.model<IEmployeeAttendance>('EmployeeAttendance', EmployeeAttendanceSchema)
+export default model<IEmployeeAttendance>('EmployeeAttendance', EmployeeAttendanceSchema)
 

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { apiErrorResponse } from '@/lib/api-auth'
 import connectDB from '@/lib/db'
 import Booking from '@/models/Booking'
 import Payment from '@/models/Payment'
-import * as mongoose from '@/lib/odm'
+import { isValidId } from '@/lib/odm'
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,7 +20,6 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    console.log('Received booking data:', body) // Debug log
     
     const {
       roomId,
@@ -34,12 +34,10 @@ export async function POST(request: NextRequest) {
       paymentStatus = 'COMPLETED',
       totalPrice,
       notes,
-      isManualBooking = true,
       createdBy
     } = body
 
     // Validate required fields
-    console.log('Validating roomId:', roomId) // Debug log
     if (!roomId) {
       return NextResponse.json({ error: 'ต้องระบุ Room ID' }, { status: 400 })
     }
@@ -56,8 +54,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ต้องระบุราคารวมที่ถูกต้อง' }, { status: 400 })
     }
 
-    // Validate ObjectId formats
-    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+    // Validate id formats
+    if (!isValidId(roomId)) {
       return NextResponse.json({ error: 'รูปแบบ Room ID ไม่ถูกต้อง' }, { status: 400 })
     }
 
@@ -74,28 +72,11 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB()
-    
-    // Set strictPopulate to false to avoid schema validation errors
-    mongoose.set('strictPopulate', false)
-    
-    // Ensure models are registered
-    if (!mongoose.models.Room) {
-      require('@/models/Room')
-    }
-    if (!mongoose.models.Booking) {
-      require('@/models/Booking')
-    }
-    if (!mongoose.models.User) {
-      require('@/models/User')
-    }
-    if (!mongoose.models.Payment) {
-      require('@/models/Payment')
-    }
 
     // Check availability (only if not manual override)
     if (!body.overrideAvailability) {
       const existingBookings = await Booking.find({
-        roomId: new mongoose.Types.ObjectId(roomId),
+        roomId: roomId,
         status: { $in: ['CONFIRMED'] }, // Only check against confirmed bookings
         $or: [
           {
@@ -118,8 +99,8 @@ export async function POST(request: NextRequest) {
     // Create booking with manual booking flag
     // Manual bookings are always CONFIRMED because customer has already paid deposit
     const booking = new Booking({
-      roomId: new mongoose.Types.ObjectId(roomId),
-      userId: new mongoose.Types.ObjectId(createdBy || session.user.id), // Use admin as user
+      roomId: roomId,
+      userId: createdBy || session.user.id, // Use admin as user
       checkIn: checkInDate,
       checkOut: checkOutDate,
       totalPrice,
@@ -131,7 +112,7 @@ export async function POST(request: NextRequest) {
       guestCount,
       isManualBooking: true,
       manualBookingNotes: notes,
-      createdBy: new mongoose.Types.ObjectId(session.user.id)
+      createdBy: session.user.id
     })
 
     await booking.save()
@@ -186,22 +167,6 @@ export async function POST(request: NextRequest) {
       message: 'สร้างการจองด้วยตนเองสำเร็จ'
     }, { status: 201 })
   } catch (error) {
-    console.error('Error creating manual booking:', error)
-    
-    // Handle specific error types
-    if (error instanceof mongoose.Error.CastError) {
-      return NextResponse.json({ 
-        error: `รูปแบบ ID ไม่ถูกต้อง: ${error.path}` 
-      }, { status: 400 })
-    }
-    
-    if (error instanceof mongoose.Error.ValidationError) {
-      return NextResponse.json({ 
-        error: 'ข้อมูลไม่ถูกต้อง', 
-        details: Object.values(error.errors).map(err => err.message)
-      }, { status: 400 })
-    }
-    
-    return NextResponse.json({ error: 'ไม่สามารถสร้างการจองได้' }, { status: 500 })
+    return apiErrorResponse(error, 'ไม่สามารถสร้างการจองได้')
   }
 }

@@ -7,7 +7,6 @@ import Navbar from '@/components/Navbar'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { formatCurrency } from '@/lib/utils'
-import { loadStripe } from '@stripe/stripe-js'
 
 export default function Payment() {
   const params = useParams()
@@ -118,35 +117,6 @@ export default function Payment() {
     } catch (error: any) {
       console.error('Error processing credit card payment:', error)
       toast.error(error.response?.data?.error || 'ไม่สามารถชำระเงินผ่านบัตรเครดิตได้')
-      setProcessing(false)
-    }
-  }
-
-
-  const handlePromptPayPayment = async () => {
-    setProcessing(true)
-
-    try {
-      const response = await axios.post('/api/payments', {
-        bookingId: params.id,
-        source: {
-          type: 'promptpay',
-        },
-        paymentMethod: 'promptpay',
-        amount: calculatePaymentAmount(),
-        paymentType: booking.paymentType,
-      })
-
-      if (response.data.authorizeUri) {
-        window.location.href = response.data.authorizeUri
-      } else {
-        toast.success('ชำระเงินสำเร็จ')
-        router.push(`/bookings/${params.id}`)
-      }
-    } catch (error: any) {
-      console.error('Error processing PromptPay payment:', error)
-      console.error('Error details:', error.response?.data)
-      toast.error(error.response?.data?.error || 'ไม่สามารถชำระเงินผ่าน PromptPay ได้')
       setProcessing(false)
     }
   }
