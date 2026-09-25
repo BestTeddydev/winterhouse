@@ -1,4 +1,4 @@
-// Booking form model shared by the admin create/edit pages: selections, prices and payloads.
+// Booking form model shared by the booking pages (customer and admin): selections, prices and payloads.
 import { calculateBookingTotal, countNights } from '@/lib/bookingPrice'
 import { calculateRoomPriceRange } from '@/lib/pricing'
 

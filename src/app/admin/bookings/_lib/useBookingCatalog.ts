@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import type { Catalog } from './bookingForm'
+import type { Catalog } from '@/lib/bookingForm'
 
 const isCancel = (error: any) => error?.name === 'AbortError' || error?.code === 'ERR_CANCELED'
 

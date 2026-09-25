@@ -2,7 +2,7 @@ import Image from 'next/image'
 import { User } from 'lucide-react'
 import { getRoomPriceForDate } from '@/lib/pricing'
 import { formatCurrency } from '@/lib/utils'
-import type { BookableRoom } from '../_lib/bookingForm'
+import type { BookableRoom } from '@/lib/bookingForm'
 import { SelectCheckbox } from './ui'
 
 interface Props {

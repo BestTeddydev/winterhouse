@@ -14,7 +14,7 @@ import PaymentSection, { type NewPaymentStatus, type PaymentType } from '../_com
 import PriceSummary from '../_components/PriceSummary'
 import SelectionPanel from '../_components/SelectionPanel'
 import StayDatesSection from '../_components/StayDatesSection'
-import { priceBreakdown, selectionPayload, type PricingInputs } from '../_lib/bookingForm'
+import { priceBreakdown, selectionPayload, type PricingInputs } from '@/lib/bookingForm'
 import { useBookingCatalog } from '../_lib/useBookingCatalog'
 import { useBookingDraft } from '../_lib/useBookingDraft'
 

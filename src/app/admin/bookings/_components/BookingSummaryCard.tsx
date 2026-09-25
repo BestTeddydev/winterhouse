@@ -1,7 +1,7 @@
 import { Calendar, MapPin, Plus, Settings, Tent } from 'lucide-react'
 import { getRoomPriceForDate } from '@/lib/pricing'
 import { formatCurrency } from '@/lib/utils'
-import type { BookableRoom, SelectedAddOn, SelectedCampingBlock } from '../_lib/bookingForm'
+import type { BookableRoom, SelectedAddOn, SelectedCampingBlock } from '@/lib/bookingForm'
 
 interface Props {
   rooms: BookableRoom[]

@@ -1,6 +1,6 @@
 import { DollarSign } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
-import { campingBlockPrice, roomStayPrice, type PriceBreakdown, type PricingInputs } from '../_lib/bookingForm'
+import { campingBlockPrice, roomStayPrice, type PriceBreakdown, type PricingInputs } from '@/lib/bookingForm'
 import { discountLabel } from './DiscountSection'
 import { FormSection } from './ui'
 

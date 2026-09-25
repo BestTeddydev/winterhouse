@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { MapPin, Tent, X } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
-import type { BookableCampingBlock, BookableRoom, SelectedCampingBlock } from '../_lib/bookingForm'
+import type { BookableCampingBlock, BookableRoom, SelectedCampingBlock } from '@/lib/bookingForm'
 import CampingBlockOptionCard from './CampingBlockOptionCard'
 import RoomOptionCard from './RoomOptionCard'
 

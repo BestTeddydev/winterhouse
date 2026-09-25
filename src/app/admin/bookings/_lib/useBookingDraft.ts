@@ -12,7 +12,7 @@ import {
   type BookableCampingBlock,
   type BookableRoom,
   type PricingInputs,
-} from './bookingForm'
+} from '@/lib/bookingForm'
 
 /**
  * Form state of a booking. Every change that affects the price goes through `reprice`,

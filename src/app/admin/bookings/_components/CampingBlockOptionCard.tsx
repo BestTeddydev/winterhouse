@@ -1,7 +1,7 @@
 import Image from 'next/image'
 import { Minus, Plus, Users } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
-import { minGuests, type BookableCampingBlock } from '../_lib/bookingForm'
+import { minGuests, type BookableCampingBlock } from '@/lib/bookingForm'
 import { SelectCheckbox } from './ui'
 
 interface Props {

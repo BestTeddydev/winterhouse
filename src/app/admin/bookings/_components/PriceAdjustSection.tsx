@@ -1,7 +1,7 @@
 import { CreditCard } from 'lucide-react'
 import { VAT_RATE } from '@/lib/bookingPrice'
 import { formatCurrency } from '@/lib/utils'
-import type { PriceBreakdown } from '../_lib/bookingForm'
+import type { PriceBreakdown } from '@/lib/bookingForm'
 import { DiscountInputs, discountLabel } from './DiscountSection'
 import { FieldLabel, FormSection, INPUT_CLASS } from './ui'
 
