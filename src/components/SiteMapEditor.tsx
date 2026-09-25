@@ -335,6 +335,10 @@ export default function SiteMapEditor({
 
   const buildingTypes = buildingTypeOptions(MAP_BUILDING_TYPES[mapType === 'camping' ? 'camping' : 'accommodation'])
 
+  // A room / camping block belongs to at most one spot: offer the ones in this spot plus the free ones
+  const freeFor = <T extends { id: string }>(items: T[], index: number, key: 'rooms' | 'campingBlocks') =>
+    items.filter((item) => hotspots.every((h, i) => i === index || !(h[key] ?? []).includes(item.id)))
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -578,13 +582,13 @@ export default function SiteMapEditor({
                           ห้องพักในอาคารนี้
                         </label>
                         <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
-                          {availableRooms.length === 0 ? (
+                          {freeFor(availableRooms, index, 'rooms').length === 0 ? (
                             <p className="text-sm text-gray-500 text-center py-2">
                               ยังไม่มีห้องพัก กรุณาสร้างห้องพักก่อน
                             </p>
                           ) : (
                             <div className="space-y-2">
-                              {availableRooms.map((room) => (
+                              {freeFor(availableRooms, index, 'rooms').map((room) => (
                                 <label
                                   key={room.id}
                                   className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
@@ -613,13 +617,13 @@ export default function SiteMapEditor({
                           บล็อคกางเต๊นท์ในจุดนี้
                         </label>
                         <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
-                          {availableCampingBlocks.length === 0 ? (
+                          {freeFor(availableCampingBlocks, index, 'campingBlocks').length === 0 ? (
                             <p className="text-sm text-gray-500 text-center py-2">
                               ยังไม่มีบล็อคกางเต๊นท์ กรุณาสร้างบล็อคกางเต๊นท์ก่อน
                             </p>
                           ) : (
                             <div className="space-y-2">
-                              {availableCampingBlocks.map((block) => (
+                              {freeFor(availableCampingBlocks, index, 'campingBlocks').map((block) => (
                                 <label
                                   key={block.id}
                                   className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
@@ -35,7 +35,7 @@ export default function AdminSiteMapPage() {
   const router = useRouter()
   const [mapType, setMapType] = useState<'accommodation' | 'camping'>('accommodation')
   const [siteMap, setSiteMap] = useState<SiteMapData>({
-    imageUrl: '/placeholder-map.jpg',
+    imageUrl: '/placeholder-map.svg',
     hotspots: [],
     type: 'accommodation',
   })
@@ -61,21 +61,20 @@ export default function AdminSiteMapPage() {
 
     if (session.user.role !== 'ADMIN') {
       router.push('/')
-      return
     }
-
-    fetchData()
   }, [session, router])
 
-  const fetchData = async () => {
+  const isAdmin = session?.user?.role === 'ADMIN'
+
+  const fetchData = useCallback(async () => {
     try {
       // สำหรับแผนผังห้องพัก: Fetch rooms that are not linked to any building
       if (mapType === 'accommodation') {
         try {
+          // All rooms: the editor offers each building its own rooms plus the ones not in any building
           const roomsResponse = await axios.get('/api/rooms')
-          const unlinkedRooms = roomsResponse.data.filter((room: any) => !room.buildingId)
           setAvailableRooms(
-            unlinkedRooms.map((room: any) => ({
+            roomsResponse.data.map((room: any) => ({
               id: room._id || room.id,
               name: room.name,
             }))
@@ -114,7 +113,7 @@ export default function AdminSiteMapPage() {
       } catch {
         // Site map doesn't exist yet, use default
         setSiteMap({
-          imageUrl: '/placeholder-map.jpg',
+          imageUrl: '/placeholder-map.svg',
           hotspots: [],
           type: mapType,
         })
@@ -125,16 +124,14 @@ export default function AdminSiteMapPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  // Reload data when map type changes
-  useEffect(() => {
-    if (session && session.user && session.user.role === 'ADMIN') {
-      setLoading(true)
-      fetchData()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapType])
+
+  // Load (and reload when the map type changes)
+  useEffect(() => {
+    if (!isAdmin) return
+    setLoading(true)
+    fetchData()
+  }, [isAdmin, fetchData])
 
   const handleImageUpload = async (file: File): Promise<string> => {
     const formData = new FormData()
@@ -189,6 +186,8 @@ export default function AdminSiteMapPage() {
     return null
   }
 
+  const unlinkedRooms = availableRooms.filter((room) => !siteMap.hotspots.some((h) => h.rooms?.includes(room.id))).length
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -237,9 +236,9 @@ export default function AdminSiteMapPage() {
                 </button>
               </div>
               
-              {mapType === 'accommodation' && availableRooms.length > 0 && (
+              {mapType === 'accommodation' && unlinkedRooms > 0 && (
                 <p className="text-sm text-blue-600 mt-2 font-medium">
-                  💡 มีห้องพัก {availableRooms.length} ห้องที่ยังไม่ได้ผูกกับอาคาร
+                  💡 มีห้องพัก {unlinkedRooms} ห้องที่ยังไม่ได้ผูกกับอาคาร
                 </p>
               )}
             </div>
