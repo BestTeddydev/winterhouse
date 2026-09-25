@@ -1,9 +1,10 @@
 import { Document, Schema, model } from '@/lib/odm'
+import { BUILDING_TYPES, type BuildingType } from '@/lib/buildingTypes'
 
 export interface IBuilding extends Document {
   name: string
   description: string
-  buildingType: 'accommodation' | 'cafe' | 'restaurant' | 'facility' | 'parking' | 'garden' | 'camping'
+  buildingType: BuildingType
   facilities: string[]
   x: number
   y: number
@@ -25,7 +26,7 @@ const BuildingSchema = new Schema<IBuilding>({
   },
   buildingType: {
     type: String,
-    enum: ['accommodation', 'cafe', 'restaurant', 'facility', 'parking', 'garden', 'camping'],
+    enum: BUILDING_TYPES,
     default: 'accommodation',
     required: true
   },

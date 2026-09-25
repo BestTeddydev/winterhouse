@@ -169,6 +169,14 @@ describe('site map', () => {
     expect(camping.body.hotspots).toEqual([expect.objectContaining({ id: camp._id, campingBlocks: [block._id] })])
   })
 
+  it('keeps every building type the site map editor offers', async () => {
+    await signInAdmin()
+    const toilet = await Building.create({ name: 'WC', description: 'd', buildingType: 'camping', x: 1, y: 1 })
+    const body = { type: 'camping', imageUrl: 'https://img.test/map.jpg', hotspots: [{ id: toilet._id, buildingType: 'bathroom', x: 5, y: 5 }] }
+    expect((await call(siteMapRoute.POST, 'POST', { body })).status).toBe(200)
+    expect((await Building.findById(toilet._id)).buildingType).toBe('bathroom')
+  })
+
   it('saves the map, hotspot positions and camping block links (ADMIN only)', async () => {
     const camp = await Building.create({ name: 'Camp', description: 'd', buildingType: 'camping', x: 3, y: 4 })
     const block = await createCampingBlock()

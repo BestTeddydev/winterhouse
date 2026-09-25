@@ -1,5 +1,6 @@
 'use client'
 
+import { MAP_BUILDING_TYPES, buildingTypeOptions } from '@/lib/buildingTypes'
 import { useState, useRef, useEffect } from 'react'
 import MapCanvas from '@/components/MapCanvas'
 import { X, Plus, Edit, Trash2, Upload, Building2, MapPin } from 'lucide-react'
@@ -332,22 +333,7 @@ export default function SiteMapEditor({
     }
   }
 
-  const buildingTypes = mapType === 'camping' 
-    ? [
-        { value: 'camping', label: 'จุดกางเต๊นท์', icon: '🏕️' },
-        { value: 'facility', label: 'สิ่งอำนวยความสะดวก', icon: '🏢' },
-        { value: 'bathroom', label: 'ห้องน้ำ', icon: '🚿' },
-        { value: 'parking', label: 'ที่จอดรถ', icon: '🚗' },
-        { value: 'garden', label: 'สวน', icon: '🌳' },
-      ]
-    : [
-        { value: 'accommodation', label: 'ที่พัก', icon: '🏠' },
-        { value: 'cafe', label: 'คาเฟ่', icon: '☕' },
-        { value: 'restaurant', label: 'ร้านอาหาร', icon: '🍽️' },
-        { value: 'facility', label: 'สิ่งอำนวยความสะดวก', icon: '🏢' },
-        { value: 'parking', label: 'ที่จอดรถ', icon: '🚗' },
-        { value: 'garden', label: 'สวน', icon: '🌳' },
-      ]
+  const buildingTypes = buildingTypeOptions(MAP_BUILDING_TYPES[mapType === 'camping' ? 'camping' : 'accommodation'])
 
   return (
     <div className="space-y-6">

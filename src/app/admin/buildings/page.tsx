@@ -17,15 +17,9 @@ import {
   
 } from 'lucide-react'
 import Link from 'next/link'
+import { BUILDING_TYPE_INFO, buildingTypeOptions, type BuildingType } from '@/lib/buildingTypes'
 
-const buildingTypes = {
-  accommodation: '🏠',
-  cafe: '☕',
-  restaurant: '🍽️',
-  facility: '🏢',
-  parking: '🚗',
-  garden: '🌳'
-}
+const buildingTypes = Object.fromEntries(buildingTypeOptions().map((t) => [t.value, t.icon]))
 
 export default function AdminBuildings() {
   const { data: session } = useSession()
@@ -140,12 +134,11 @@ export default function AdminBuildings() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
                 <option value="all">ทุกประเภท</option>
-                <option value="accommodation">🏠 ที่พัก</option>
-                <option value="cafe">☕ คาเฟ่</option>
-                <option value="restaurant">🍽️ ร้านอาหาร</option>
-                <option value="facility">🏢 สิ่งอำนวยความสะดวก</option>
-                <option value="parking">🚗 ที่จอดรถ</option>
-                <option value="garden">🌳 สวน</option>
+                {buildingTypeOptions().map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.icon} {type.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -180,18 +173,20 @@ export default function AdminBuildings() {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center text-2xl">
-                        {buildingTypes[building.buildingType as keyof typeof buildingTypes]}
+                        {buildingTypes[building.buildingType]}
                       </div>
                       <div>
                         <h3 className="text-lg font-bold text-gray-900">{building.name}</h3>
-                        <p className="text-sm text-gray-600 capitalize">{building.buildingType}</p>
+                        <p className="text-sm text-gray-600">{BUILDING_TYPE_INFO[building.buildingType as BuildingType]?.label ?? building.buildingType}</p>
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1 text-xs text-gray-500">
                         <MapPin size={12} />
-                        <span>{building.x}%, {building.y}%</span>
+                        <span>
+                          {Number(building.x).toFixed(1)}%, {Number(building.y).toFixed(1)}%
+                        </span>
                       </div>
                     </div>
                   </div>

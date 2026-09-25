@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { BUILDING_TYPES } from '@/lib/buildingTypes'
 import { objectId, optionalId } from './common'
 
 const trimmed = (message: string) => z.string({ message }).trim().min(1, message)
@@ -17,7 +18,6 @@ export const addOnSchema = z.object({
 })
 export const addOnUpdateSchema = addOnSchema.partial()
 
-export const BUILDING_TYPES = ['accommodation', 'cafe', 'restaurant', 'facility', 'parking', 'garden', 'camping'] as const
 
 const coordinate = z.coerce.number().min(0).max(100)
 

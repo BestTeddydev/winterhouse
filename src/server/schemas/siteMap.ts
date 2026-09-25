@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { BUILDING_TYPES } from './catalog'
+import { BUILDING_TYPES } from '@/lib/buildingTypes'
 
 export const MAP_TYPES = ['accommodation', 'camping'] as const
 export type MapType = (typeof MAP_TYPES)[number]

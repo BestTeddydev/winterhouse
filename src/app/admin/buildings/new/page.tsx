@@ -8,15 +8,9 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import { ArrowLeft, Plus, X } from 'lucide-react'
 import Link from 'next/link'
+import { buildingTypeOptions } from '@/lib/buildingTypes'
 
-const buildingTypes = [
-  { value: 'accommodation', label: 'ที่พัก', icon: '🏠' },
-  { value: 'cafe', label: 'คาเฟ่', icon: '☕' },
-  { value: 'restaurant', label: 'ร้านอาหาร', icon: '🍽️' },
-  { value: 'facility', label: 'สิ่งอำนวยความสะดวก', icon: '🏢' },
-  { value: 'parking', label: 'ที่จอดรถ', icon: '🚗' },
-  { value: 'garden', label: 'สวน', icon: '🌳' },
-]
+const buildingTypes = buildingTypeOptions()
 
 export default function NewBuilding() {
   const router = useRouter()
