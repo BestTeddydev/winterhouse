@@ -1,95 +1,35 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useSession } from 'next-auth/react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ArrowLeft, CheckCircle, Clock, XCircle } from 'lucide-react'
 import Navbar from '@/components/Navbar'
-import axios from 'axios'
-import toast from 'react-hot-toast'
+import { stayName } from '@/lib/bookingDisplay'
 import { formatCurrency } from '@/lib/utils'
-import { CheckCircle, XCircle, Clock, ArrowLeft } from 'lucide-react'
+import { stayNights } from '../_lib/bookingDetail'
+import PaymentPageShell from '../_payment/PaymentPageShell'
+import { usePaymentBooking } from '../_payment/usePaymentBooking'
+
+type ResultStatus = 'success' | 'failed' | 'pending'
+
+/** Stripe's return URL says how it went; otherwise the stored payment status does */
+function resultStatus(searchParams: URLSearchParams, paymentStatus?: string): ResultStatus {
+  if (searchParams.get('success') === 'true') return 'success'
+  if (searchParams.get('canceled') === 'true') return 'failed'
+  if (paymentStatus === 'COMPLETED') return 'success'
+  if (paymentStatus === 'FAILED') return 'failed'
+  return 'pending'
+}
 
 export default function PaymentResult() {
-  const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { data: session } = useSession()
+  const { id, booking } = usePaymentBooking()
 
-  const [booking, setBooking] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [paymentStatus, setPaymentStatus] = useState<'success' | 'failed' | 'pending'>('pending')
+  if (!booking) return <PaymentPageShell booking={booking}>{() => null}</PaymentPageShell>
 
-  useEffect(() => {
-    if (!session) {
-      router.push('/auth/signin')
-      return
-    }
-
-    if (params.id) {
-      fetchBooking()
-    }
-  }, [session, params.id])
-
-  const fetchBooking = async () => {
-    try {
-      const response = await axios.get(`/api/bookings/${params.id}`)
-      setBooking(response.data)
-      
-      // Check URL parameters first
-      const success = searchParams.get('success')
-      const canceled = searchParams.get('canceled')
-      
-      if (success === 'true') {
-        setPaymentStatus('success')
-      } else if (canceled === 'true') {
-        setPaymentStatus('failed')
-      } else {
-        // Determine payment status from booking data
-        if (response.data.paymentId?.status === 'COMPLETED') {
-          setPaymentStatus('success')
-        } else if (response.data.paymentId?.status === 'FAILED') {
-          setPaymentStatus('failed')
-        } else {
-          setPaymentStatus('pending')
-        }
-      }
-    } catch (error: any) {
-      console.error('Error fetching booking:', error)
-      toast.error(error.response?.data?.error || 'ไม่สามารถโหลดข้อมูลการจองได้')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleBackToBooking = () => {
-    router.push(`/bookings`)
-  }
-
-  const handleRetryPayment = () => {
-    router.push(`/bookings/${params.id}/payment`)
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!booking) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <div className="container mx-auto px-4 py-8">
-          <p className="text-center text-gray-500">ไม่พบข้อมูลการจอง</p>
-        </div>
-      </div>
-    )
-  }
+  const paymentStatus = resultStatus(new URLSearchParams(searchParams.toString()), booking.payment?.status)
+  const handleBackToBooking = () => router.push('/bookings')
+  const handleRetryPayment = () => router.push(`/bookings/${id}/payment`)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -165,7 +105,7 @@ export default function PaymentResult() {
             <div className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-gray-200">
                 <span className="text-gray-600">ห้องพัก</span>
-                <span className="font-medium">{booking.room?.name || 'ไม่ระบุชื่อห้อง'}</span>
+                <span className="font-medium">{stayName(booking)}</span>
               </div>
               
               <div className="flex justify-between items-center py-2 border-b border-gray-200">
@@ -176,20 +116,20 @@ export default function PaymentResult() {
               <div className="flex justify-between items-center py-2 border-b border-gray-200">
                 <span className="text-gray-600">เช็คอิน</span>
                 <span className="font-medium">
-                  {new Date(booking.checkIn).toLocaleDateString('th-TH')}
+                  {new Date(booking.checkIn).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}
                 </span>
               </div>
               
               <div className="flex justify-between items-center py-2 border-b border-gray-200">
                 <span className="text-gray-600">เช็คเอาท์</span>
                 <span className="font-medium">
-                  {new Date(booking.checkOut).toLocaleDateString('th-TH')}
+                  {new Date(booking.checkOut).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}
                 </span>
               </div>
               
               <div className="flex justify-between items-center py-2 border-b border-gray-200">
                 <span className="text-gray-600">จำนวนคืน</span>
-                <span className="font-medium">{booking.nights} คืน</span>
+                <span className="font-medium">{stayNights(booking)} คืน</span>
               </div>
               
               <div className="flex justify-between items-center py-2">
