@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import connectDB from '@/lib/mongodb'
-import mongoose from 'mongoose'
+import connectDB from '@/lib/db'
+import * as mongoose from '@/lib/odm'
 import CampingBlock from '@/models/CampingBlock'
 import Building from '@/models/Building'
 

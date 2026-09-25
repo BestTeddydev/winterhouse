@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
 import Navbar from '@/components/Navbar'
+import { publicAssetUrl } from '@/lib/storageUrl'
 import { 
   Coffee, 
   HomeIcon, 
@@ -340,7 +341,7 @@ export default function Home() {
                   <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-emerald-400/20 to-transparent rounded-tl-full z-10"></div>
                   
                   <video
-                    src="https://storage.googleapis.com/baanlomnow/public/room1.mp4"
+                    src={publicAssetUrl('room1.mp4')}
                     autoPlay
                     loop
                     muted
@@ -355,7 +356,7 @@ export default function Home() {
                     controls
                     controlsList="nodownload"
                   >
-                    <source src="https://storage.googleapis.com/baanlomnow/public/room.mp4" type="video/mp4" />
+                    <source src={publicAssetUrl('room.mp4')} type="video/mp4" />
                     เบราว์เซอร์ของคุณไม่รองรับการเล่นวิดีโอ
                   </video>
                   
@@ -416,7 +417,7 @@ export default function Home() {
           <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20 transition-all duration-1000 delay-300 ${cafeSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
             <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '400ms' }}>
               <Image
-                src="https://storage.googleapis.com/baanlomnow/public/cafe1.jpg"
+                src={publicAssetUrl('cafe1.jpg')}
                 alt="คาเฟ่ วังน้ำเขียว - บ้านลมหนาว"
                 fill
                 className="object-cover group-hover:scale-110 transition-transform duration-500"
@@ -426,7 +427,7 @@ export default function Home() {
 
             <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '500ms' }}>
               <Image
-                src="https://storage.googleapis.com/baanlomnow/public/cafe2.jpg"
+                src={publicAssetUrl('cafe2.jpg')}
                 alt="บรรยากาศคาเฟ่ - บ้านลมหนาว"
                 fill
                 className="object-cover group-hover:scale-110 transition-transform duration-500"
@@ -436,7 +437,7 @@ export default function Home() {
 
             <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '600ms' }}>
               <Image
-                src="https://storage.googleapis.com/baanlomnow/public/cafe3.jpg"
+                src={publicAssetUrl('cafe3.jpg')}
                 alt="คาเฟ่ บ้านลมหนาว - วังน้ำเขียว"
                 fill
                 className="object-cover group-hover:scale-110 transition-transform duration-500"
@@ -468,7 +469,7 @@ export default function Home() {
               <div className={`group relative rounded-3xl overflow-hidden shadow-2xl hover:shadow-3xl transition-all duration-500 hover:-translate-y-2 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'} md:col-span-2 lg:col-span-1`} style={{ animationDelay: '600ms' }}>
                 <div className="relative aspect-[3/4] bg-white">
                   <Image
-                    src="https://storage.googleapis.com/baanlomnow/public/MENU-A4.jpg"
+                    src={publicAssetUrl('MENU-A4.jpg')}
                     alt="เมนูอาหารและเครื่องดื่ม - บ้านลมหนาว คาเฟ่"
                     fill
                     className="object-contain p-4 group-hover:scale-105 transition-transform duration-500"
@@ -485,7 +486,7 @@ export default function Home() {
               <div className={`group relative rounded-3xl overflow-hidden shadow-2xl hover:shadow-3xl transition-all duration-500 hover:-translate-y-2 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '700ms' }}>
                 <div className="relative aspect-[3/4] bg-white">
                   <Image
-                    src="https://storage.googleapis.com/baanlomnow/public/menu_water1.jpg"
+                    src={publicAssetUrl('menu_water1.jpg')}
                     alt="เมนูเครื่องดื่ม 1 - บ้านลมหนาว คาเฟ่"
                     fill
                     className="object-contain p-4 group-hover:scale-105 transition-transform duration-500"
@@ -502,7 +503,7 @@ export default function Home() {
               <div className={`group relative rounded-3xl overflow-hidden shadow-2xl hover:shadow-3xl transition-all duration-500 hover:-translate-y-2 ${cafeSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '800ms' }}>
                 <div className="relative aspect-[3/4] bg-white">
                   <Image
-                    src="https://storage.googleapis.com/baanlomnow/public/menu_water2.jpg"
+                    src={publicAssetUrl('menu_water2.jpg')}
                     alt="เมนูเครื่องดื่ม 2 - บ้านลมหนาว คาเฟ่"
                     fill
                     className="object-contain p-4 group-hover:scale-105 transition-transform duration-500"
@@ -565,7 +566,7 @@ export default function Home() {
                   <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-red-400/20 to-transparent rounded-tl-full z-10"></div>
                   
                   <video
-                    src="https://storage.googleapis.com/baanlomnow/public/atv.mp4"
+                    src={publicAssetUrl('atv.mp4')}
                     autoPlay
                     loop
                     muted
@@ -580,7 +581,7 @@ export default function Home() {
                     controls
                     controlsList="nodownload"
                   >
-                    <source src="https://storage.googleapis.com/baanlomnow/public/atv.mp4" type="video/mp4" />
+                    <source src={publicAssetUrl('atv.mp4')} type="video/mp4" />
                     เบราว์เซอร์ของคุณไม่รองรับการเล่นวิดีโอ
                   </video>
                   
@@ -595,7 +596,7 @@ export default function Home() {
           <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 mb-16 transition-all duration-1000 delay-500 ${campingSection.isIntersecting ? 'animate-fade-in-up' : 'opacity-0 translate-y-8'}`}>
             <div className={`group relative h-96 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-4 ${campingSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '600ms' }}>
               <Image
-                src="https://storage.googleapis.com/baanlomnow/public/atv_pic2.jpg"
+                src={publicAssetUrl('atv_pic2.jpg')}
                 alt="ATV ชมกระทิง - บ้านลมหนาว"
                 fill
                 className="object-cover group-hover:scale-110 transition-transform duration-500"
@@ -672,7 +673,7 @@ export default function Home() {
             <div className={`group relative rounded-3xl overflow-hidden shadow-2xl hover:shadow-3xl transition-all duration-500 hover:-translate-y-2 ${nearbyAttractionsSection.isIntersecting ? 'animate-scale-in' : 'opacity-0 scale-90'}`} style={{ animationDelay: '400ms' }}>
               <div className="relative h-[500px] lg:h-[600px]">
                 <Image
-                  src="https://storage.googleapis.com/baanlomnow/public/near.jpg"
+                  src={publicAssetUrl('near.jpg')}
                   alt="สถานที่ท่องเที่ยวใกล้ๆ บ้านลมหนาว - วังน้ำเขียว"
                   fill
                   className="object-cover group-hover:scale-110 transition-transform duration-500"
@@ -827,7 +828,7 @@ export default function Home() {
             <div className={`relative transition-all duration-1000 delay-500 ${whyChooseUsSection.isIntersecting ? 'animate-fade-in-right' : 'opacity-0 translate-x-8'}`}>
               <div className="relative h-96 rounded-3xl overflow-hidden shadow-2xl">
               <Image
-                src="https://storage.googleapis.com/baanlomnow/public/atv_pic.jpg"
+                src={publicAssetUrl('atv_pic.jpg')}
                   alt="บ้านลมหนาว คาเฟ่ แอนด์ แคมป์ปิ้ง วังน้ำเขียว"
                 fill
                 className="object-cover"

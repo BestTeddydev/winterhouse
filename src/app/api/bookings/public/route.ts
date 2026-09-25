@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/mongodb'
+import connectDB from '@/lib/db'
 import Booking from '@/models/Booking'
-import mongoose from 'mongoose'
+import * as mongoose from '@/lib/odm'
 
 export async function GET(request: NextRequest) {
   try {

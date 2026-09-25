@@ -43,3 +43,6 @@ k8s/mongodb.yaml
 *.secret.yaml
 **/*-secret.yaml
 
+
+# service account keys
+/secrets

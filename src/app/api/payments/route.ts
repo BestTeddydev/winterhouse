@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import connectDB from '@/lib/mongodb'
+import connectDB from '@/lib/db'
 import Booking from '@/models/Booking'
 import Payment from '@/models/Payment'
 import User from '@/models/User'
 import { createCheckoutSession, createQRCodePayment } from '@/lib/stripe'
-import mongoose from 'mongoose'
+import * as mongoose from '@/lib/odm'
 
 export async function POST(request: NextRequest) {
   try {

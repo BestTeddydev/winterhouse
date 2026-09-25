@@ -1,4 +1,5 @@
-import mongoose, { Document, Schema } from 'mongoose'
+import * as mongoose from '@/lib/odm'
+import { Document, Schema } from '@/lib/odm'
 
 export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
 

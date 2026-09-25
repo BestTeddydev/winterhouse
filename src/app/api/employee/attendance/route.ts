@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import connectDB from '@/lib/mongodb'
+import connectDB from '@/lib/db'
 import EmployeeAttendance from '@/models/EmployeeAttendance'
 import User from '@/models/User'
-import mongoose from 'mongoose'
+import * as mongoose from '@/lib/odm'
 
 export async function GET(request: NextRequest) {
   try {

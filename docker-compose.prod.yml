@@ -42,8 +42,10 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # Database
-      - DATABASE_URL=${DATABASE_URL}
+      # Firebase (Firestore + Storage)
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/firebase.json
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-baanlomnow-3501a}
+      - FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET:-baanlomnow-3501a.firebasestorage.app}
       
       # NextAuth
       - NEXTAUTH_URL=${NEXTAUTH_URL}
@@ -62,10 +64,6 @@ services:
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
       
-      # Google Cloud Storage
-      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
-      - GOOGLE_CLOUD_BUCKET_NAME=${GOOGLE_CLOUD_BUCKET_NAME}
-      
       # Email Service
       - RESEND_API_KEY=${RESEND_API_KEY}
       
@@ -76,9 +74,8 @@ services:
       # Node
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1
-    depends_on:
-      db:
-        condition: service_healthy
+    volumes:
+      - ./secrets/baanlomnow-firebase.json:/app/secrets/firebase.json:ro
     networks:
       - baanlomnow-network
     healthcheck:

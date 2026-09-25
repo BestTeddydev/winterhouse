@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import connectDB from '@/lib/mongodb'
+import connectDB from '@/lib/db'
 import Booking from '@/models/Booking'
 import Room from '@/models/Room'
 import User from '@/models/User'
 import Payment from '@/models/Payment'
 import { sendLineNotification, formatBookingNotification } from '@/lib/line'
 import { calculateMultipleRoomsPrice, calculateRoomPriceRange } from '@/lib/pricing'
-import mongoose from 'mongoose'
+import * as mongoose from '@/lib/odm'
 
 export async function GET(request: NextRequest) {
   try {

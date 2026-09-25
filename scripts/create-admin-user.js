@@ -10,15 +10,27 @@
  *   node scripts/create-admin-user.js --email user@example.com --name "Admin User"
  */
 
-const mongoose = require('mongoose')
-const readline = require('readline')
+const path = require('path')
+const { randomBytes } = require('crypto')
+const { initializeApp, cert, applicationDefault } = require('firebase-admin/app')
+const { getFirestore } = require('firebase-admin/firestore')
 
-// Get MongoDB URI from environment
-const MONGODB_URI = process.env.DATABASE_URL || process.env.MONGODB_URI
+// Firebase credentials: FIREBASE_SERVICE_ACCOUNT_KEY (JSON), GOOGLE_APPLICATION_CREDENTIALS, or secrets/baanlomnow-firebase.json
+const keyFile = path.join(__dirname, '..', 'secrets', 'baanlomnow-firebase.json')
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+  : !process.env.GOOGLE_APPLICATION_CREDENTIALS && require('fs').existsSync(keyFile)
+    ? require(keyFile)
+    : null
+initializeApp({
+  credential: serviceAccount ? cert(serviceAccount) : applicationDefault(),
+  projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount?.project_id,
+})
+const users = getFirestore().collection('users')
 
-if (!MONGODB_URI) {
-  console.error('❌ Error: DATABASE_URL or MONGODB_URI environment variable is not set')
-  process.exit(1)
+// Same 24-hex id format the app uses (ObjectId compatible)
+function newId() {
+  return Math.floor(Date.now() / 1000).toString(16).padStart(8, '0') + randomBytes(8).toString('hex')
 }
 
 // Create readline interface for user input
@@ -54,18 +66,8 @@ for (let i = 0; i < args.length; i++) {
 async function createAdminUser() {
   try {
     console.log('🚀 Connecting to MongoDB...')
-    await mongoose.connect(MONGODB_URI)
-    console.log('✅ Connected to MongoDB successfully')
 
-    // Import User model
-    const User = mongoose.models.User || mongoose.model('User', new mongoose.Schema({
-      name: String,
-      email: String,
-      emailVerified: Date,
-      image: String,
-      lineUserId: String,
-      role: { type: String, enum: ['ADMIN', 'CUSTOMER'], default: 'CUSTOMER' }
-    }, { timestamps: true }))
+    console.log('✅ Connected to MongoDB successfully')
 
     // Get user input
     let userEmail = email
@@ -80,7 +82,8 @@ async function createAdminUser() {
     }
 
     // Check if user exists
-    const existingUser = await User.findOne({ email: userEmail })
+    const snapshot = await users.where('email', '==', userEmail).limit(1).get()
+    const existingUser = snapshot.empty ? null : { _id: snapshot.docs[0].id, ...snapshot.docs[0].data() }
 
     if (existingUser) {
       console.log('\n⚠️  User already exists!')
@@ -97,7 +100,7 @@ async function createAdminUser() {
         
         if (confirm.toLowerCase() === 'yes' || confirm.toLowerCase() === 'y') {
           existingUser.role = 'ADMIN'
-          await existingUser.save()
+          await users.doc(existingUser._id).update({ role: 'ADMIN', updatedAt: new Date() })
           console.log('\n✅ User promoted to ADMIN successfully!')
         } else {
           console.log('\n❌ Operation cancelled')
@@ -107,15 +110,17 @@ async function createAdminUser() {
       // Create new user
       console.log('\n📝 Creating new admin user...')
       
-      const newUser = new User({
+      const { _id, ...data } = {
+        _id: newId(),
         name: userName,
         email: userEmail,
         role: 'ADMIN',
         createdAt: new Date(),
         updatedAt: new Date()
-      })
+      }
+      const newUser = { _id, ...data }
 
-      await newUser.save()
+      await users.doc(_id).set(data)
 
       console.log('\n✅ Admin user created successfully!')
       console.log('📋 User details:')
@@ -127,7 +132,7 @@ async function createAdminUser() {
 
     // Show all admin users
     console.log('\n👥 All ADMIN users:')
-    const adminUsers = await User.find({ role: 'ADMIN' })
+    const adminUsers = (await users.where('role', '==', 'ADMIN').get()).docs.map((doc) => ({ _id: doc.id, ...doc.data() }))
     adminUsers.forEach((user, index) => {
       console.log(`\n${index + 1}. ${user.name}`)
       console.log('   Email:', user.email)
@@ -143,7 +148,6 @@ async function createAdminUser() {
     }
     process.exit(1)
   } finally {
-    await mongoose.disconnect()
     rl.close()
   }
 }

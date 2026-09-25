@@ -47,16 +47,18 @@ spec:
             configMapKeyRef:
               name: baanlomnow-config
               key: HOSTNAME
-        - name: MONGODB_URI
+        # Firebase (Firestore + Storage). The key lives in its own secret:
+        #   kubectl create secret generic firebase-service-account -n baanlomnow \
+        #     --from-file=key.json=secrets/baanlomnow-firebase.json
+        - name: FIREBASE_SERVICE_ACCOUNT_KEY
           valueFrom:
             secretKeyRef:
-              name: baanlomnow-secrets
-              key: MONGODB_URI
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: baanlomnow-secrets
-              key: DATABASE_URL
+              name: firebase-service-account
+              key: key.json
+        - name: FIREBASE_PROJECT_ID
+          value: baanlomnow-3501a
+        - name: FIREBASE_STORAGE_BUCKET
+          value: baanlomnow-3501a.firebasestorage.app
         - name: NEXTAUTH_URL
           valueFrom:
             secretKeyRef:
@@ -67,21 +69,6 @@ spec:
             secretKeyRef:
               name: baanlomnow-secrets
               key: NEXTAUTH_SECRET
-        - name: GOOGLE_CLOUD_PROJECT_ID
-          valueFrom:
-            secretKeyRef:
-              name: baanlomnow-secrets
-              key: GOOGLE_CLOUD_PROJECT_ID
-        - name: GOOGLE_CLOUD_STORAGE_BUCKET
-          valueFrom:
-            secretKeyRef:
-              name: baanlomnow-secrets
-              key: GOOGLE_CLOUD_BUCKET_NAME
-        - name: GOOGLE_CLOUD_BUCKET_NAME
-          valueFrom:
-            secretKeyRef:
-              name: baanlomnow-secrets
-              key: GOOGLE_CLOUD_BUCKET_NAME
         - name: STRIPE_PUBLIC_KEY
           valueFrom:
             secretKeyRef:

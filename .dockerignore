@@ -68,3 +68,6 @@ tmp/
 temp/
 *.log
 
+
+# service account keys (mounted at runtime)
+secrets

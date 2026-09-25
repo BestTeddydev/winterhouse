@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/mongodb'
+import connectDB from '@/lib/db'
 import User from '@/models/User'
-import mongoose from 'mongoose'
+import * as mongoose from '@/lib/odm'
 
 /**
  * GET /api/admin/users/[id]

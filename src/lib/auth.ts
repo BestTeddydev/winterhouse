@@ -1,20 +1,9 @@
 import { NextAuthOptions } from 'next-auth'
-import { MongoDBAdapter } from '@next-auth/mongodb-adapter'
 import LineProvider from 'next-auth/providers/line'
-import connectDB from './mongodb'
-import { MongoClient } from 'mongodb'
+import connectDB from './db'
+import { isFirebaseConfigured } from './firebase'
 
 type Role = 'ADMIN' | 'CUSTOMER' | 'OWNER' | 'EMPLOYEE'
-
-// Only create MongoDB client if DATABASE_URL is available
-const DATABASE_URL = process.env.DATABASE_URL || process.env.MONGODB_URI
-let client: MongoClient | null = null
-let clientPromise: Promise<MongoClient> | null = null
-
-if (DATABASE_URL) {
-  client = new MongoClient(DATABASE_URL)
-  clientPromise = client.connect()
-}
 
 async function refreshAccessToken(token: any) {
   try {
@@ -31,11 +20,7 @@ async function refreshAccessToken(token: any) {
 }
 
 export const authOptions: NextAuthOptions = {
-  // MongoDB Adapter and JWT strategy conflict!
-  // If using JWT strategy, disable MongoDB adapter
-  // If using MongoDB adapter, use database strategy
-  // We're using JWT strategy, so disable adapter
-  // adapter: clientPromise ? MongoDBAdapter(clientPromise) : undefined,
+  // JWT session strategy - users are stored in Firestore by the signIn callback below
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
     LineProvider({
@@ -84,7 +69,7 @@ export const authOptions: NextAuthOptions = {
       }
 
       // On subsequent requests, fetch fresh user data from DB if role is missing
-      if (token && token.id && !token.role && DATABASE_URL) {
+      if (token && token.id && !token.role && isFirebaseConfigured()) {
         try {
           await connectDB()
           const { default: User } = await import('@/models/User')

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/mongodb'
+import connectDB from '@/lib/db'
 import Payment from '@/models/Payment'
 import Booking from '@/models/Booking'
 import Room from '@/models/Room'

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import connectDB from '@/lib/mongodb'
+import connectDB from '@/lib/db'
 import CampingBlockBlock from '@/models/CampingBlockBlock'
-import mongoose from 'mongoose'
+import * as mongoose from '@/lib/odm'
 
 // GET - ดึงข้อมูลการล็อคบล็อคกางเต๊นท์ตาม ID
 export async function GET(

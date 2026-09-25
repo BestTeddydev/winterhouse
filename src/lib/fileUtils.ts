@@ -1,4 +1,4 @@
-import { uploadToGCS, deleteFromGCS } from '@/lib/gcs'
+import { uploadToStorage, deleteFromStorage } from '@/lib/storage'
 
 export interface UploadResult {
   url: string
@@ -29,8 +29,8 @@ export async function uploadFile(file: File): Promise<UploadResult> {
   const originalName = file.name.replace(/\s+/g, '-')
   const filename = `uploads/${timestamp}-${originalName}`
 
-  // Upload to Google Cloud Storage
-  const url = await uploadToGCS(buffer, filename, file.type)
+  // Upload to Firebase Storage
+  const url = await uploadToStorage(buffer, filename, file.type)
 
   return {
     url,
@@ -41,7 +41,7 @@ export async function uploadFile(file: File): Promise<UploadResult> {
 }
 
 export async function deleteFile(filename: string): Promise<void> {
-  await deleteFromGCS(filename)
+  await deleteFromStorage(filename)
 }
 
 // Helper function to extract filename from URL

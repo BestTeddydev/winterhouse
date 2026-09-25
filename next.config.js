@@ -17,6 +17,8 @@ const nextConfig = {
   // Disable static generation for pages that use useSearchParams
   experimental: {
     missingSuspenseWithCSRBailout: false,
+    // Keep the Firebase Admin SDK out of the webpack bundle
+    serverComponentsExternalPackages: ['firebase-admin'],
   },
   // Ensure public folder is included in standalone build
   publicRuntimeConfig: {
