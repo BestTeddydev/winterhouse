@@ -1,23 +1,11 @@
 'use client'
 
-import { useEffect, type ReactNode } from 'react'
-import { useSession } from 'next-auth/react'
+import type { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import PageSpinner from '@/components/PageSpinner'
-
-const STAFF_ROLES = ['ADMIN', 'OWNER']
-
-export function useIsStaff() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-  const staff = STAFF_ROLES.includes(session?.user?.role ?? '')
-  useEffect(() => {
-    if (status !== 'loading' && !staff) router.push('/auth/signin')
-  }, [status, staff, router])
-  return { status, staff }
-}
+import { useIsStaff } from '@/hooks/useIsStaff'
 
 /** Frame of the admin booking create/edit pages: staff guard, header and spinner */
 export default function BookingFormPage({

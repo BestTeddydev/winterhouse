@@ -1,15 +1,24 @@
 import { z } from 'zod'
 import { optionalId, pageQuery } from './common'
 
+const day = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .optional()
+  .catch(undefined)
+
 export const attendanceQuery = z.object({
   ...pageQuery,
   status: z.string().optional(),
   employeeId: optionalId('employeeId'),
-  date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional()
-    .catch(undefined),
+  /** Employee name/email, location or notes */
+  search: z.string().trim().max(200).optional(),
+  date: day,
+  /** Inclusive Thai-date range */
+  dateFrom: day,
+  dateTo: day,
+  /** เข้างาน / ออกงาน / ลางาน */
+  location: z.string().trim().max(200).optional(),
 })
 
 export const checkInSchema = z.object({

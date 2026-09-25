@@ -10,6 +10,8 @@ import * as checkOutRoute from '@/app/api/employee/attendance/checkout/route'
 import * as roomLocksRoute from '@/app/api/room-blocks/route'
 import * as roomLockRoute from '@/app/api/room-blocks/[id]/route'
 import * as uploadRoute from '@/app/api/upload/route'
+import { bangkokDayRange } from '@/lib/dates'
+import EmployeeAttendance from '@/models/EmployeeAttendance'
 import User from '@/models/User'
 import { createCampingBlock, createRoom, createUser, day } from '../support/factories'
 import { call } from '../support/http'
@@ -106,6 +108,39 @@ describe('employee attendance', () => {
     expect(out.status).toBe(200)
     expect(out.body.attendance.checkoutTime).toBeTruthy()
     expect((await call(checkOutRoute.POST, 'POST', { body: {} })).status).toBe(400)
+  })
+
+  it('filters by a date range and type', async () => {
+    const employee = await createUser({ role: 'EMPLOYEE' })
+    const at = (offset: number) => new Date(`${day(offset)}T03:00:00Z`)
+    await EmployeeAttendance.create({ employeeId: employee._id, checkInDate: bangkokDayRange(day(-5)).start, checkInTime: at(-5), location: 'เข้างาน' })
+    await EmployeeAttendance.create({ employeeId: employee._id, checkInDate: bangkokDayRange(day(-3)).start, checkInTime: at(-3), location: 'ลางาน' })
+    await EmployeeAttendance.create({ employeeId: employee._id, checkInDate: bangkokDayRange(day(-1)).start, checkInTime: at(-1), location: 'เข้างาน' })
+
+    signInAs(await createUser({ role: 'OWNER' }))
+    const total = async (query: Record<string, string>) => (await call(attendanceRoute.GET, 'GET', { query })).body.pagination.total
+    expect(await total({ dateFrom: day(-5), dateTo: day(-3) })).toBe(2)
+    expect(await total({ dateFrom: day(-3) })).toBe(2)
+    expect(await total({ dateTo: day(-5) })).toBe(1)
+    expect(await total({ location: 'เข้างาน' })).toBe(2)
+    expect(await total({ date: day(-1) })).toBe(1)
+  })
+
+  it('lets staff search by employee, location or notes across all pages', async () => {
+    const somchai = await createUser({ role: 'EMPLOYEE', name: 'สมชาย ใจดี', email: 'somchai@test.dev' })
+    const suda = await createUser({ role: 'EMPLOYEE', name: 'สุดา', email: 'suda@test.dev' })
+    signInAs(somchai)
+    await call(checkInRoute.POST, 'POST', { body: { location: 'เข้างาน' } })
+    signInAs(suda)
+    await call(checkInRoute.POST, 'POST', { body: { location: 'ลางาน', notes: 'ไปหาหมอ' } })
+
+    signInAs(await createUser({ role: 'ADMIN' }))
+    const search = async (text: string) =>
+      (await call(attendanceRoute.GET, 'GET', { query: { search: text, limit: '1' } })).body.attendance.map((a: any) => a.employeeId.name)
+    expect(await search('SOMCHAI@')).toEqual(['สมชาย ใจดี'])
+    expect(await search('หาหมอ')).toEqual(['สุดา'])
+    expect(await search('ลางาน')).toEqual(['สุดา'])
+    expect(await search('(')).toEqual([])
   })
 
   it('shows employees only their own records and forbids customers', async () => {

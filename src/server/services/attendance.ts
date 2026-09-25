@@ -55,9 +55,23 @@ export async function listAttendance(q: z.infer<typeof attendanceQuery>, session
     throw forbidden('ไม่ได้รับอนุญาต')
   }
   if (q.status && q.status !== 'all') filter.status = q.status
-  if (q.date) {
-    const { start, end } = bangkokDayRange(q.date)
-    filter.checkInDate = { $gte: start, $lt: end }
+  const from = q.date ?? q.dateFrom
+  const to = q.date ?? q.dateTo
+  if (from || to) {
+    filter.checkInDate = {
+      ...(from && { $gte: bangkokDayRange(from).start }),
+      ...(to && { $lt: bangkokDayRange(to).end }),
+    }
+  }
+  if (q.location && q.location !== 'all') filter.location = q.location
+  if (q.search) {
+    const pattern = new RegExp(q.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+    const employees = await User.find({ $or: [{ name: pattern }, { email: pattern }] }).select('_id').lean()
+    filter.$or = [
+      { employeeId: { $in: employees.map((e: { _id: string }) => e._id) } },
+      { location: pattern },
+      { notes: pattern },
+    ]
   }
 
   const [total, attendance] = await Promise.all([
