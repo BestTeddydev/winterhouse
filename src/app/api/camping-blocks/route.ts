@@ -1,13 +1,16 @@
 import CampingBlock from '@/models/CampingBlock'
+import { getOptionalSession, isStaff } from '@/server/auth'
 import { badRequest } from '@/server/errors'
 import { apiRoute, created } from '@/server/http'
-import { campingBlockSchema } from '@/server/schemas/catalog'
+import { campingBlockSchema, listCatalogQuery } from '@/server/schemas/catalog'
 import { toCampingBlockListItem } from '@/server/services/catalog'
 
 export const dynamic = 'force-dynamic'
 
-export const GET = apiRoute({ access: 'public', errorMessage: 'ไม่สามารถโหลดข้อมูลบล็อคกางเต๊นท์ได้' }, async () => {
-  const blocks = await CampingBlock.find({ isActive: true }).populate('buildingId', 'name buildingType x y').sort({ createdAt: 1 })
+/** Active ones for everyone; staff can add `?includeInactive=true` to manage the switched-off ones too */
+export const GET = apiRoute({ access: 'public', query: listCatalogQuery, errorMessage: 'ไม่สามารถโหลดข้อมูลบล็อคกางเต๊นท์ได้' }, async ({ query }) => {
+  const all = query.includeInactive && isStaff(await getOptionalSession())
+  const blocks = await CampingBlock.find(all ? {} : { isActive: true }).populate('buildingId', 'name buildingType x y').sort({ createdAt: 1 })
   return blocks.map(toCampingBlockListItem)
 })
 

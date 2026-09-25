@@ -88,3 +88,10 @@ export const campingBlockSchema = z.object({
 export const campingBlockUpdateSchema = campingBlockSchema.partial().extend({
   buildingId: z.union([objectId('Building ID'), z.literal(''), z.null()]).optional(),
 })
+
+export const listCatalogQuery = z.object({
+  includeInactive: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true'),
+})

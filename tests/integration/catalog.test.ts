@@ -65,6 +65,18 @@ describe('rooms', () => {
     expect(res.body[0]).toMatchObject({ name: 'R1', buildingName: 'บ้าน A', buildingX: 10, imageUrl: 'https://img.test/a.jpg' })
   })
 
+  it('lists switched-off rooms and camping blocks for staff only', async () => {
+    await createRoom({ name: 'Open' })
+    await createRoom({ name: 'Closed', isActive: false })
+    await createCampingBlock({ name: 'Off', isActive: false })
+    const names = async (route: any) => (await call(route.GET, 'GET', { query: { includeInactive: 'true' } })).body.map((r: any) => r.name)
+
+    expect(await names(roomsRoute)).toEqual(['Open'])
+    await signInAdmin()
+    expect((await names(roomsRoute)).sort()).toEqual(['Closed', 'Open'])
+    expect(await names(campingBlocksRoute)).toEqual(['Off'])
+  })
+
   it('creates a room with day prices falling back to the weekday price (ADMIN only)', async () => {
     signInAs(await createUser({ role: 'OWNER' }))
     const body = { name: 'R', description: 'd', imageUrls: ['u'], price: 1000, capacity: 2, pricing: { weekday: 1200 } }
