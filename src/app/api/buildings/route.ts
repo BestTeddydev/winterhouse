@@ -1,14 +1,13 @@
-import Building from '@/models/Building'
+import { STAFF_ROLES } from '@/server/auth'
 import { apiRoute, created } from '@/server/http'
 import { buildingSchema } from '@/server/schemas/catalog'
+import { createBuilding, listBuildings } from '@/server/services/catalog'
 
 export const dynamic = 'force-dynamic'
 
-export const GET = apiRoute({ access: 'public', errorMessage: 'ไม่สามารถโหลดข้อมูลอาคารได้' }, () =>
-  Building.find({ isActive: true }).sort({ createdAt: -1 })
-)
+export const GET = apiRoute({ access: 'public', errorMessage: 'ไม่สามารถโหลดข้อมูลอาคารได้' }, () => listBuildings())
 
 export const POST = apiRoute(
-  { access: ['ADMIN'], body: buildingSchema, errorMessage: 'ไม่สามารถสร้างอาคารได้' },
-  async ({ body }) => created(await Building.create(body))
+  { access: STAFF_ROLES, body: buildingSchema, errorMessage: 'ไม่สามารถสร้างอาคารได้' },
+  async ({ body }) => created(await createBuilding(body))
 )

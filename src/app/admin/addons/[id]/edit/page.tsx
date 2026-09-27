@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import { useIsStaff } from '@/hooks/useIsStaff'
+import { useIsStaff } from '@/hooks/useRequireRole'
 import AddOnForm, { addOnToFormValues, type AddOnFormValues } from '../../_components/AddOnForm'
 import AddOnFormPage from '../../_components/AddOnFormPage'
 

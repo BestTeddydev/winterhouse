@@ -3,13 +3,13 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { useSession } from 'next-auth/react'
 import Navbar from '@/components/Navbar'
+import { useIsStaff } from '@/hooks/useRequireRole'
 
-/** Page frame for the room create/edit forms (rooms are managed by ADMIN only) */
+/** Page frame for the room create/edit forms (ADMIN and OWNER) */
 export default function RoomFormPage({ title, children }: { title: string; children: ReactNode }) {
-  const { data: session } = useSession()
-  if (session?.user.role !== 'ADMIN') return null
+  const { staff } = useIsStaff()
+  if (!staff) return null
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />

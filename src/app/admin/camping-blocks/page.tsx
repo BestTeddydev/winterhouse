@@ -2,28 +2,20 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { ArrowLeft, Filter, Plus, Search, Tent } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import PageSpinner from '@/components/PageSpinner'
+import { useIsStaff } from '@/hooks/useRequireRole'
 import { matchesCatalogFilter, type CatalogStatusFilter } from '@/components/admin/catalogFilter'
 import CampingBlockCard, { type AdminCampingBlock } from './_components/CampingBlockCard'
 
 export default function AdminCampingBlocks() {
-  const router = useRouter()
-  const { data: session, status: sessionStatus } = useSession()
-  const isAdmin = session?.user?.role === 'ADMIN'
+  const { status: sessionStatus, staff: isStaff } = useIsStaff()
   const [blocks, setBlocks] = useState<AdminCampingBlock[] | null>(null)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<CatalogStatusFilter>('all')
-
-  useEffect(() => {
-    if (sessionStatus === 'unauthenticated') router.push('/auth/signin')
-    else if (sessionStatus === 'authenticated' && !isAdmin) router.push('/')
-  }, [sessionStatus, isAdmin, router])
 
   // Switched-off blocks too, so they can be switched on again
   const load = useCallback(
@@ -40,8 +32,8 @@ export default function AdminCampingBlocks() {
   )
 
   useEffect(() => {
-    if (isAdmin) load()
-  }, [isAdmin, load])
+    if (isStaff) load()
+  }, [isStaff, load])
 
   const toggle = async (block: AdminCampingBlock) => {
     try {
@@ -66,11 +58,11 @@ export default function AdminCampingBlocks() {
     }
   }
 
-  if (!blocks || !isAdmin) {
+  if (!blocks || !isStaff) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        {sessionStatus === 'loading' || isAdmin ? <PageSpinner /> : null}
+        {sessionStatus === 'loading' || isStaff ? <PageSpinner /> : null}
       </div>
     )
   }

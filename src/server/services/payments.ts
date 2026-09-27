@@ -3,6 +3,7 @@ import type Stripe from 'stripe'
 import { upfrontAmount } from '@/lib/bookingPrice'
 import { formatPaymentNotificationEmail, sendEmailNotification } from '@/lib/email'
 import { formatPaymentThankYouMessage, sendLineNotification } from '@/lib/line'
+import { getDb } from '@/lib/firebase'
 import { createCheckoutSession, createQRCodePayment } from '@/lib/stripe'
 import Booking from '@/models/Booking'
 import Payment from '@/models/Payment'
@@ -22,6 +23,7 @@ async function loadBookingForPayment(bookingId: string, session: Session) {
   if (!booking) throw notFound('ไม่พบข้อมูลการจอง')
   await assertOwnerOrStaff(session, booking.userId)
   if (!booking.paymentId) throw notFound('ไม่พบข้อมูลการชำระเงิน')
+  if (booking.status === 'CANCELLED') throw badRequest('การจองนี้ถูกยกเลิกแล้ว')
   return booking
 }
 
@@ -98,7 +100,9 @@ export async function startRemainingPayment(input: { bookingId: string; paymentM
   if (booking.paymentType !== 'PARTIAL') throw badRequest('การจองนี้ไม่ใช่การชำระมัดจำ')
 
   const payment = booking.paymentId
-  if (payment.status !== 'COMPLETED' && payment.status !== 'FAILED') throw badRequest('ยังไม่ได้ชำระมัดจำ')
+  // What was actually paid, not the status: the status is also PROCESSING/FAILED while the
+  // balance checkout is open or failed, and FAILED when the deposit itself failed
+  if (!((payment.paidAmount || 0) > 0)) throw badRequest('ยังไม่ได้ชำระมัดจำ')
   const remainingAmount = payment.remainingAmount || 0
   if (remainingAmount <= 0) throw badRequest('ไม่มีการชำระเงินที่ค้างอยู่')
 
@@ -136,6 +140,29 @@ async function findPaymentForCheckout(checkout: Stripe.Checkout.Session) {
   return null
 }
 
+/** Amounts after a successful checkout of the given stage */
+function paidAmounts(payment: { paymentType: string; amount: number; totalAmount: number; paidAmount?: number }) {
+  if (payment.paymentType === 'REMAINING') return { paidAmount: (payment.paidAmount || 0) + payment.amount, remainingAmount: 0 }
+  if (payment.paymentType === 'PARTIAL') return { paidAmount: payment.amount, remainingAmount: payment.totalAmount - payment.amount }
+  return { paidAmount: payment.totalAmount, remainingAmount: 0 }
+}
+
+/**
+ * Marks the payment paid for one stage (FULL, PARTIAL deposit or REMAINING balance), at most once.
+ * Runs in a transaction, so two deliveries of the same event at the same moment can't both count it.
+ * Returns false when there is nothing to record: already paid, or the event is for an earlier stage
+ * (e.g. a late retry of the deposit event after the guest opened the balance checkout).
+ */
+async function recordPaid(paymentId: string, stage: string) {
+  const ref = Payment.collection().doc(String(paymentId))
+  return getDb().runTransaction(async (tx) => {
+    const current = (await tx.get(ref)).data()
+    if (!current || current.status === 'COMPLETED' || current.paymentType !== stage) return false
+    tx.update(ref, { status: 'COMPLETED', ...paidAmounts(current as any), updatedAt: new Date() })
+    return true
+  })
+}
+
 /**
  * Handles checkout.session.completed: marks the payment paid, confirms a pending booking and
  * sends notifications. Idempotent: Stripe retries deliveries, and a payment that is already
@@ -144,19 +171,17 @@ async function findPaymentForCheckout(checkout: Stripe.Checkout.Session) {
 export async function handleCheckoutCompleted(checkout: Stripe.Checkout.Session) {
   const payment = await findPaymentForCheckout(checkout)
   if (!payment) throw notFound('Payment not found')
-  if (payment.status === 'COMPLETED') return { alreadyProcessed: true }
 
   const booking = await Booking.findById(payment.bookingId)
   if (!booking) throw notFound('Booking not found')
 
-  const paid =
-    payment.paymentType === 'REMAINING'
-      ? { paidAmount: (payment.paidAmount || 0) + payment.amount, remainingAmount: 0 }
-      : payment.paymentType === 'PARTIAL'
-        ? { paidAmount: payment.amount, remainingAmount: payment.totalAmount - payment.amount }
-        : { paidAmount: payment.totalAmount, remainingAmount: 0 }
-
-  const updatedPayment = await Payment.findByIdAndUpdate(payment._id, { status: 'COMPLETED', ...paid }, { new: true })
+  // The stage the guest paid for is in the checkout metadata. Without it, only the payment's current
+  // checkout counts: an older one is for an earlier stage (e.g. the deposit, re-delivered late).
+  const linkId = typeof checkout.payment_link === 'string' ? checkout.payment_link : checkout.payment_link?.id
+  const isCurrentCheckout = [checkout.id, linkId].includes(payment.stripeSessionId)
+  const stage = checkout.metadata?.paymentType || (isCurrentCheckout ? payment.paymentType : undefined)
+  if (!stage || !(await recordPaid(payment._id, stage))) return { alreadyProcessed: true }
+  const updatedPayment = await Payment.findById(payment._id)
 
   let doubleBooked = false
   if (booking.status === 'PENDING') {

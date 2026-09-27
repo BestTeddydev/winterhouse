@@ -10,7 +10,7 @@ import Room from '@/models/Room'
 import { findSessionUser, isStaff, assertOwnerOrStaff } from '../auth'
 import { badRequest, notFound } from '../errors'
 import type { CreateBookingInput, ListBookingsQuery, ManualBookingInput, UpdateBookingInput } from '../schemas/bookings'
-import { assertAvailable, StayRange } from './availability'
+import { assertAvailable, claimStay, StayRange } from './availability'
 import { notifyOwnersOfBooking } from './notifications'
 
 const ROOM_FIELDS = 'name description price capacity imageUrls'
@@ -24,6 +24,16 @@ const dateKey = (date: Date) => date.toISOString().slice(0, 10)
 
 function assertNotInPast(checkIn: Date) {
   if (dateKey(checkIn) < bangkokDateKey()) throw badRequest('วันเช็คอินไม่สามารถเป็นวันในอดีตได้')
+}
+
+// --- inventory -----------------------------------------------------------------
+
+/** A room listed twice is the same room: it is booked and charged once */
+const uniqueIds = (ids: string[]) => [...new Set(ids)]
+
+/** Each camping block has its own guest count, so one listed twice would get past its capacity */
+function assertNoRepeatedBlocks(ids: string[]) {
+  if (new Set(ids).size !== ids.length) throw badRequest('เลือกบล็อคกางเต๊นท์ซ้ำกัน กรุณาระบุจำนวนคนรวมในบล็อคเดียว')
 }
 
 // --- response shape ------------------------------------------------------------
@@ -107,12 +117,13 @@ export async function createBooking(input: CreateBookingInput, session: Session)
   const range: StayRange = { checkIn: input.checkIn, checkOut: input.checkOut }
   assertNotInPast(input.checkIn)
 
-  const roomIds = input.roomIds ?? (input.roomId ? [input.roomId] : [])
+  const roomIds = uniqueIds(input.roomIds ?? (input.roomId ? [input.roomId] : []))
   let campingSelections: Array<{ id: string; guests: number }> = []
   if (input.campingBlockIds) {
     if (input.guestCounts?.length !== input.campingBlockIds.length) {
       throw badRequest('จำนวน guestCounts ต้องเท่ากับจำนวน campingBlockIds')
     }
+    assertNoRepeatedBlocks(input.campingBlockIds)
     campingSelections = input.campingBlockIds.map((id, i) => ({ id, guests: input.guestCounts![i] }))
   } else if (input.campingBlockId) {
     if (!input.guestCount) throw badRequest('ต้องระบุจำนวนคนที่ถูกต้องสำหรับบล็อคกางเต๊นท์')
@@ -128,10 +139,8 @@ export async function createBooking(input: CreateBookingInput, session: Session)
     loadAddOns(input.addOns, staff),
   ])
 
-  await assertAvailable(
-    { rooms, campingBlocks: camping.map((c) => c.block) },
-    range
-  )
+  const inventory = { rooms, campingBlocks: camping.map((c) => c.block) }
+  await assertAvailable(inventory, range)
 
   // --- price (server-side only) ---
   const nights = countNights(range.checkIn, range.checkOut)
@@ -202,6 +211,7 @@ export async function createBooking(input: CreateBookingInput, session: Session)
   })
   booking.paymentId = payment._id
 
+  await claimStay(booking._id, inventory, range)
   await booking.save()
   await payment.save()
 
@@ -302,13 +312,14 @@ export async function updateBooking(id: string, input: UpdateBookingInput) {
 
   // Rooms: a list replaces the single room and vice versa
   if (input.roomIds !== undefined) {
-    update.roomIds = input.roomIds
+    update.roomIds = uniqueIds(input.roomIds)
     update.roomId = null
   } else if (input.roomId !== undefined) {
     update.roomId = input.roomId
     if (input.roomId) update.roomIds = []
   }
   if (input.campingBlockIds !== undefined) {
+    assertNoRepeatedBlocks(input.campingBlockIds)
     update.campingBlockIds = input.campingBlockIds
     update.campingBlockId = null
   } else if (input.campingBlockId !== undefined) {
@@ -319,16 +330,20 @@ export async function updateBooking(id: string, input: UpdateBookingInput) {
     update.addOns = input.addOns.map((a) => ({ ...a, unit: a.unit || 'หน่วย' }))
   }
 
-  // Changing dates or rooms of an active booking must not double-book
   const next = { ...existing.toObject(), ...update }
+  const checkIn = new Date(next.checkIn)
+  const checkOut = new Date(next.checkOut)
+  // Also for cancelled bookings: they stay in reports and may be confirmed again later
+  if (('checkIn' in update || 'checkOut' in update) && checkOut <= checkIn) {
+    throw badRequest('วันเช็คเอาท์ต้องมากกว่าวันเช็คอิน')
+  }
+
+  // Changing dates or rooms of an active booking must not double-book
   const finalStatus = next.status as string
   const changesInventory = ['checkIn', 'checkOut', 'roomId', 'roomIds', 'campingBlockId', 'campingBlockIds', 'status'].some(
     (f) => f in update
   )
   if (changesInventory && (finalStatus === 'CONFIRMED' || finalStatus === 'PENDING')) {
-    const checkIn = new Date(next.checkIn)
-    const checkOut = new Date(next.checkOut)
-    if (checkOut <= checkIn) throw badRequest('วันเช็คเอาท์ต้องมากกว่าวันเช็คอิน')
     const roomIds = next.roomIds?.length ? next.roomIds : next.roomId ? [next.roomId] : []
     const blockIds = next.campingBlockIds?.length ? next.campingBlockIds : next.campingBlockId ? [next.campingBlockId] : []
     const [rooms, blocks] = await Promise.all([
@@ -336,17 +351,39 @@ export async function updateBooking(id: string, input: UpdateBookingInput) {
       blockIds.length ? CampingBlock.find({ _id: { $in: blockIds } }).select('name').lean() : [],
     ])
     await assertAvailable({ rooms, campingBlocks: blocks }, { checkIn, checkOut }, { excludeBookingId: id })
+    await claimStay(id, { rooms, campingBlocks: blocks }, { checkIn, checkOut })
   }
 
   const updated = await populateForDisplay(Booking.findByIdAndUpdate(id, update, { new: true, runValidators: true }), {
     detail: true,
   })
 
-  if (input.paymentStatus && existing.paymentId) {
-    await Payment.findByIdAndUpdate(existing.paymentId, { status: input.paymentStatus })
+  if (existing.paymentId && (input.paymentStatus || input.totalPrice !== undefined)) {
+    await Payment.findByIdAndUpdate(existing.paymentId, await paymentUpdate(existing, input))
   }
 
   return updated
+}
+
+/**
+ * Keeps the payment in step with the booking. A new total changes what is still owed: the upfront
+ * amount while nothing is paid yet, otherwise the balance (total minus what was already paid).
+ */
+async function paymentUpdate(booking: any, input: UpdateBookingInput) {
+  const update: Record<string, unknown> = {}
+  if (input.paymentStatus) update.status = input.paymentStatus
+  if (input.totalPrice !== undefined) {
+    const payment = await Payment.findById(booking.paymentId)
+    const paid = payment?.paidAmount || 0
+    update.totalAmount = input.totalPrice
+    update.remainingAmount = Math.max(0, input.totalPrice - paid)
+    if (paid === 0) {
+      const paymentType = booking.paymentType === 'PARTIAL' ? 'PARTIAL' : 'FULL'
+      update.amount = upfrontAmount(input.totalPrice, paymentType)
+      update.remainingAmount = input.totalPrice - (update.amount as number)
+    }
+  }
+  return update
 }
 
 // --- manual booking (staff) ---------------------------------------------------------
@@ -391,6 +428,8 @@ export async function createManualBooking(input: ManualBookingInput, session: Se
   })
   booking.paymentId = payment._id
 
+  // Staff may knowingly double-book (overrideAvailability); otherwise the room is claimed like any booking
+  if (!input.overrideAvailability) await claimStay(booking._id, { rooms: [room] }, range)
   await booking.save()
   await payment.save()
 

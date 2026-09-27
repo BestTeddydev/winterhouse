@@ -8,7 +8,7 @@ import { BarChart3, ChevronLeft, ChevronRight, Clock, Filter, Search } from 'luc
 import Navbar from '@/components/Navbar'
 import PageSpinner from '@/components/PageSpinner'
 import { useDebounced } from '@/hooks/useDebounced'
-import { useIsStaff } from '@/hooks/useIsStaff'
+import { useIsStaff } from '@/hooks/useRequireRole'
 import AttendanceTable from './_components/AttendanceTable'
 import FilterChips from './_components/FilterChips'
 import { ATTENDANCE_STATUS_LABELS, filterDate } from '@/lib/attendance'

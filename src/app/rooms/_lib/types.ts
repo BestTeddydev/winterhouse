@@ -49,24 +49,7 @@ export interface RoomAvailability {
   bookings: Array<{ id: string; checkIn: string; checkOut: string; status: string }>
 }
 
-export interface BuildingHotspot {
-  id: string
-  x: number
-  y: number
-  buildingName: string
-  buildingType: string
-  rooms: string[]
-  campingBlocks?: string[]
-  description: string
-  facilities: string[]
-}
-
-export interface SiteMapData {
-  imageUrl: string
-  hotspots: BuildingHotspot[]
-}
-
-export type MapType = 'accommodation' | 'camping'
+export type { BuildingHotspot, MapType, SiteMapData } from '@/lib/siteMap'
 
 /** Stay chosen in the date selector ("YYYY-MM-DD" check-in and a number of nights) */
 export interface Stay {

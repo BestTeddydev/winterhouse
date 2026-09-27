@@ -2,20 +2,19 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useSession } from 'next-auth/react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { Plus, Search } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import PageSpinner from '@/components/PageSpinner'
+import { useIsStaff } from '@/hooks/useRequireRole'
 import RoomGridCard from './_components/RoomGridCard'
 import RoomListFilters, { type ViewMode } from './_components/RoomListFilters'
 import RoomTable from './_components/RoomTable'
 import { filterRooms, type AdminRoom, type RoomSort, type RoomStatusFilter } from './_lib/roomList'
 
 export default function AdminRooms() {
-  const { data: session, status: sessionStatus } = useSession()
-  const isAdmin = session?.user?.role === 'ADMIN'
+  const { status: sessionStatus, staff: isStaff } = useIsStaff()
   const [rooms, setRooms] = useState<AdminRoom[] | null>(null)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<RoomStatusFilter>('all')
@@ -37,8 +36,8 @@ export default function AdminRooms() {
   )
 
   useEffect(() => {
-    if (isAdmin) load()
-  }, [isAdmin, load])
+    if (isStaff) load()
+  }, [isStaff, load])
 
   const toggle = async (room: AdminRoom) => {
     try {
@@ -64,7 +63,7 @@ export default function AdminRooms() {
     }
   }
 
-  if (sessionStatus !== 'loading' && !isAdmin) return null
+  if (sessionStatus !== 'loading' && !isStaff) return null
   if (!rooms) {
     return (
       <div className="min-h-screen bg-gray-50">

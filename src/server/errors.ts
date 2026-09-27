@@ -23,6 +23,13 @@ export const forbidden = (message = 'ไม่มีสิทธิ์เข้�
 export const notFound = (message: string) => new ApiError(404, message)
 export const conflict = (message: string) => new ApiError(409, message)
 
+/** Loads a document by id or throws 404 */
+export async function findOr404<T>(query: PromiseLike<T | null>, message: string): Promise<T> {
+  const doc = await query
+  if (!doc) throw notFound(message)
+  return doc
+}
+
 /**
  * Maps known errors to 4xx JSON responses ({ error, details? }). Anything else is logged and
  * returned as 500 with the given message, so internal details never reach the client.

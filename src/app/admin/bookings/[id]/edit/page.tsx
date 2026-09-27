@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import BookingFormPage from '../../_components/BookingFormPage'
-import { useIsStaff } from '@/hooks/useIsStaff'
+import { useIsStaff } from '@/hooks/useRequireRole'
 import EditBookingForm from '../../_components/EditBookingForm'
 import { useBookingCatalog } from '../../_lib/useBookingCatalog'
 

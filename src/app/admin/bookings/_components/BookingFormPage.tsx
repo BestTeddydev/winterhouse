@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import PageSpinner from '@/components/PageSpinner'
-import { useIsStaff } from '@/hooks/useIsStaff'
+import { useIsStaff } from '@/hooks/useRequireRole'
 
 /** Frame of the admin booking create/edit pages: staff guard, header and spinner */
 export default function BookingFormPage({

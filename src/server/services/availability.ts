@@ -2,6 +2,7 @@ import Booking from '@/models/Booking'
 import CampingBlockBlock from '@/models/CampingBlockBlock'
 import RoomBlock from '@/models/RoomBlock'
 import { conflict } from '../errors'
+import { claimKeys } from './claims'
 
 /**
  * A PENDING booking holds its rooms while the guest is paying. Without this, two guests could
@@ -108,6 +109,50 @@ export async function assertAvailable({ rooms = [], campingBlocks = [] }: Invent
 
 const toKey = (d: Date) => d.toISOString().split('T')[0]
 
+/** "YYYY-MM-DD" of each night of the stay (stay dates are UTC midnight of the Thai date) */
+function stayNights({ checkIn, checkOut }: StayRange): string[] {
+  const nights: string[] = []
+  for (const day = new Date(`${toKey(checkIn)}T00:00:00Z`); toKey(day) < toKey(checkOut); day.setUTCDate(day.getUTCDate() + 1)) {
+    nights.push(toKey(day))
+  }
+  return nights
+}
+
+// Claim keys: "room_<id>_<night>" / "block_<id>_<night>"
+const nightKeys = (kind: 'room' | 'block', ids: string[], range: StayRange) =>
+  ids.flatMap((id) => stayNights(range).map((night) => `${kind}_${id}_${night}`))
+
+/** Whether a booking still occupies the room/block night of a claim key */
+async function bookingHolds(bookingId: string, key: string, now = new Date()) {
+  const [kind, id, night] = key.split('_')
+  const booking: BookingRefs | null = await Booking.findById(bookingId).lean()
+  if (!booking) return 'unknown' as const
+  const holdStart = now.getTime() - PAYMENT_HOLD_MINUTES * 60_000
+  const active =
+    booking.status === 'CONFIRMED' ||
+    (booking.status === 'PENDING' && booking.createdAt !== undefined && new Date(booking.createdAt).getTime() > holdStart)
+  const ids = kind === 'room' ? bookingRoomIds(booking) : bookingCampingBlockIds(booking)
+  const inStay = !!booking.checkIn && !!booking.checkOut && night >= toKey(booking.checkIn) && night < toKey(booking.checkOut)
+  return active && ids.includes(id) && inStay ? ('held' as const) : ('released' as const)
+}
+
+/**
+ * Reserves the rooms/blocks for every night of the stay for `bookingId`, atomically, just before
+ * the booking is saved. Two requests for the same room and night can pass `assertAvailable` at the
+ * same moment; only one of them can claim it. Throws 409 for the other.
+ */
+export async function claimStay(bookingId: string, { rooms = [], campingBlocks = [] }: Inventory, range: StayRange) {
+  const keys = [
+    ...nightKeys('room', rooms.map((r) => String(r._id)), range),
+    ...nightKeys('block', campingBlocks.map((b) => String(b._id)), range),
+  ]
+  const taken = await claimKeys(keys, String(bookingId), bookingHolds)
+  if (!taken) return
+  const [kind, id] = taken.split('_')
+  const item = kind === 'room' ? rooms.find((r) => String(r._id) === id) : campingBlocks.find((b) => String(b._id) === id)
+  throw conflict(`${kind === 'room' ? 'ห้องพัก' : 'บล็อคกางเต๊นท์'} ${item?.name ?? id} ไม่ว่างในวันที่เลือก`)
+}
+
 /** Day-by-day availability of one room ("YYYY-MM-DD" -> available/booked) for the availability calendar */
 export async function getRoomAvailability(roomId: string, from: Date, to: Date) {
   const range = { checkIn: from, checkOut: to }
@@ -141,4 +186,17 @@ export async function getRoomAvailability(roomId: string, from: Date, to: Date) 
     availability,
     bookings: roomBookings.map((b) => ({ id: b._id, checkIn: b.checkIn, checkOut: b.checkOut, status: b.status })),
   }
+}
+
+/**
+ * Confirmed stays that haven't ended yet (dates and rooms/blocks only, no guest data),
+ * used by the public room and site map pages to show availability.
+ */
+export async function listPublicStays() {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const bookings = await Booking.find({ status: 'CONFIRMED', checkOut: { $gt: yesterday } })
+    .select('roomId roomIds rooms campingBlockId campingBlockIds checkIn checkOut status')
+    .lean()
+  return bookings.map((booking: { _id: string }) => ({ ...booking, id: booking._id }))
 }

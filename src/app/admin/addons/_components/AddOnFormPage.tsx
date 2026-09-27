@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import PageSpinner from '@/components/PageSpinner'
-import { useIsStaff } from '@/hooks/useIsStaff'
+import { useIsStaff } from '@/hooks/useRequireRole'
 
 /** Frame of the add-on create/edit pages (ADMIN and OWNER) */
 export default function AddOnFormPage({ title, subtitle, loading = false, children }: { title: string; subtitle: string; loading?: boolean; children: ReactNode }) {

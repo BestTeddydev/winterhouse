@@ -9,6 +9,7 @@ import * as roomsRoute from '@/app/api/rooms/route'
 import * as roomRoute from '@/app/api/rooms/[id]/route'
 import * as availabilityRoute from '@/app/api/rooms/[id]/availability/route'
 import * as siteMapRoute from '@/app/api/site-map/route'
+import * as linkBuildingRoute from '@/app/api/rooms/link-building/route'
 import Building from '@/models/Building'
 import CampingBlock from '@/models/CampingBlock'
 import Room from '@/models/Room'
@@ -18,6 +19,7 @@ import { call } from '../support/http'
 import { signInAs } from '../support/mocks'
 
 const signInAdmin = async () => signInAs(await createUser({ role: 'ADMIN' }))
+const signInOwner = async () => signInAs(await createUser({ role: 'OWNER' }))
 
 describe('add-ons', () => {
   it('lists only active add-ons publicly, everything for staff', async () => {
@@ -77,8 +79,8 @@ describe('rooms', () => {
     expect(await names(campingBlocksRoute)).toEqual(['Off'])
   })
 
-  it('creates a room with day prices falling back to the weekday price (ADMIN only)', async () => {
-    signInAs(await createUser({ role: 'OWNER' }))
+  it('creates a room with day prices falling back to the weekday price (staff only)', async () => {
+    signInAs(await createUser())
     const body = { name: 'R', description: 'd', imageUrls: ['u'], price: 1000, capacity: 2, pricing: { weekday: 1200 } }
     expect((await call(roomsRoute.POST, 'POST', { body })).status).toBe(403)
 
@@ -177,7 +179,7 @@ describe('site map', () => {
     expect((await Building.findById(toilet._id)).buildingType).toBe('bathroom')
   })
 
-  it('saves the map, hotspot positions and camping block links (ADMIN only)', async () => {
+  it('saves the map, hotspot positions and camping block links (staff only)', async () => {
     const camp = await Building.create({ name: 'Camp', description: 'd', buildingType: 'camping', x: 3, y: 4 })
     const block = await createCampingBlock()
     const body = {
@@ -185,7 +187,7 @@ describe('site map', () => {
       imageUrl: 'https://img.test/map.jpg',
       hotspots: [{ id: camp._id, buildingName: 'Camp 2', buildingType: 'camping', x: 50, y: 60, campingBlocks: [block._id] }],
     }
-    signInAs(await createUser({ role: 'OWNER' }))
+    signInAs(await createUser({ role: 'EMPLOYEE' }))
     expect((await call(siteMapRoute.POST, 'POST', { body })).status).toBe(403)
 
     await signInAdmin()
@@ -193,5 +195,42 @@ describe('site map', () => {
     expect(await Building.findById(camp._id)).toMatchObject({ name: 'Camp 2', x: 50, y: 60 })
     expect((await CampingBlock.findById(block._id)).buildingId).toBe(camp._id)
     expect((await call(siteMapRoute.GET, 'GET', { query: { type: 'camping' } })).body.imageUrl).toBe('https://img.test/map.jpg')
+  })
+})
+
+describe('owner', () => {
+  it('manages rooms, buildings, camping blocks and the site map like an admin', async () => {
+    await signInOwner()
+
+    const room = await call(roomsRoute.POST, 'POST', { body: { name: 'R', description: 'd', imageUrls: ['u'], price: 1000, capacity: 2 } })
+    expect(room.status).toBe(201)
+    expect((await call(roomRoute.PUT, 'PUT', { params: { id: room.body._id }, body: { price: 1500 } })).body.price).toBe(1500)
+
+    const building = await call(buildingsRoute.POST, 'POST', { body: { name: 'B', description: 'd', x: 5, y: 5 } })
+    expect(building.status).toBe(201)
+    expect((await call(buildingRoute.PUT, 'PUT', { params: { id: building.body._id }, body: { name: 'B2' } })).body.name).toBe('B2')
+
+    const linked = await call(linkBuildingRoute.POST, 'POST', { body: { roomId: room.body._id, buildingId: building.body._id } })
+    expect(linked.status).toBe(200)
+    expect((await call(linkBuildingRoute.DELETE, 'DELETE', { body: { roomId: room.body._id } })).status).toBe(200)
+
+    const block = await call(campingBlocksRoute.POST, 'POST', {
+      body: { name: 'C', description: 'd', imageUrl: 'u', pricePerPerson: 200, maxCapacity: 4 },
+    })
+    expect(block.status).toBe(201)
+    expect((await call(campingBlockRoute.PUT, 'PUT', { params: { id: block.body._id }, body: { buildingId: building.body._id } })).status).toBe(200)
+    expect((await call(campingBlockRoute.DELETE, 'DELETE', { params: { id: block.body._id } })).status).toBe(200)
+
+    expect((await call(siteMapRoute.POST, 'POST', { body: { imageUrl: 'map.jpg', type: 'accommodation' } })).status).toBe(200)
+    expect((await call(roomRoute.DELETE, 'DELETE', { params: { id: room.body._id } })).status).toBe(200)
+    expect((await call(buildingRoute.DELETE, 'DELETE', { params: { id: building.body._id } })).status).toBe(200)
+  })
+
+  it('still cannot be done by customers or employees', async () => {
+    for (const role of ['CUSTOMER', 'EMPLOYEE'] as const) {
+      signInAs(await createUser({ role }))
+      expect((await call(buildingsRoute.POST, 'POST', { body: { name: 'B', description: 'd', x: 5, y: 5 } })).status).toBe(403)
+      expect((await call(siteMapRoute.POST, 'POST', { body: { imageUrl: 'map.jpg' } })).status).toBe(403)
+    }
   })
 })

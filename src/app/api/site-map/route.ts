@@ -1,3 +1,4 @@
+import { STAFF_ROLES } from '@/server/auth'
 import { apiRoute } from '@/server/http'
 import { saveSiteMapSchema, siteMapQuery } from '@/server/schemas/siteMap'
 import { getSiteMap, saveSiteMap } from '@/server/services/siteMap'
@@ -11,6 +12,6 @@ export const GET = apiRoute(
 )
 
 export const POST = apiRoute(
-  { access: ['ADMIN'], body: saveSiteMapSchema, errorMessage: 'ไม่สามารถบันทึกแผนผังได้' },
+  { access: STAFF_ROLES, body: saveSiteMapSchema, errorMessage: 'ไม่สามารถบันทึกแผนผังได้' },
   ({ body }) => saveSiteMap(body)
 )

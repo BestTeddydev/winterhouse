@@ -1,89 +1,77 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
-import Navbar from '@/components/Navbar'
+import Link from 'next/link'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import { 
-  Plus, 
-  Trash2, 
-  
-  
-  Search, 
-  
-  Building2,
-  MapPin,
-  
-} from 'lucide-react'
-import Link from 'next/link'
+import { Plus, Trash2, Search, Building2, MapPin } from 'lucide-react'
+import Navbar from '@/components/Navbar'
+import PageSpinner from '@/components/PageSpinner'
+import { useIsStaff } from '@/hooks/useRequireRole'
 import { BUILDING_TYPE_INFO, buildingTypeOptions, type BuildingType } from '@/lib/buildingTypes'
 
-const buildingTypes = Object.fromEntries(buildingTypeOptions().map((t) => [t.value, t.icon]))
+interface AdminBuilding {
+  _id: string
+  name: string
+  description?: string
+  buildingType: string
+  facilities?: string[]
+  x: number
+  y: number
+}
+
+const typeInfo = (type: string) => BUILDING_TYPE_INFO[type as BuildingType]
 
 export default function AdminBuildings() {
-  const { data: session } = useSession()
-  const [buildings, setBuildings] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { staff: isStaff } = useIsStaff()
+  const [buildings, setBuildings] = useState<AdminBuilding[] | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
 
-  useEffect(() => {
-    // Middleware already handles authentication and authorization
-    // Just fetch the buildings data
-    if (session && session.user) {
-      fetchBuildings()
-    }
-  }, [session])
+  const fetchBuildings = () =>
+    axios
+      .get('/api/buildings')
+      .then((res) => setBuildings(res.data))
+      .catch((error) => {
+        console.error('Error fetching buildings:', error)
+        toast.error('ไม่สามารถโหลดข้อมูลอาคารได้')
+        setBuildings((b) => b ?? [])
+      })
 
-  const fetchBuildings = async () => {
-    try {
-      const response = await axios.get('/api/buildings')
-      setBuildings(response.data)
-    } catch (error) {
-      console.error('Error fetching buildings:', error)
-      toast.error('ไม่สามารถโหลดข้อมูลอาคารได้')
-    } finally {
-      setLoading(false)
-    }
-  }
+  useEffect(() => {
+    if (isStaff) fetchBuildings()
+  }, [isStaff])
 
   const handleDelete = async (id: string) => {
     if (!confirm('ต้องการลบอาคารนี้ใช่หรือไม่?')) return
-
     try {
       await axios.delete(`/api/buildings/${id}`)
       toast.success('ลบอาคารสำเร็จ')
       fetchBuildings()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting building:', error)
-      toast.error('ไม่สามารถลบอาคารได้')
+      // e.g. refused while the building still has rooms
+      toast.error(error.response?.data?.error || 'ไม่สามารถลบอาคารได้')
     }
   }
 
-  const filteredBuildings = buildings.filter(building => {
-    const matchesSearch = building.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         building.description.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesType = typeFilter === 'all' || building.buildingType === typeFilter
-    
-    return matchesSearch && matchesType && building.isActive
-  })
+  if (!isStaff) return null
 
-  if (loading) {
+  if (!buildings) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-        </div>
+        <PageSpinner />
       </div>
     )
   }
 
-  if (!session || session.user.role !== 'ADMIN') {
-    return null
-  }
+  const search = searchTerm.toLowerCase()
+  const filteredBuildings = buildings.filter(
+    (building) =>
+      (building.name.toLowerCase().includes(search) || (building.description ?? '').toLowerCase().includes(search)) &&
+      (typeFilter === 'all' || building.buildingType === typeFilter)
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -173,11 +161,11 @@ export default function AdminBuildings() {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center text-2xl">
-                        {buildingTypes[building.buildingType]}
+                        {typeInfo(building.buildingType)?.icon ?? '🏢'}
                       </div>
                       <div>
                         <h3 className="text-lg font-bold text-gray-900">{building.name}</h3>
-                        <p className="text-sm text-gray-600">{BUILDING_TYPE_INFO[building.buildingType as BuildingType]?.label ?? building.buildingType}</p>
+                        <p className="text-sm text-gray-600">{typeInfo(building.buildingType)?.label ?? building.buildingType}</p>
                       </div>
                     </div>
                     
@@ -195,11 +183,11 @@ export default function AdminBuildings() {
                   <p className="text-gray-700 mb-4 line-clamp-2">{building.description}</p>
 
                   {/* Facilities */}
-                  {building.facilities && building.facilities.length > 0 && (
+                  {!!building.facilities?.length && (
                     <div className="mb-4">
                       <p className="text-sm font-medium text-gray-900 mb-2">สิ่งอำนวยความสะดวก:</p>
                       <div className="flex flex-wrap gap-1">
-                        {(building.facilities || []).slice(0, 3).map((facility: string, index: number) => (
+                        {building.facilities.slice(0, 3).map((facility, index) => (
                           <span
                             key={index}
                             className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs"
@@ -207,9 +195,9 @@ export default function AdminBuildings() {
                             {facility}
                           </span>
                         ))}
-                        {(building.facilities || []).length > 3 && (
+                        {building.facilities.length > 3 && (
                           <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
-                            +{(building.facilities || []).length - 3}
+                            +{building.facilities.length - 3}
                           </span>
                         )}
                       </div>

@@ -3,18 +3,7 @@
 import { useState, useEffect } from 'react'
 import MapCanvas from '@/components/MapCanvas'
 import { MapPin } from 'lucide-react'
-
-interface BuildingHotspot {
-  id: string
-  x: number
-  y: number
-  buildingName: string
-  buildingType: string
-  rooms: string[]
-  campingBlocks?: string[]
-  description: string
-  facilities: string[]
-}
+import type { BuildingHotspot } from '@/lib/siteMap'
 
 interface SiteMapViewerProps {
   imageUrl: string

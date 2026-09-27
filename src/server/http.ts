@@ -3,7 +3,9 @@ import type { Session } from 'next-auth'
 import { z } from 'zod'
 import connectDB from '@/lib/db'
 import { Role, requireSession } from './auth'
-import { badRequest, errorResponse, notFound } from './errors'
+import { badRequest, errorResponse } from './errors'
+
+export { findOr404 } from './errors'
 
 type Access = 'public' | 'authenticated' | Role[]
 
@@ -68,9 +70,3 @@ export function apiRoute<
 
 export const created = (data: unknown) => NextResponse.json(data, { status: 201 })
 
-/** Loads a document by id or throws 404 */
-export async function findOr404<T>(query: PromiseLike<T | null>, message: string): Promise<T> {
-  const doc = await query
-  if (!doc) throw notFound(message)
-  return doc
-}

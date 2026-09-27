@@ -59,3 +59,14 @@ describe('calculateRoomPriceRange', () => {
     expect(calculateRoomPriceRange(room(), parseLocalDate('2030-01-10'), parseLocalDate('2030-01-10')).totalPrice).toBe(0)
   })
 })
+
+describe('THAI_HOLIDAYS coverage', () => {
+  // The holiday list is typed in by hand. When it runs out, holidays are silently priced as normal days.
+  it('has public holidays for this year and next year', () => {
+    const year = new Date().getFullYear()
+    for (const y of [year, year + 1]) {
+      expect(getDayType(parseLocalDate(`${y}-01-01`))).toBe('holiday')
+      expect(getDayType(parseLocalDate(`${y}-12-05`))).toBe('holiday')
+    }
+  })
+})

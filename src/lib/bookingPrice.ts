@@ -39,6 +39,8 @@ export function calculateBookingTotal({
   let accommodation = accommodationTotal
   if (discountAmount > 0) accommodation -= discountAmount
   else if (discountPercent > 0) accommodation -= (accommodationTotal * discountPercent) / 100
+  // A discount larger than the stay makes the stay free, but the add-ons are still charged
+  accommodation = Math.max(0, accommodation)
 
   const subtotal = accommodation + addOnsTotal
   const vat = includeVat ? Math.round(subtotal * VAT_RATE) : 0

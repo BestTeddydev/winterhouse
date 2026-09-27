@@ -54,3 +54,9 @@ describe('upfrontAmount', () => {
     expect(upfrontAmount(3297, 'PARTIAL')).toBe(1649)
   })
 })
+
+describe('calculateBookingTotal: discounts larger than the stay', () => {
+  it('still charges the add-ons (the discount only covers the accommodation)', () => {
+    expect(calculateBookingTotal({ accommodationTotal: 1000, addOnsTotal: 300, discountAmount: 5000, includeVat: false })).toBe(300)
+  })
+})

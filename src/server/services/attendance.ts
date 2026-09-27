@@ -1,11 +1,12 @@
 import type { Session } from 'next-auth'
 import type { z } from 'zod'
-import { bangkokDayRange } from '@/lib/dates'
+import { bangkokDateKey, bangkokDayRange } from '@/lib/dates'
 import { sendLineNotification } from '@/lib/line'
 import EmployeeAttendance from '@/models/EmployeeAttendance'
 import User from '@/models/User'
 import { findSessionUser, isStaff } from '../auth'
 import { badRequest, forbidden, notFound } from '../errors'
+import { claimKeys } from './claims'
 import type { attendanceQuery, checkInSchema, checkOutSchema, reviewAttendanceSchema } from '../schemas/attendance'
 
 /** Location value meaning "arrived for work" (only these can be checked out) */
@@ -110,7 +111,7 @@ export async function checkIn(input: z.infer<typeof checkInSchema>, session: Ses
     })
     attendance = await existing.save()
   } else {
-    attendance = await EmployeeAttendance.create({
+    const record = new EmployeeAttendance({
       employeeId: employee._id,
       checkInDate: bangkokDayRange(now).start,
       checkInTime: now,
@@ -118,6 +119,12 @@ export async function checkIn(input: z.infer<typeof checkInSchema>, session: Ses
       notes: input.notes,
       status: 'PENDING',
     })
+    // One record per employee per Thai day, also when check-in is pressed twice at the same moment
+    const taken = await claimKeys([`attendance_${employee._id}_${bangkokDateKey(now)}`], record._id, async (owner) =>
+      (await EmployeeAttendance.exists({ _id: owner })) ? 'held' : 'unknown'
+    )
+    if (taken) throw badRequest('คุณได้เช็คอินแล้ววันนี้', { attendance: await todaysRecord(employee._id) })
+    attendance = await record.save()
   }
   await attendance.populate('employeeId', 'name email')
 

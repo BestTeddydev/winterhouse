@@ -2,25 +2,24 @@
 
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { useSession } from 'next-auth/react'
 import { ArrowLeft } from 'lucide-react'
 import Navbar from '@/components/Navbar'
+import PageSpinner from '@/components/PageSpinner'
+import { useIsStaff } from '@/hooks/useRequireRole'
 
-/** Page frame for the camping block create/edit forms (ADMIN only) */
+/** Page frame for the camping block create/edit forms (ADMIN and OWNER) */
 export default function CampingBlockFormPage({ title, loading, children }: { title: string; loading?: boolean; children: ReactNode }) {
-  const { data: session, status } = useSession()
+  const { status, staff } = useIsStaff()
 
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-        </div>
+        <PageSpinner />
       </div>
     )
   }
-  if (session?.user.role !== 'ADMIN') return null
+  if (!staff) return null
 
   return (
     <div className="min-h-screen bg-gray-50">

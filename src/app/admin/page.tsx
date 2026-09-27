@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { AlertCircle, Eye, XCircle } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import PageSpinner from '@/components/PageSpinner'
+import { useIsStaff } from '@/hooks/useRequireRole'
 import CountTile from './_dashboard/CountTile'
 import MenuGrid from './_dashboard/MenuGrid'
 import StatCards from './_dashboard/StatCards'
@@ -14,12 +14,11 @@ import TodayBookings from './_dashboard/TodayBookings'
 import type { AdminDashboardData } from './_dashboard/types'
 
 export default function AdminDashboard() {
-  const { data: session, status } = useSession()
-  const isAdmin = session?.user?.role === 'ADMIN'
+  const { status, staff: isStaff } = useIsStaff()
   const [data, setData] = useState<AdminDashboardData | null>(null)
 
   useEffect(() => {
-    if (!isAdmin) return
+    if (!isStaff) return
     const controller = new AbortController()
     axios
       .get('/api/admin/dashboard', { signal: controller.signal })
@@ -30,9 +29,9 @@ export default function AdminDashboard() {
         toast.error('ไม่สามารถโหลดข้อมูลแดชบอร์ดได้')
       })
     return () => controller.abort()
-  }, [isAdmin])
+  }, [isStaff])
 
-  if (status !== 'loading' && !isAdmin) return null
+  if (status !== 'loading' && !isStaff) return null
   if (!data) {
     return (
       <div className="min-h-screen bg-gray-50">

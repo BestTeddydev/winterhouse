@@ -1,158 +1,68 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import Navbar from '@/components/Navbar'
-import SiteMapEditor from '@/components/SiteMapEditor'
+import Link from 'next/link'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { Save, MapPin, ArrowLeft } from 'lucide-react'
-import Link from 'next/link'
+import Navbar from '@/components/Navbar'
+import PageSpinner from '@/components/PageSpinner'
+import { useIsStaff } from '@/hooks/useRequireRole'
+import type { BuildingHotspot, MapType, SiteMapData } from '@/lib/siteMap'
+import SiteMapEditor from './_components/SiteMapEditor'
 
-interface BuildingHotspot {
-  id: string
-  x: number
-  y: number
-  buildingName: string
-  buildingType: string
-  rooms: string[]
-  campingBlocks?: string[]
-  description: string
-  facilities: string[]
-}
+type Item = { id: string; name: string }
 
-interface SiteMapData {
-  imageUrl: string
-  hotspots: BuildingHotspot[]
-  type?: 'accommodation' | 'camping'
-  name?: string
-  description?: string
-}
+const EMPTY_MAP: SiteMapData = { imageUrl: '/placeholder-map.svg', hotspots: [] }
+
+const toItems = (list: Array<{ id?: string; _id?: string; name: string }>): Item[] =>
+  list.map((item) => ({ id: (item.id ?? item._id)!, name: item.name }))
 
 export default function AdminSiteMapPage() {
-  const { data: session } = useSession()
-  const router = useRouter()
-  const [mapType, setMapType] = useState<'accommodation' | 'camping'>('accommodation')
-  const [siteMap, setSiteMap] = useState<SiteMapData>({
-    imageUrl: '/placeholder-map.svg',
-    hotspots: [],
-    type: 'accommodation',
-  })
-  const [availableRooms, setAvailableRooms] = useState<{ id: string; name: string }[]>([])
-  const [availableCampingBlocks, setAvailableCampingBlocks] = useState<{ id: string; name: string }[]>([])
+  const { staff: isStaff } = useIsStaff()
+  const [mapType, setMapType] = useState<MapType>('accommodation')
+  const [siteMap, setSiteMap] = useState<SiteMapData>(EMPTY_MAP)
+  // Accommodation maps link rooms, camping maps link camping blocks
+  const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    if (session === undefined) {
-      return
-    }
-
-    if (!session) {
-      router.push('/auth/signin')
-      return
-    }
-
-    if (!session.user) {
-      router.push('/auth/signin')
-      return
-    }
-
-    if (session.user.role !== 'ADMIN') {
-      router.push('/')
-    }
-  }, [session, router])
-
-  const isAdmin = session?.user?.role === 'ADMIN'
-
-  const fetchData = useCallback(async () => {
-    try {
-      // สำหรับแผนผังห้องพัก: Fetch rooms that are not linked to any building
-      if (mapType === 'accommodation') {
-        try {
-          // All rooms: the editor offers each building its own rooms plus the ones not in any building
-          const roomsResponse = await axios.get('/api/rooms')
-          setAvailableRooms(
-            roomsResponse.data.map((room: any) => ({
-              id: room._id || room.id,
-              name: room.name,
-            }))
-          )
-        } catch (error) {
-          console.error('Error fetching rooms:', error)
-          setAvailableRooms([])
-        }
-        setAvailableCampingBlocks([])
-      } else {
-        // สำหรับแผนผังลานกางเต๊นท์: Fetch camping blocks
-        setAvailableRooms([])
-        try {
-          const blocksResponse = await axios.get('/api/camping-blocks')
-          setAvailableCampingBlocks(
-            blocksResponse.data.map((block: any) => ({
-              id: block._id || block.id,
-              name: block.name,
-            }))
-          )
-        } catch (error) {
-          console.error('Error fetching camping blocks:', error)
-          setAvailableCampingBlocks([])
-        }
-      }
-
-      // Fetch site map data ตาม type
-      try {
-        const siteMapResponse = await axios.get(`/api/site-map?type=${mapType}`)
-        if (siteMapResponse.data) {
-          setSiteMap({
-            ...siteMapResponse.data,
-            type: siteMapResponse.data.type || mapType,
-          })
-        }
-      } catch {
-        // Site map doesn't exist yet, use default
-        setSiteMap({
-          imageUrl: '/placeholder-map.svg',
-          hotspots: [],
-          type: mapType,
-        })
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error)
-      toast.error('ไม่สามารถโหลดข้อมูลได้')
-    } finally {
-      setLoading(false)
-    }
-  }, [mapType])
-
-  // Load (and reload when the map type changes)
-  useEffect(() => {
-    if (!isAdmin) return
+  // Load (and reload when the map type changes). All rooms: the editor offers each building
+  // its own rooms plus the ones not in any building.
+  const load = useCallback(async (type: MapType) => {
     setLoading(true)
-    fetchData()
-  }, [isAdmin, fetchData])
+    const [itemsResult, mapResult] = await Promise.allSettled([
+      axios.get(type === 'camping' ? '/api/camping-blocks' : '/api/rooms'),
+      axios.get('/api/site-map', { params: { type } }),
+    ])
+    if (itemsResult.status === 'fulfilled') setItems(toItems(itemsResult.value.data))
+    else setItems([])
+    if (mapResult.status === 'fulfilled') setSiteMap({ imageUrl: mapResult.value.data.imageUrl, hotspots: mapResult.value.data.hotspots })
+    else setSiteMap(EMPTY_MAP)
+    if (itemsResult.status === 'rejected' || mapResult.status === 'rejected') {
+      console.error('Error fetching site map data:', itemsResult, mapResult)
+      toast.error('ไม่สามารถโหลดข้อมูลได้')
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (isStaff) load(mapType)
+  }, [isStaff, mapType, load])
+
+  const setHotspots = useCallback(
+    (update: (hotspots: BuildingHotspot[]) => BuildingHotspot[]) =>
+      setSiteMap((map) => ({ ...map, hotspots: update(map.hotspots) })),
+    []
+  )
 
   const handleImageUpload = async (file: File): Promise<string> => {
     const formData = new FormData()
     formData.append('file', file)
-
-    try {
-      // You'll need to create an upload endpoint
-      const response = await axios.post('/api/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
-
-      const newImageUrl = response.data.url
-      setSiteMap({ ...siteMap, imageUrl: newImageUrl })
-      toast.success('อัปโหลดรูปภาพสำเร็จ')
-      return newImageUrl
-    } catch (error) {
-      console.error('Error uploading image:', error)
-      throw error
-    }
+    const { data } = await axios.post('/api/upload', formData)
+    setSiteMap((map) => ({ ...map, imageUrl: data.url }))
+    toast.success('อัปโหลดรูปภาพสำเร็จ')
+    return data.url
   }
 
   const handleSave = async () => {
@@ -171,22 +81,18 @@ export default function AdminSiteMapPage() {
     }
   }
 
-  if (session === undefined || loading) {
+  if (!isStaff) return null
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-        </div>
+        <PageSpinner />
       </div>
     )
   }
 
-  if (!session || !session.user || session.user.role !== 'ADMIN') {
-    return null
-  }
-
-  const unlinkedRooms = availableRooms.filter((room) => !siteMap.hotspots.some((h) => h.rooms?.includes(room.id))).length
+  const unlinkedRooms = items.filter((room) => !siteMap.hotspots.some((h) => h.rooms?.includes(room.id))).length
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -274,9 +180,9 @@ export default function AdminSiteMapPage() {
           <SiteMapEditor
             imageUrl={siteMap.imageUrl}
             hotspots={siteMap.hotspots}
-            availableRooms={availableRooms}
-            availableCampingBlocks={availableCampingBlocks}
-            onChange={(hotspots) => setSiteMap({ ...siteMap, hotspots })}
+            availableRooms={mapType === 'accommodation' ? items : []}
+            availableCampingBlocks={mapType === 'camping' ? items : []}
+            onChange={setHotspots}
             onImageUpload={handleImageUpload}
             mapType={mapType}
           />
