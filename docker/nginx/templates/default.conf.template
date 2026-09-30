@@ -23,6 +23,21 @@ server {
     }
 }
 
+# Anything else on HTTP, e.g. http://<server-ip>/: the app itself, without HTTPS and without
+# redirecting to the domain (for checking the server directly). Sign-in and payments still
+# send people to NEXTAUTH_URL / NEXT_PUBLIC_APP_URL (the domain).
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    client_max_body_size 10m;
+
+    location / {
+        include /etc/nginx/snippets/proxy.conf;
+    }
+}
+
 # www -> bare domain
 server {
     listen 443 ssl;
