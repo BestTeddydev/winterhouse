@@ -106,6 +106,27 @@ docker compose -f docker-compose.prod.yml up -d --build
 docker image prune -f
 ```
 
+## ใช้ nginx แทน Caddy (ทางเลือก)
+
+`docker-compose.nginx.yml` รัน app ตัวเดียวกัน แต่ใช้ nginx เป็น reverse proxy (config อยู่ที่ `docker/nginx/`)
+และมี container `certbot` คอยต่ออายุ certificate Let's Encrypt ให้ ใช้ไฟล์ใดไฟล์หนึ่งเท่านั้น
+(ทั้งสองแบบใช้ port 80/443 เหมือนกัน ถ้าจะสลับให้ `down` ของเดิมก่อน)
+
+ต่างจาก Caddy ตรงที่ต้องขอ certificate ครั้งแรกเอง หลัง DNS ชี้มาที่ droplet แล้ว:
+
+```bash
+# ใส่ DOMAIN=baanlomnow.com ใน .env ก่อน
+docker compose -f docker-compose.nginx.yml up -d --build
+docker compose -f docker-compose.nginx.yml run --rm certbot certonly --webroot -w /var/www/certbot \
+  -d baanlomnow.com -d www.baanlomnow.com --email <อีเมลผู้ดูแล> --agree-tos --no-eff-email
+docker compose -f docker-compose.nginx.yml restart nginx
+```
+
+ก่อนได้ certificate จริง nginx จะใช้ certificate ชั่วคราวแบบ self-signed (browser จะเตือน)
+หลังจากนั้น certbot ต่ออายุเองทุกครั้งที่เหลือไม่ถึง 30 วัน และ nginx โหลด certificate ใหม่เองทุก 6 ชั่วโมง
+
+อัปเดตเวอร์ชันใช้คำสั่งเดียวกับข้างบน แค่เปลี่ยนชื่อไฟล์เป็น `docker-compose.nginx.yml`
+
 ## Firebase rules และ indexes
 
 Firestore database ที่ใช้คือ `baanlomnow-sg` (asia-southeast1) ตั้งไว้ใน `firebase.json` แล้ว

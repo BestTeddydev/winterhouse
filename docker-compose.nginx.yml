@@ -1,0 +1,58 @@
+# Production with nginx as the reverse proxy (alternative to docker-compose.prod.yml, which uses Caddy).
+# Same app container; nginx serves HTTPS with a Let's Encrypt certificate that the certbot service renews.
+#
+# First start (the domain's DNS must already point at this server):
+#   DOMAIN=baanlomnow.com docker compose -f docker-compose.nginx.yml up -d --build
+#   docker compose -f docker-compose.nginx.yml run --rm certbot certonly --webroot -w /var/www/certbot \
+#     -d baanlomnow.com -d www.baanlomnow.com --email you@example.com --agree-tos --no-eff-email
+#   docker compose -f docker-compose.nginx.yml restart nginx
+# Until the certificate is issued, nginx serves a temporary self-signed one.
+# After that, certbot renews it and nginx reloads it on its own.
+#
+# Needs next to this file: .env (app settings, including DOMAIN) and secrets/baanlomnow-firebase.json
+
+services:
+  # Next.js application: the same service as in docker-compose.prod.yml (only reachable through nginx)
+  app:
+    extends:
+      file: docker-compose.prod.yml
+      service: app
+    networks:
+      - baanlomnow-network
+
+  nginx:
+    build:
+      context: ./docker/nginx
+    container_name: baanlomnow-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-baanlomnow.com}
+    volumes:
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - baanlomnow-network
+
+  # Renews the certificate (twice a day it checks; renews when < 30 days are left)
+  certbot:
+    image: certbot/certbot:latest
+    container_name: baanlomnow-certbot
+    restart: always
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'
+
+volumes:
+  letsencrypt:
+  certbot_www:
+
+networks:
+  baanlomnow-network:
+    driver: bridge
