@@ -1,4 +1,5 @@
-import { upfrontAmount, type PaymentType } from '@/lib/bookingPrice'
+import { addOnTotal, upfrontAmount, type PaymentType } from '@/lib/bookingPrice'
+import { addOnLine } from '@/lib/bookingDisplay'
 import { campingBlockPrice, roomStayPrice, type BookableRoom, type PriceBreakdown, type SelectedAddOn, type SelectedCampingBlock } from '@/lib/bookingForm'
 import { formatCurrency } from '@/lib/utils'
 
@@ -100,10 +101,8 @@ export default function BookingSummary({ rooms, campingBlocks, addOns, checkIn, 
             <div className="text-sm font-medium text-gray-700 mb-1">อ๊อฟชั่นเสริม:</div>
             {addOns.map((addOn) => (
               <div key={addOn.addOnId} className="flex justify-between text-sm text-gray-600 mb-1">
-                <span>
-                  {addOn.name} x{addOn.quantity} {addOn.unit}
-                </span>
-                <span>{formatCurrency(addOn.price * addOn.quantity)}</span>
+                <span>{addOnLine(addOn, price.nights)}</span>
+                <span>{formatCurrency(addOnTotal(addOn, price.nights))}</span>
               </div>
             ))}
             <div className="flex justify-between mt-2 pt-2 border-t">

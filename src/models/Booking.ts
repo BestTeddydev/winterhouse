@@ -22,6 +22,8 @@ export interface IBooking extends Document {
   isManualBooking?: boolean
   manualBookingNotes?: string
   createdBy?: string
+  /** Customer bookings: until when the unpaid booking holds its rooms (renewed when a payment starts) */
+  holdExpiresAt?: Date
   paymentType?: 'FULL' | 'PARTIAL'
   discount?: number // Discount percentage (0-100)
   discountAmount?: number // Fixed discount amount in THB
@@ -35,6 +37,7 @@ export interface IBooking extends Document {
     price: number // Store price at time of booking
     quantity: number // จำนวนหน่วย
     unit?: string // หน่วย เช่น "ชั่วโมง", "ครั้ง"
+    pricing?: 'PER_STAY' | 'PER_NIGHT' // as the add-on was charged when booked
   }> // อ๊อฟชั่นเสริมที่เลือก
   createdAt: Date
   updatedAt: Date
@@ -68,6 +71,7 @@ const BookingSchema = new Schema<IBooking>({
   isManualBooking: { type: Boolean, default: false },
   manualBookingNotes: { type: String },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  holdExpiresAt: { type: Date },
   paymentType: { type: String, enum: ['FULL', 'PARTIAL'], default: 'FULL' },
   discount: { type: Number, default: 0, min: 0, max: 100 }, // Discount percentage
   discountAmount: { type: Number, default: 0, min: 0 }, // Fixed discount amount
@@ -76,7 +80,8 @@ const BookingSchema = new Schema<IBooking>({
     name: { type: String },
     price: { type: Number },
     quantity: { type: Number, default: 1, min: 1 },
-    unit: { type: String }
+    unit: { type: String },
+    pricing: { type: String, enum: ['PER_STAY', 'PER_NIGHT'] }
   }] // อ๊อฟชั่นเสริมที่เลือก
 }, {
   timestamps: true,

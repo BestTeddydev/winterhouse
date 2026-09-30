@@ -10,6 +10,7 @@ export interface AdminAddOn {
   description?: string
   price: number
   unit?: string
+  pricing?: string
   isActive: boolean
 }
 
@@ -51,7 +52,10 @@ export default function AddOnsTable({ addOns, onToggle, onDelete }: Props) {
                 <span className="text-sm font-semibold text-gray-900">{formatCurrency(addOn.price)}</span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <span className="text-sm text-gray-600">{addOn.unit || 'หน่วย'}</span>
+                <span className="text-sm text-gray-600">
+                  {addOn.unit || 'หน่วย'}
+                  {addOn.pricing === 'PER_NIGHT' && '/คืน'}
+                </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <button

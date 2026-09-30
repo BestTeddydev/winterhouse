@@ -1,5 +1,5 @@
 // Booking form model shared by the booking pages (customer and admin): selections, prices and payloads.
-import { calculateBookingTotal, countNights } from '@/lib/bookingPrice'
+import { addOnsTotal, calculateBookingTotal, countNights, type AddOnPricing } from '@/lib/bookingPrice'
 import { calculateRoomPriceRange } from '@/lib/pricing'
 
 export interface BookableRoom {
@@ -29,6 +29,7 @@ export interface AddOnOption {
   description?: string
   price: number
   unit?: string
+  pricing?: AddOnPricing
 }
 
 export interface SelectedCampingBlock {
@@ -42,6 +43,7 @@ export interface SelectedAddOn {
   price: number
   quantity: number
   unit?: string
+  pricing?: AddOnPricing
 }
 
 /** Everything the price depends on */
@@ -87,7 +89,10 @@ export function setCampingGuests(selected: SelectedCampingBlock[], block: Bookab
 export const toggleAddOn = (selected: SelectedAddOn[], addOn: AddOnOption): SelectedAddOn[] =>
   selected.some((a) => a.addOnId === addOn._id)
     ? selected.filter((a) => a.addOnId !== addOn._id)
-    : [...selected, { addOnId: addOn._id, name: addOn.name, price: addOn.price, quantity: 1, unit: addOn.unit || 'หน่วย' }]
+    : [
+        ...selected,
+        { addOnId: addOn._id, name: addOn.name, price: addOn.price, quantity: 1, unit: addOn.unit || 'หน่วย', pricing: addOn.pricing ?? 'PER_STAY' },
+      ]
 
 export const setAddOnQuantity = (selected: SelectedAddOn[], addOnId: string, quantity: number) =>
   quantity < 1 ? selected : selected.map((a) => (a.addOnId === addOnId ? { ...a, quantity } : a))
@@ -131,7 +136,7 @@ export function priceBreakdown(p: PricingInputs, { includeVat = false } = {}): P
     ? p.rooms.reduce((sum, room) => sum + roomStayPrice(room, p.checkIn, p.checkOut), 0) +
       p.campingBlocks.reduce((sum, item) => sum + campingBlockPrice(item, nights), 0)
     : 0
-  const addOns = p.addOns.reduce((sum, a) => sum + a.price * a.quantity, 0)
+  const addOns = addOnsTotal(p.addOns, nights)
   const discountOff = p.discountAmount > 0 ? p.discountAmount : p.discount > 0 ? (accommodation * p.discount) / 100 : 0
   const total = calculateBookingTotal({
     accommodationTotal: accommodation,
@@ -151,7 +156,7 @@ export function selectionPayload(p: Pick<PricingInputs, 'rooms' | 'campingBlocks
     roomIds: p.rooms.map((r) => r.id),
     campingBlockIds: p.campingBlocks.map((s) => s.block.id),
     guestCounts: p.campingBlocks.map((s) => s.guestCount),
-    addOns: p.addOns.map(({ addOnId, name, price, quantity, unit }) => ({ addOnId, name, price, quantity, unit })),
+    addOns: p.addOns.map(({ addOnId, name, price, quantity, unit, pricing }) => ({ addOnId, name, price, quantity, unit, pricing })),
   }
 }
 
@@ -206,6 +211,7 @@ export function selectionsFromBooking(booking: any, catalog: Pick<Catalog, 'room
         price: a.price,
         quantity: a.quantity || 1,
         unit: a.unit,
+        pricing: a.pricing ?? 'PER_STAY',
       })
     ),
   }

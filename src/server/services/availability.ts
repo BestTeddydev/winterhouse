@@ -1,14 +1,20 @@
 import Booking from '@/models/Booking'
+import CampingBlock from '@/models/CampingBlock'
 import CampingBlockBlock from '@/models/CampingBlockBlock'
+import Room from '@/models/Room'
 import RoomBlock from '@/models/RoomBlock'
 import { conflict } from '../errors'
 import { claimKeys } from './claims'
 
 /**
- * A PENDING booking holds its rooms while the guest is paying. Without this, two guests could
- * both reserve and pay for the same room. Stripe Checkout sessions expire after the same time.
+ * A customer's PENDING booking holds its rooms while the guest is paying. Without this, two guests
+ * could both reserve and pay for the same room. Starting a payment renews the hold; Stripe
+ * Checkout sessions expire after the same time.
  */
 export const PAYMENT_HOLD_MINUTES = 30
+
+/** When a hold started now ends */
+export const newHoldExpiry = (now = new Date()) => new Date(now.getTime() + PAYMENT_HOLD_MINUTES * 60_000)
 
 export interface StayRange {
   checkIn: Date
@@ -27,6 +33,9 @@ type BookingRefs = {
   checkIn?: Date
   checkOut?: Date
   createdAt?: Date
+  holdExpiresAt?: Date
+  createdBy?: string
+  isManualBooking?: boolean
   roomId?: string
   roomIds?: string[]
   rooms?: Array<{ roomId?: string }>
@@ -46,26 +55,50 @@ export function bookingCampingBlockIds(booking: BookingRefs): string[] {
   return [...new Set(ids.map(asId).filter((id): id is string => !!id))]
 }
 
+/**
+ * Until when a PENDING booking holds its rooms (ms). Customer bookings: `holdExpiresAt`, or 30 minutes
+ * after they were made (older bookings). Bookings made by staff (e.g. waiting for a bank transfer)
+ * hold until staff confirm or cancel them.
+ */
+export function holdEndsAt(booking: BookingRefs): number {
+  if (booking.holdExpiresAt) return new Date(booking.holdExpiresAt).getTime()
+  if (booking.createdBy || booking.isManualBooking) return Infinity
+  return booking.createdAt ? new Date(booking.createdAt).getTime() + PAYMENT_HOLD_MINUTES * 60_000 : 0
+}
+
+/** Whether the booking keeps its rooms/blocks from others */
+export const occupies = (booking: BookingRefs, now = new Date()) =>
+  booking.status === 'CONFIRMED' || (booking.status === 'PENDING' && holdEndsAt(booking) > now.getTime())
+
+const OCCUPANCY_FIELDS =
+  '_id status checkIn checkOut createdAt holdExpiresAt createdBy isManualBooking roomId roomIds rooms campingBlockId campingBlockIds'
+
 /** Two stays overlap when each starts before the other ends (check-out day is free) */
 export function overlapFilter({ checkIn, checkOut }: StayRange) {
   return { $and: [{ checkIn: { $lt: checkOut } }, { checkOut: { $gt: checkIn } }] }
 }
 
-/** Bookings overlapping the stay that occupy their rooms/blocks: confirmed ones and fresh pending ones */
+/** Bookings overlapping the stay that occupy their rooms/blocks: confirmed ones and held pending ones */
 export async function findOccupyingBookings(range: StayRange, { excludeBookingId, now = new Date() }: Options = {}) {
-  const holdStart = now.getTime() - PAYMENT_HOLD_MINUTES * 60_000
   const bookings: BookingRefs[] = await Booking.find({
     status: { $in: ['CONFIRMED', 'PENDING'] },
     ...overlapFilter(range),
   })
-    .select('_id status checkIn checkOut createdAt roomId roomIds rooms campingBlockId campingBlockIds')
+    .select(OCCUPANCY_FIELDS)
     .lean()
 
-  return bookings.filter(
-    (b) =>
-      b._id !== excludeBookingId &&
-      (b.status === 'CONFIRMED' || (b.createdAt !== undefined && new Date(b.createdAt).getTime() > holdStart))
-  )
+  return bookings.filter((b) => b._id !== excludeBookingId && occupies(b, now))
+}
+
+/** The rooms/blocks of a booking, with names for messages */
+export async function bookingInventory(booking: BookingRefs) {
+  const roomIds = bookingRoomIds(booking)
+  const blockIds = bookingCampingBlockIds(booking)
+  const [rooms, campingBlocks] = await Promise.all([
+    roomIds.length ? Room.find({ _id: { $in: roomIds } }).select('name').lean() : [],
+    blockIds.length ? CampingBlock.find({ _id: { $in: blockIds } }).select('name').lean() : [],
+  ])
+  return { rooms, campingBlocks } as Required<Inventory>
 }
 
 interface Inventory {
@@ -127,10 +160,7 @@ async function bookingHolds(bookingId: string, key: string, now = new Date()) {
   const [kind, id, night] = key.split('_')
   const booking: BookingRefs | null = await Booking.findById(bookingId).lean()
   if (!booking) return 'unknown' as const
-  const holdStart = now.getTime() - PAYMENT_HOLD_MINUTES * 60_000
-  const active =
-    booking.status === 'CONFIRMED' ||
-    (booking.status === 'PENDING' && booking.createdAt !== undefined && new Date(booking.createdAt).getTime() > holdStart)
+  const active = occupies(booking, now)
   const ids = kind === 'room' ? bookingRoomIds(booking) : bookingCampingBlockIds(booking)
   const inStay = !!booking.checkIn && !!booking.checkOut && night >= toKey(booking.checkIn) && night < toKey(booking.checkOut)
   return active && ids.includes(id) && inStay ? ('held' as const) : ('released' as const)

@@ -1,5 +1,5 @@
 import type { Session } from 'next-auth'
-import { calculateBookingTotal, countNights, upfrontAmount } from '@/lib/bookingPrice'
+import { addOnsTotal, calculateBookingTotal, countNights, upfrontAmount } from '@/lib/bookingPrice'
 import { bangkokDateKey, bangkokDayRange } from '@/lib/dates'
 import { calculateRoomPriceRange } from '@/lib/pricing'
 import AddOn from '@/models/AddOn'
@@ -10,7 +10,16 @@ import Room from '@/models/Room'
 import { findSessionUser, isStaff, assertOwnerOrStaff } from '../auth'
 import { badRequest, notFound } from '../errors'
 import type { CreateBookingInput, ListBookingsQuery, ManualBookingInput, UpdateBookingInput } from '../schemas/bookings'
-import { assertAvailable, claimStay, StayRange } from './availability'
+import { closeCheckout } from '@/lib/stripe'
+import {
+  assertAvailable,
+  bookingCampingBlockIds,
+  bookingRoomIds,
+  claimStay,
+  holdEndsAt,
+  newHoldExpiry,
+  StayRange,
+} from './availability'
 import { notifyOwnersOfBooking } from './notifications'
 
 const ROOM_FIELDS = 'name description price capacity imageUrls'
@@ -51,6 +60,8 @@ export function toBookingResponse(booking: any) {
     campingBlock: b.campingBlockId,
     campingBlocks: b.campingBlockIds?.length ? b.campingBlockIds : b.campingBlockId ? [b.campingBlockId] : [],
     payment: b.paymentId || { status: 'PENDING', amount: 0 },
+    /** An unpaid customer booking whose time to pay ran out: its rooms are free for others again */
+    paymentExpired: b.status === 'PENDING' && b.paymentId?.status !== 'COMPLETED' && holdEndsAt(b) <= Date.now(),
   }
 }
 
@@ -100,8 +111,26 @@ async function loadAddOns(selections: CreateBookingInput['addOns'] = [], allowIn
     const addOn = addOns.find((a: any) => a._id === addOnId)
     if (!addOn || (!addOn.isActive && !allowInactive)) throw badRequest(`ไม่พบอ๊อฟชั่นเสริม: ${addOnId}`)
     // Prices always come from the database, never from the client
-    return { addOnId, name: addOn.name, price: addOn.price, quantity, unit: addOn.unit || 'หน่วย' }
+    return { addOnId, name: addOn.name, price: addOn.price, quantity, unit: addOn.unit || 'หน่วย', pricing: addOn.pricing || 'PER_STAY' }
   })
+}
+
+/**
+ * The customer's unpaid booking of (part of) the same stay, if any. Customers who leave the payment
+ * page and book again continue that booking, instead of leaving an abandoned one behind.
+ */
+async function findUnpaidBooking(userId: string, roomIds: string[], blockIds: string[], range: StayRange) {
+  const pending = await Booking.find({ userId, status: 'PENDING' }).sort({ createdAt: -1 })
+  for (const booking of pending) {
+    if (booking.createdBy || booking.isManualBooking) continue
+    if (!(booking.checkIn < range.checkOut && booking.checkOut > range.checkIn)) continue
+    const shared = bookingRoomIds(booking).some((id) => roomIds.includes(id)) || bookingCampingBlockIds(booking).some((id) => blockIds.includes(id))
+    if (!shared) continue
+    const payment = booking.paymentId ? await Payment.findById(booking.paymentId) : null
+    if (payment && (payment.status === 'COMPLETED' || (payment.paidAmount || 0) > 0)) continue
+    return { booking, payment }
+  }
+  return null
 }
 
 /**
@@ -139,8 +168,10 @@ export async function createBooking(input: CreateBookingInput, session: Session)
     loadAddOns(input.addOns, staff),
   ])
 
+  const unpaid = staff ? null : await findUnpaidBooking(user._id, roomIds, campingSelections.map((c) => c.id), range)
+
   const inventory = { rooms, campingBlocks: camping.map((c) => c.block) }
-  await assertAvailable(inventory, range)
+  await assertAvailable(inventory, range, { excludeBookingId: unpaid?.booking._id })
 
   // --- price (server-side only) ---
   const nights = countNights(range.checkIn, range.checkOut)
@@ -151,21 +182,22 @@ export async function createBooking(input: CreateBookingInput, session: Session)
   const accommodationTotal =
     roomPrices.reduce((sum, r) => sum + r.price, 0) +
     camping.reduce((sum, { block, guests }) => sum + block.pricePerPerson * guests * nights, 0)
-  const addOnsTotal = addOns.reduce((sum, a) => sum + a.price * a.quantity, 0)
+  // Per-night add-ons (extra bed) count every night of the stay
+  const addOnsPrice = addOnsTotal(addOns, nights)
 
   const discount = staff ? input.discount ?? 0 : 0
   const discountAmount = staff ? input.discountAmount ?? 0 : 0
   const totalPrice =
     staff && input.totalPrice
       ? input.totalPrice
-      : calculateBookingTotal({ accommodationTotal, addOnsTotal, discountPercent: discount, discountAmount, includeVat: !staff })
+      : calculateBookingTotal({ accommodationTotal, addOnsTotal: addOnsPrice, discountPercent: discount, discountAmount, includeVat: !staff })
   if (totalPrice <= 0) throw badRequest('ต้องระบุราคารวมที่ถูกต้อง')
 
   const isManualBooking = staff && !!input.isManualBooking
   const status = staff && (isManualBooking || input.bookingStatus === 'CONFIRMED') ? 'CONFIRMED' : 'PENDING'
 
-  const booking = new Booking({
-    userId: user._id,
+  // Everything the form decides; fields left undefined are cleared when an unpaid booking is continued
+  const fields = {
     checkIn: range.checkIn,
     checkOut: range.checkOut,
     totalPrice,
@@ -176,37 +208,40 @@ export async function createBooking(input: CreateBookingInput, session: Session)
     paymentType: input.paymentType,
     discount,
     discountAmount,
+    addOns: addOns.length ? addOns : undefined,
+    roomId: rooms.length ? roomIds[0] : undefined,
+    roomIds: rooms.length ? roomIds : undefined,
+    rooms: rooms.length ? roomPrices : undefined,
+    campingBlockIds: input.campingBlockIds,
+    guestCounts: input.campingBlockIds ? campingSelections.map((c) => c.guests) : undefined,
+    campingBlockId: !input.campingBlockIds && camping.length ? campingSelections[0].id : undefined,
+    guestCount: camping.length ? campingSelections.reduce((sum, c) => sum + c.guests, 0) : undefined,
+  }
+
+  const upfront = upfrontAmount(totalPrice, input.paymentType)
+  const amounts = { amount: upfront, totalAmount: totalPrice, remainingAmount: totalPrice - upfront, paymentType: input.paymentType }
+
+  if (unpaid) return continueUnpaidBooking(unpaid, fields, amounts, inventory, range)
+
+  const booking = new Booking({
+    ...fields,
+    userId: user._id,
     status,
     isManualBooking,
     manualBookingNotes: staff ? input.manualBookingNotes : undefined,
     createdBy: staff ? user._id : undefined,
-    addOns: addOns.length ? addOns : undefined,
-    ...(rooms.length && {
-      roomId: roomIds[0],
-      roomIds,
-      rooms: roomPrices,
-    }),
-    ...(input.campingBlockIds
-      ? {
-          campingBlockIds: input.campingBlockIds,
-          guestCounts: campingSelections.map((s) => s.guests),
-          guestCount: campingSelections.reduce((sum, s) => sum + s.guests, 0),
-        }
-      : camping.length && { campingBlockId: campingSelections[0].id, guestCount: campingSelections[0].guests }),
+    // Customers have a limited time to pay; staff bookings hold until staff confirm or cancel them
+    holdExpiresAt: !staff && status === 'PENDING' ? newHoldExpiry() : undefined,
   })
 
-  const upfront = upfrontAmount(totalPrice, input.paymentType)
   // Manual bookings record what the guest already paid (e.g. by bank transfer slip);
   // online bookings are unpaid until Stripe confirms
   const paymentStatus = (staff && input.paymentStatus) || (isManualBooking ? 'COMPLETED' : 'PENDING')
   const payment = new Payment({
+    ...amounts,
     bookingId: booking._id,
-    amount: upfront,
-    totalAmount: totalPrice,
     status: paymentStatus,
     paidAmount: paymentStatus === 'COMPLETED' ? upfront : 0,
-    remainingAmount: totalPrice - upfront,
-    paymentType: input.paymentType,
     paymentSlipUrl: staff ? input.paymentSlipUrl : undefined,
   })
   booking.paymentId = payment._id
@@ -223,6 +258,35 @@ export async function createBooking(input: CreateBookingInput, session: Session)
   }
 
   return toBookingResponse(saved)
+}
+
+/**
+ * Updates a customer's unpaid booking with what they just submitted and holds it again. Its old
+ * Stripe checkout (another amount, maybe other dates) is closed so it can't be paid any more.
+ */
+async function continueUnpaidBooking(
+  { booking, payment }: NonNullable<Awaited<ReturnType<typeof findUnpaidBooking>>>,
+  fields: Record<string, unknown>,
+  amounts: Record<string, unknown>,
+  inventory: Parameters<typeof claimStay>[1],
+  range: StayRange
+) {
+  await claimStay(booking._id, inventory, range)
+  if (payment?.stripeSessionId) await closeCheckout(payment.stripeSessionId)
+
+  const set = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined))
+  const unset = Object.fromEntries(Object.entries(fields).filter(([, v]) => v === undefined).map(([k]) => [k, 1]))
+  const paymentUpdate = { ...amounts, status: 'PENDING', paidAmount: 0, $unset: { stripeSessionId: 1 } }
+  let paymentId = payment?._id
+  if (payment) {
+    await Payment.findByIdAndUpdate(payment._id, paymentUpdate)
+  } else {
+    paymentId = (await Payment.create({ ...amounts, bookingId: booking._id, status: 'PENDING', paidAmount: 0 }))._id
+  }
+  await Booking.findByIdAndUpdate(booking._id, { ...set, paymentId, holdExpiresAt: newHoldExpiry(), $unset: unset })
+
+  const saved = await populateForDisplay(Booking.findById(booking._id))
+  return { ...toBookingResponse(saved), continued: true }
 }
 
 // --- list / get ----------------------------------------------------------------

@@ -1,6 +1,8 @@
 import Image from 'next/image'
 import { MapPin, Plus, Tent, Users } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { addOnTotal } from '@/lib/bookingPrice'
+import { addOnLine } from '@/lib/bookingDisplay'
 import type { DetailCampingBlock, DetailRoom } from '../_lib/bookingDetail'
 import Card from './Card'
 
@@ -22,7 +24,7 @@ function ItemRow({ image, name, description, children }: { image?: string; name:
 interface Props {
   rooms: DetailRoom[]
   campingBlocks: DetailCampingBlock[]
-  addOns: Array<{ name: string; price: number; quantity: number; unit?: string }>
+  addOns: Array<{ name: string; price: number; quantity: number; unit?: string; pricing?: string }>
   nights: number
 }
 
@@ -80,10 +82,8 @@ export default function BookedItems({ rooms, campingBlocks, addOns, nights }: Pr
           <div className="space-y-2">
             {addOns.map((addOn, i) => (
               <div key={i} className="flex justify-between text-gray-700">
-                <span>
-                  {addOn.name} x{addOn.quantity} {addOn.unit}
-                </span>
-                <span className="font-medium">{formatCurrency(addOn.price * addOn.quantity)}</span>
+                <span>{addOnLine(addOn, nights)}</span>
+                <span className="font-medium">{formatCurrency(addOnTotal(addOn, nights))}</span>
               </div>
             ))}
           </div>

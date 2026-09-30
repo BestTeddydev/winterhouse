@@ -1,17 +1,21 @@
 import { formatCurrency } from '@/lib/utils'
+import { addOnTotal } from '@/lib/bookingPrice'
+import { addOnRateSuffix } from '@/lib/bookingDisplay'
 import type { AddOnOption, SelectedAddOn } from '@/lib/bookingForm'
 
 interface Props {
   addOns: AddOnOption[]
   selected: SelectedAddOn[]
   total: number
+  /** Nights of the stay: per-night add-ons (extra bed) are charged for each */
+  nights: number
   onToggle: (addOn: AddOnOption) => void
   onQuantityChange: (addOnId: string, quantity: number) => void
   listClassName?: string
 }
 
 /** Checkable extras (breakfast, kayak, ...) with quantities and their total */
-export default function AddOnOptions({ addOns, selected, total, onToggle, onQuantityChange, listClassName = 'space-y-3' }: Props) {
+export default function AddOnOptions({ addOns, selected, total, nights, onToggle, onQuantityChange, listClassName = 'space-y-3' }: Props) {
   return (
     <>
       <div className={listClassName}>
@@ -39,7 +43,8 @@ export default function AddOnOptions({ addOns, selected, total, onToggle, onQuan
                       {addOn.name}
                     </label>
                     <span className="text-sm font-bold text-primary-600">
-                      {formatCurrency(addOn.price)}/{unit}
+                      {formatCurrency(addOn.price)}
+                      {addOnRateSuffix(addOn)}
                     </span>
                   </div>
                   {addOn.description && <p className="text-sm text-gray-600 ml-8">{addOn.description}</p>}
@@ -53,9 +58,12 @@ export default function AddOnOptions({ addOns, selected, total, onToggle, onQuan
                         onChange={(e) => onQuantityChange(addOn._id, parseInt(e.target.value) || 1)}
                         className="w-20 px-3 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900"
                       />
-                      <span className="text-sm text-gray-600">{unit}</span>
+                      <span className="text-sm text-gray-600">
+                        {unit}
+                        {chosen.pricing === 'PER_NIGHT' && ` × ${nights} คืน`}
+                      </span>
                       <span className="text-sm font-semibold text-primary-600 ml-auto">
-                        รวม: {formatCurrency(chosen.price * chosen.quantity)}
+                        รวม: {formatCurrency(addOnTotal(chosen, nights))}
                       </span>
                     </div>
                   )}

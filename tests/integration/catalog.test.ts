@@ -47,6 +47,12 @@ describe('add-ons', () => {
     expect(created.status).toBe(201)
     expect(created.body).toMatchObject({ name: 'Kayak', price: 150, unit: 'หน่วย', isActive: true })
 
+    expect(created.body.pricing).toBe('PER_STAY') // charged once unless set otherwise
+    const perNight = await call(addOnsRoute.POST, 'POST', { body: { name: 'เตียงเสริม', price: 500, pricing: 'PER_NIGHT' } })
+    expect(perNight.body.pricing).toBe('PER_NIGHT')
+    expect((await call(addOnRoute.PUT, 'PUT', { params: { id: perNight.body._id }, body: { price: 600 } })).body.pricing).toBe('PER_NIGHT')
+    expect((await call(addOnsRoute.POST, 'POST', { body: { name: 'X', price: 1, pricing: 'PER_HOUR' } })).status).toBe(400)
+
     const id = created.body._id
     const updated = await call(addOnRoute.PUT, 'PUT', { params: { id }, body: { price: 200, isActive: false } })
     expect(updated.body).toMatchObject({ price: 200, isActive: false })

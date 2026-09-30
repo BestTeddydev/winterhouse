@@ -143,6 +143,7 @@ export default function NewBooking() {
             addOns={catalog?.addOns ?? []}
             selected={draft.addOns}
             total={price.addOns}
+            nights={price.nights}
             onToggle={booking.toggleAddOn}
             onQuantityChange={booking.setAddOnQuantity}
           />

@@ -52,6 +52,20 @@ export async function createCheckoutSession(params: PaymentParams & { success_ur
   })
 }
 
+/**
+ * Makes an earlier checkout (card) or payment link (QR) unpayable, when a newer one replaces it or
+ * the booking changed. Otherwise a guest could pay twice, or pay an old amount. Checkouts that are
+ * already paid or expired are left alone (Stripe refuses, which is fine).
+ */
+export async function closeCheckout(id: string) {
+  try {
+    if (id.startsWith('plink_')) await getStripe().paymentLinks.update(id, { active: false })
+    else if (id.startsWith('cs_')) await getStripe().checkout.sessions.expire(id)
+  } catch (error) {
+    console.warn(`Could not close Stripe checkout ${id}:`, (error as Error).message)
+  }
+}
+
 /** Verifies the Stripe signature and parses the webhook event (throws if invalid) */
 export function constructWebhookEvent(body: string, signature: string, secret: string): Stripe.Event {
   return getStripe().webhooks.constructEvent(body, signature, secret)

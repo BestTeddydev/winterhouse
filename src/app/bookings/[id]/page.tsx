@@ -8,6 +8,7 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import { ArrowLeft } from 'lucide-react'
 import Navbar from '@/components/Navbar'
+import { displayStatus } from '@/lib/bookingStatus'
 import { detailItems, stayNights } from './_lib/bookingDetail'
 import BookedItems from './_components/BookedItems'
 import GuestCard from './_components/GuestCard'
@@ -90,7 +91,7 @@ export default function BookingDetail() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            <StatusCard status={booking.status} />
+            <StatusCard status={displayStatus(booking)} />
             <StayDatesCard checkIn={booking.checkIn} checkOut={booking.checkOut} />
             <BookedItems rooms={rooms} campingBlocks={campingBlocks} addOns={booking.addOns ?? []} nights={stayNights(booking)} />
             <GuestCard email={booking.guestEmail} phone={booking.guestPhone} specialRequests={booking.specialRequests} />

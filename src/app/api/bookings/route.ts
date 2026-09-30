@@ -12,5 +12,9 @@ export const GET = apiRoute(
 
 export const POST = apiRoute(
   { access: 'authenticated', body: createBookingSchema, errorMessage: 'ไม่สามารถสร้างการจองได้' },
-  async ({ body, session }) => created(await createBooking(body, session))
+  async ({ body, session }) => {
+    const booking = await createBooking(body, session)
+    // 200 when the customer's unpaid booking of the same stay was continued instead
+    return 'continued' in booking ? booking : created(booking)
+  }
 )

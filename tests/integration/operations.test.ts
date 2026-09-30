@@ -218,7 +218,7 @@ describe('upload', () => {
       return data
     }
     const post = (type: string) =>
-      uploadRoute.POST(new NextRequest('http://localhost/api/upload', { method: 'POST', body: form(type) }), { params: {} })
+      uploadRoute.POST(new NextRequest('http://localhost/api/upload', { method: 'POST', body: form(type) }), { params: Promise.resolve({}) })
 
     expect((await post('image/png')).status).toBe(401)
     signInAs(await createUser())

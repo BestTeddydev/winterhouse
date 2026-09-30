@@ -4,12 +4,12 @@ import { upfrontAmount } from '@/lib/bookingPrice'
 import { formatPaymentNotificationEmail, sendEmailNotification } from '@/lib/email'
 import { formatPaymentThankYouMessage, sendLineNotification } from '@/lib/line'
 import { getDb } from '@/lib/firebase'
-import { createCheckoutSession, createQRCodePayment } from '@/lib/stripe'
+import { closeCheckout, createCheckoutSession, createQRCodePayment } from '@/lib/stripe'
 import Booking from '@/models/Booking'
 import Payment from '@/models/Payment'
 import { assertOwnerOrStaff } from '../auth'
 import { badRequest, notFound } from '../errors'
-import { assertAvailable } from './availability'
+import { assertAvailable, bookingInventory, claimStay, newHoldExpiry } from './availability'
 import { notifyOwnersOfBooking } from './notifications'
 
 export type PaymentMethod = 'card' | 'qr_code' | string
@@ -46,6 +46,10 @@ async function openStripePayment(params: {
   }
   const base = { amount: Math.round(params.amount * 100), currency: 'thb', description: params.description, metadata }
 
+  // One open checkout per payment: the one the guest opened before can no longer be paid
+  const previous = await Payment.findById(params.paymentId).select('stripeSessionId').lean()
+  if (previous?.stripeSessionId) await closeCheckout(previous.stripeSessionId)
+
   try {
     if (params.paymentMethod === 'qr_code') {
       const { paymentLink, qrCodeUrl } = await createQRCodePayment(base)
@@ -74,10 +78,28 @@ async function openStripePayment(params: {
   }
 }
 
+/**
+ * A guest paying for a pending booking gets its rooms held again for the time of the payment. If
+ * the hold had lapsed and someone else booked the rooms meanwhile, the payment is refused (409)
+ * instead of taking money for a room that is gone.
+ */
+async function renewHold(booking: any) {
+  const range = { checkIn: booking.checkIn, checkOut: booking.checkOut }
+  const inventory = await bookingInventory(booking)
+  await assertAvailable(inventory, range, { excludeBookingId: booking._id })
+  await claimStay(booking._id, inventory, range)
+  // Bookings made by staff hold until staff confirm or cancel them
+  if (!booking.createdBy && !booking.isManualBooking) {
+    await Booking.findByIdAndUpdate(booking._id, { holdExpiresAt: newHoldExpiry() })
+  }
+}
+
 /** First payment of a booking: the full price or the 50% deposit, always computed from the booking */
 export async function startPayment(input: { bookingId: string; paymentMethod: PaymentMethod }, session: Session) {
   const booking = await loadBookingForPayment(input.bookingId, session)
   if (booking.paymentId.status === 'COMPLETED') throw badRequest('การชำระเงินเสร็จสิ้นแล้ว')
+
+  if (booking.status === 'PENDING') await renewHold(booking)
 
   const paymentType = booking.paymentType === 'PARTIAL' ? 'PARTIAL' : 'FULL'
   await Payment.findByIdAndUpdate(booking.paymentId._id, { status: 'PROCESSING', paymentMethod: input.paymentMethod })
@@ -140,11 +162,16 @@ async function findPaymentForCheckout(checkout: Stripe.Checkout.Session) {
   return null
 }
 
-/** Amounts after a successful checkout of the given stage */
-function paidAmounts(payment: { paymentType: string; amount: number; totalAmount: number; paidAmount?: number }) {
-  if (payment.paymentType === 'REMAINING') return { paidAmount: (payment.paidAmount || 0) + payment.amount, remainingAmount: 0 }
-  if (payment.paymentType === 'PARTIAL') return { paidAmount: payment.amount, remainingAmount: payment.totalAmount - payment.amount }
-  return { paidAmount: payment.totalAmount, remainingAmount: 0 }
+/**
+ * Amounts after a successful checkout of the given stage. `charged` is what Stripe actually took
+ * (THB); it only differs from the payment's amount if the booking changed while the guest was paying.
+ */
+function paidAmounts(
+  payment: { paymentType: string; amount: number; totalAmount: number; paidAmount?: number },
+  charged = payment.paymentType === 'FULL' ? payment.totalAmount : payment.amount
+) {
+  const paidAmount = payment.paymentType === 'REMAINING' ? (payment.paidAmount || 0) + charged : charged
+  return { paidAmount, remainingAmount: Math.max(0, payment.totalAmount - paidAmount) }
 }
 
 /**
@@ -153,12 +180,12 @@ function paidAmounts(payment: { paymentType: string; amount: number; totalAmount
  * Returns false when there is nothing to record: already paid, or the event is for an earlier stage
  * (e.g. a late retry of the deposit event after the guest opened the balance checkout).
  */
-async function recordPaid(paymentId: string, stage: string) {
+async function recordPaid(paymentId: string, stage: string, charged?: number) {
   const ref = Payment.collection().doc(String(paymentId))
   return getDb().runTransaction(async (tx) => {
     const current = (await tx.get(ref)).data()
     if (!current || current.status === 'COMPLETED' || current.paymentType !== stage) return false
-    tx.update(ref, { status: 'COMPLETED', ...paidAmounts(current as any), updatedAt: new Date() })
+    tx.update(ref, { status: 'COMPLETED', ...paidAmounts(current as any, charged), updatedAt: new Date() })
     return true
   })
 }
@@ -180,7 +207,8 @@ export async function handleCheckoutCompleted(checkout: Stripe.Checkout.Session)
   const linkId = typeof checkout.payment_link === 'string' ? checkout.payment_link : checkout.payment_link?.id
   const isCurrentCheckout = [checkout.id, linkId].includes(payment.stripeSessionId)
   const stage = checkout.metadata?.paymentType || (isCurrentCheckout ? payment.paymentType : undefined)
-  if (!stage || !(await recordPaid(payment._id, stage))) return { alreadyProcessed: true }
+  const charged = typeof checkout.amount_total === 'number' ? checkout.amount_total / 100 : undefined
+  if (!stage || !(await recordPaid(payment._id, stage, charged))) return { alreadyProcessed: true }
   const updatedPayment = await Payment.findById(payment._id)
 
   let doubleBooked = false

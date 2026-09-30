@@ -42,7 +42,8 @@ export function apiRoute<
   options: RouteOptions<B, Q>,
   handler: (ctx: RouteContext<P, Infer<B>, Infer<Q>>) => PromiseLike<unknown>
 ) {
-  return async (req: NextRequest, context: { params: P }) => {
+  // Next.js 15 passes route params as a Promise
+  return async (req: NextRequest, context: { params: Promise<P> }) => {
     try {
       const session =
         options.access === 'public'
@@ -60,7 +61,8 @@ export function apiRoute<
       const query = (options.query ? options.query.parse(Object.fromEntries(req.nextUrl.searchParams)) : undefined) as Infer<Q>
 
       await connectDB()
-      const result = await handler({ req, params: context?.params ?? ({} as P), body, query, session })
+      const params = ((await context?.params) ?? {}) as P
+      const result = await handler({ req, params, body, query, session })
       return result instanceof Response ? result : NextResponse.json(result ?? null)
     } catch (error) {
       return errorResponse(error, options.errorMessage)

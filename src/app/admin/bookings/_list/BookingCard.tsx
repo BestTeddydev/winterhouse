@@ -17,7 +17,7 @@ export default function BookingCard({ booking, onStatusChange }: { booking: any;
           <div>
             <div className="text-xs font-mono text-gray-500 mb-1">#{booking.id?.slice(0, 8) || 'N/A'}</div>
             <div className="flex flex-wrap items-center gap-2">
-              <BookingStatusBadge status={booking.status} />
+              <BookingStatusBadge booking={booking} />
               <PaymentStatusBadge status={booking.payment?.status} />
             </div>
           </div>

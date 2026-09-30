@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateBookingTotal, countNights, upfrontAmount } from './bookingPrice'
+import { addOnTotal, addOnsTotal, calculateBookingTotal, countNights, upfrontAmount } from './bookingPrice'
 
 describe('countNights', () => {
   it('counts nights between check-in and check-out', () => {
@@ -58,5 +58,22 @@ describe('upfrontAmount', () => {
 describe('calculateBookingTotal: discounts larger than the stay', () => {
   it('still charges the add-ons (the discount only covers the accommodation)', () => {
     expect(calculateBookingTotal({ accommodationTotal: 1000, addOnsTotal: 300, discountAmount: 5000, includeVat: false })).toBe(300)
+  })
+})
+
+describe('addOnTotal', () => {
+  it('charges per-night add-ons for every night (an extra bed for 2 nights)', () => {
+    expect(addOnTotal({ price: 500, quantity: 1, pricing: 'PER_NIGHT' }, 2)).toBe(1000)
+    expect(addOnTotal({ price: 500, quantity: 2, pricing: 'PER_NIGHT' }, 3)).toBe(3000)
+  })
+
+  it('charges other add-ons once, however long the stay', () => {
+    expect(addOnTotal({ price: 300, quantity: 2, pricing: 'PER_STAY' }, 3)).toBe(600)
+    // add-ons booked before the pricing mode existed
+    expect(addOnTotal({ price: 300, quantity: 1 }, 3)).toBe(300)
+  })
+
+  it('adds up a mix', () => {
+    expect(addOnsTotal([{ price: 500, quantity: 1, pricing: 'PER_NIGHT' }, { price: 300, quantity: 1 }], 2)).toBe(1300)
   })
 })

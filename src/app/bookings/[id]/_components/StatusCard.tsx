@@ -2,7 +2,13 @@ import { AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react'
 import { TONE_CLASSES, bookingStatusTone } from '@/lib/bookingStatus'
 
 /** Customer wording */
-const LABELS: Record<string, string> = { CONFIRMED: 'ยืนยันแล้ว', PENDING: 'รอการยืนยัน', CANCELLED: 'ยกเลิกแล้ว', COMPLETED: 'เสร็จสิ้น' }
+const LABELS: Record<string, string> = {
+  CONFIRMED: 'ยืนยันแล้ว',
+  PENDING: 'รอการยืนยัน',
+  EXPIRED: 'หมดเวลาชำระเงิน',
+  CANCELLED: 'ยกเลิกแล้ว',
+  COMPLETED: 'เสร็จสิ้น',
+}
 
 function StatusIcon({ status }: { status: string }) {
   if (status === 'CONFIRMED' || status === 'COMPLETED') return <CheckCircle className="text-green-600" />

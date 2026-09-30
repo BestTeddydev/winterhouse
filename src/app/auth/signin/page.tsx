@@ -1,9 +1,10 @@
 'use client'
 
+import { Suspense } from 'react'
 import { signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 
-export default function SignIn() {
+function SignIn() {
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') || '/'
 
@@ -34,3 +35,11 @@ export default function SignIn() {
   )
 }
 
+// useSearchParams needs a Suspense boundary (Next.js 15), or the page can't be prerendered
+export default function Page() {
+  return (
+    <Suspense>
+      <SignIn />
+    </Suspense>
+  )
+}

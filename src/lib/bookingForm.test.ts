@@ -41,7 +41,7 @@ describe('selections', () => {
 
   it('adds add-ons once with quantity 1 and ignores quantities below 1', () => {
     const addOns = toggleAddOn([], { _id: 'k', name: 'Kayak', price: 150 })
-    expect(addOns).toEqual([{ addOnId: 'k', name: 'Kayak', price: 150, quantity: 1, unit: 'หน่วย' }])
+    expect(addOns).toEqual([{ addOnId: 'k', name: 'Kayak', price: 150, quantity: 1, unit: 'หน่วย', pricing: 'PER_STAY' }])
     expect(setAddOnQuantity(addOns, 'k', 0)).toBe(addOns)
     expect(setAddOnQuantity(addOns, 'k', 3)[0].quantity).toBe(3)
     expect(toggleAddOn(addOns, { _id: 'k', name: 'Kayak', price: 150 })).toEqual([])
@@ -68,6 +68,18 @@ describe('priceBreakdown', () => {
     // 2 weekday nights: room 2000 + camping 200*3*2 = 3200
     expect(priceBreakdown(p)).toEqual({ nights: 2, accommodation: 3200, addOns: 200, discountOff: 320, total: 3080 })
     expect(priceBreakdown({ ...p, discount: 0, discountAmount: 500 }).total).toBe(2900)
+  })
+
+  it('charges per-night add-ons for every night, like the server', () => {
+    const p = inputs({
+      rooms: [room('a')],
+      addOns: [
+        { addOnId: 'bed', name: 'เตียงเสริม', price: 500, quantity: 1, pricing: 'PER_NIGHT' },
+        { addOnId: 'k', name: 'K', price: 100, quantity: 2, pricing: 'PER_STAY' },
+      ],
+    })
+    // 2 nights: bed 500 x 2 + K 100 x 2
+    expect(priceBreakdown(p).addOns).toBe(1200)
   })
 
   it('adds VAT for customer bookings', () => {
@@ -102,6 +114,6 @@ describe('booking <-> form', () => {
     expect(selections.rooms[0]).toBe(catalogRoom)
     expect(selections.rooms[1]).toMatchObject({ id: 'r2', name: 'Gone', price: 900, imageUrl: 'x.jpg' })
     expect(selections.campingBlocks).toEqual([{ block, guestCount: 3 }])
-    expect(selections.addOns).toEqual([{ addOnId: 'k', name: 'K', price: 100, quantity: 1, unit: undefined }])
+    expect(selections.addOns).toEqual([{ addOnId: 'k', name: 'K', price: 100, quantity: 1, unit: undefined, pricing: 'PER_STAY' }])
   })
 })

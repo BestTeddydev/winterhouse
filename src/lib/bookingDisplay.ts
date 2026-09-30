@@ -40,3 +40,15 @@ export function bookingImage(booking: any): { src: string; alt: string } {
   const block = booking.campingBlocks?.[0] ?? booking.campingBlock
   return block ? { src: block.imageUrls?.[0] || '/placeholder-camping.svg', alt: block.name || 'Camping' } : roomImage(booking)
 }
+
+type BookedAddOn = { name: string; price: number; quantity: number; unit?: string; pricing?: string }
+
+const perNight = (addOn: { pricing?: string }) => addOn.pricing === 'PER_NIGHT'
+
+/** "500/ชิ้น/คืน" (the amount is formatted by the caller) */
+export const addOnRateSuffix = (addOn: { unit?: string; pricing?: string }) =>
+  `/${addOn.unit || 'หน่วย'}${perNight(addOn) ? '/คืน' : ''}`
+
+/** "เตียงเสริม x1 ชิ้น × 2 คืน" */
+export const addOnLine = (addOn: BookedAddOn, nights: number) =>
+  `${addOn.name} x${addOn.quantity} ${addOn.unit || 'หน่วย'}${perNight(addOn) ? ` × ${nights} คืน` : ''}`

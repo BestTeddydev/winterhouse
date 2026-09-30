@@ -150,7 +150,8 @@ describe('bookings', () => {
     signInAs(customer)
     expect((await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay(10, 2), roomId: room._id } })).status).toBe(201)
     expect((await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay(10, 2), roomId: other._id } })).status).toBe(201)
-    // ...but the moved booking holds its new dates
+    // ...but the moved booking holds its new dates (for another guest)
+    signInAs(await createUser({ email: 'other@example.com' }))
     expect((await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay(21, 1), roomId: other._id } })).status).toBe(409)
   })
 

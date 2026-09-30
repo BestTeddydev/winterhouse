@@ -1,10 +1,12 @@
 import { Document, Schema, model } from '@/lib/odm'
+import { ADD_ON_PRICING, type AddOnPricing } from '@/lib/bookingPrice'
 
 export interface IAddOn extends Document {
   name: string
   description?: string
   price: number // ราคาต่อหน่วย
   unit?: string // หน่วย เช่น "ชั่วโมง", "ครั้ง", "ชุด"
+  pricing: AddOnPricing // once per booking or per night (e.g. extra bed)
   isActive: boolean
   createdAt: Date
   updatedAt: Date
@@ -29,6 +31,11 @@ const AddOnSchema = new Schema<IAddOn>({
     type: String, 
     trim: true,
     default: 'หน่วย'
+  },
+  pricing: {
+    type: String,
+    enum: ADD_ON_PRICING,
+    default: 'PER_STAY'
   },
   isActive: { 
     type: Boolean, 

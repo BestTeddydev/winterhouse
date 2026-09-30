@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
@@ -12,7 +12,7 @@ import PageSpinner from '@/components/PageSpinner'
 import MyBookingCard from './_components/MyBookingCard'
 
 /** The signed-in customer's bookings, newest first */
-export default function MyBookings() {
+function MyBookings() {
   const { status } = useSession()
   const searchParams = useSearchParams()
   const [paidNow] = useState(() => searchParams.get('payment') === 'success')
@@ -88,5 +88,14 @@ export default function MyBookings() {
         )}
       </main>
     </div>
+  )
+}
+
+// useSearchParams needs a Suspense boundary (Next.js 15), or the page can't be prerendered
+export default function Page() {
+  return (
+    <Suspense>
+      <MyBookings />
+    </Suspense>
   )
 }

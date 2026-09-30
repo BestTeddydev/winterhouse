@@ -1,6 +1,7 @@
 import { Calendar, MapPin, Plus, Settings, Tent } from 'lucide-react'
 import { getRoomPriceForDate } from '@/lib/pricing'
 import { formatCurrency } from '@/lib/utils'
+import { addOnTotal } from '@/lib/bookingPrice'
 import type { BookableRoom, SelectedAddOn, SelectedCampingBlock } from '@/lib/bookingForm'
 
 interface Props {
@@ -47,7 +48,8 @@ export default function BookingSummaryCard({ rooms, campingBlocks, addOns, check
           <SummaryGroup icon={<Plus size={16} />} title={`อ๊อฟชั่นเสริม (${addOns.length})`}>
             {addOns.map((addOn) => (
               <SummaryItem key={addOn.addOnId} name={addOn.name}>
-                {addOn.quantity} {addOn.unit} × {formatCurrency(addOn.price)} = {formatCurrency(addOn.price * addOn.quantity)}
+                {addOn.quantity} {addOn.unit} × {formatCurrency(addOn.price)}
+                {addOn.pricing === 'PER_NIGHT' && ` × ${nights} คืน`} = {formatCurrency(addOnTotal(addOn, nights))}
               </SummaryItem>
             ))}
           </SummaryGroup>

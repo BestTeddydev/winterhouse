@@ -2,11 +2,17 @@ import Link from 'next/link'
 import { Calendar, CheckCircle, Clock, CreditCard, XCircle } from 'lucide-react'
 import { stayName } from '@/lib/bookingDisplay'
 import { nextPayment } from '@/lib/bookingPayment'
-import { TONE_CLASSES, bookingStatusTone } from '@/lib/bookingStatus'
+import { TONE_CLASSES, bookingStatusTone, displayStatus } from '@/lib/bookingStatus'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 /** Customer wording */
-const STATUS_TEXT: Record<string, string> = { PENDING: 'รอชำระเงิน', CONFIRMED: 'ยืนยันแล้ว', CANCELLED: 'ยกเลิกแล้ว', COMPLETED: 'เสร็จสิ้น' }
+const STATUS_TEXT: Record<string, string> = {
+  PENDING: 'รอชำระเงิน',
+  EXPIRED: 'หมดเวลาชำระเงิน',
+  CONFIRMED: 'ยืนยันแล้ว',
+  CANCELLED: 'ยกเลิกแล้ว',
+  COMPLETED: 'เสร็จสิ้น',
+}
 const PAYMENT_TEXT: Record<string, string> = { COMPLETED: 'ชำระเงินแล้ว', FAILED: 'ชำระเงินไม่สำเร็จ' }
 
 function PaymentIcon({ status }: { status?: string }) {
@@ -19,6 +25,7 @@ export default function MyBookingCard({ booking }: { booking: any }) {
   const payment = booking.payment
   const next = nextPayment(booking)
   const remaining = next?.href.endsWith('payment-remaining')
+  const status = displayStatus(booking)
 
   return (
     <div className="relative bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer">
@@ -28,8 +35,8 @@ export default function MyBookingCard({ booking }: { booking: any }) {
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
             <h3 className="text-xl font-bold">{stayName(booking)}</h3>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${TONE_CLASSES[bookingStatusTone(booking.status)].soft}`}>
-              {STATUS_TEXT[booking.status] ?? booking.status}
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${TONE_CLASSES[bookingStatusTone(status)].soft}`}>
+              {STATUS_TEXT[status] ?? status}
             </span>
           </div>
 

@@ -22,7 +22,7 @@ export async function call(handler: Handler, method: string, options: CallOption
     headers: { ...(hasBody && options.rawBody === undefined ? { 'content-type': 'application/json' } : {}), ...options.headers },
     body: options.rawBody ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
   })
-  const res = await handler(req, { params: options.params ?? {} })
+  const res = await handler(req, { params: Promise.resolve(options.params ?? {}) })
   const text = await res.text()
   return { status: res.status, body: text ? JSON.parse(text) : null }
 }

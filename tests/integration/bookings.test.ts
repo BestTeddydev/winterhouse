@@ -53,6 +53,31 @@ describe('POST /api/bookings (customer)', () => {
     expect(payment.paidAmount).toBe(0) // nothing paid yet
   })
 
+  it('charges per-night add-ons (extra bed) for every night, other add-ons once', async () => {
+    const room = await createRoom({ price: 1000, pricing: { weekday: 1000, weekend: 1000, holiday: 1000 } })
+    const bed = await createAddOn({ name: 'เตียงเสริม', price: 500, unit: 'ชิ้น', pricing: 'PER_NIGHT' })
+    const bbq = await createAddOn({ name: 'BBQ', price: 300 })
+    signInAs(await createUser())
+
+    const res = await call(bookingsRoute.POST, 'POST', {
+      body: {
+        ...guest,
+        ...stay(10, 2),
+        roomId: room._id,
+        addOns: [
+          { addOnId: bed._id, quantity: 1 },
+          { addOnId: bbq._id, quantity: 1 },
+        ],
+      },
+    })
+
+    expect(res.status).toBe(201)
+    // (2 nights x 1000 + bed 500 x 2 nights + BBQ 300) * 1.03
+    expect(res.body.totalPrice).toBe(Math.round(3300 * 1.03))
+    // The booking keeps how each add-on was charged, even if the add-on changes later
+    expect(res.body.addOns.map((a: any) => a.pricing)).toEqual(['PER_NIGHT', 'PER_STAY'])
+  })
+
   it('charges a 50% deposit for PARTIAL payments', async () => {
     const customer = await createUser()
     const room = await createRoom()
@@ -146,6 +171,7 @@ describe('availability (no double booking)', () => {
     expect(first.status).toBe(201)
     expect(first.body.totalPrice).toBe(Math.round(200 * 3 * 2 * 1.03))
 
+    signInAs(await createUser({ email: 'other@example.com' })) // another guest
     const second = await call(bookingsRoute.POST, 'POST', {
       body: { ...guest, ...stay(11, 1), campingBlockId: block._id, guestCount: 2 },
     })

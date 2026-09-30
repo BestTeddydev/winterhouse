@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BUILDING_TYPES } from '@/lib/buildingTypes'
+import { ADD_ON_PRICING } from '@/lib/bookingPrice'
 import { objectId, optionalId } from './common'
 
 const trimmed = (message: string) => z.string({ message }).trim().min(1, message)
@@ -14,6 +15,7 @@ export const addOnSchema = z.object({
     .trim()
     .optional()
     .transform((u) => u || 'หน่วย'),
+  pricing: z.enum(ADD_ON_PRICING).default('PER_STAY'),
   isActive: z.boolean().optional().default(true),
 })
 export const addOnUpdateSchema = addOnSchema.partial()

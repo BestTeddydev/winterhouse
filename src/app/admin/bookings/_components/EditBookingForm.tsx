@@ -163,6 +163,7 @@ export default function EditBookingForm({ id, booking, catalog }: { id: string; 
             addOns={catalog.addOns}
             selected={draft.addOns}
             total={price.addOns}
+            nights={price.nights}
             onToggle={form.toggleAddOn}
             onQuantityChange={form.setAddOnQuantity}
           />

@@ -1,5 +1,7 @@
 import { DollarSign } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { addOnTotal } from '@/lib/bookingPrice'
+import { addOnLine } from '@/lib/bookingDisplay'
 import { campingBlockPrice, roomStayPrice, type PriceBreakdown, type PricingInputs } from '@/lib/bookingForm'
 import { discountLabel } from './DiscountSection'
 import { FormSection } from './ui'
@@ -47,10 +49,8 @@ export default function PriceSummary({ inputs, price }: Props) {
             <div className="text-sm font-medium text-gray-700 mb-2">อ๊อฟชั่นเสริม:</div>
             {addOns.map((addOn) => (
               <div key={addOn.addOnId} className="flex justify-between text-sm text-gray-600 mb-1">
-                <span>
-                  {addOn.name} x{addOn.quantity} {addOn.unit}
-                </span>
-                <span>{formatCurrency(addOn.price * addOn.quantity)}</span>
+                <span>{addOnLine(addOn, price.nights)}</span>
+                <span>{formatCurrency(addOnTotal(addOn, price.nights))}</span>
               </div>
             ))}
             <div className="flex justify-between mt-2 pt-2 border-t">

@@ -70,7 +70,7 @@ export default function BookingsTable({ bookings, onStatusChange }: Props) {
                   <div className="text-xs sm:text-sm text-gray-900">{formatDateTime(booking.checkOut)}</div>
                 </td>
                 <td className={`${CELL} whitespace-nowrap`}>
-                  <BookingStatusBadge status={booking.status} className="w-fit" />
+                  <BookingStatusBadge booking={booking} className="w-fit" />
                 </td>
                 <td className={`${CELL} whitespace-nowrap`}>
                   <PaymentStatusBadge status={booking.payment?.status} className="w-fit" />

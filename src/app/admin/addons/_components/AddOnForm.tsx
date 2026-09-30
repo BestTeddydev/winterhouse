@@ -4,22 +4,25 @@ import { useState } from 'react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { Save } from 'lucide-react'
+import { ADD_ON_PRICING, ADD_ON_PRICING_LABELS, type AddOnPricing } from '@/lib/bookingPrice'
 
 export interface AddOnFormValues {
   name: string
   description: string
   price: string
   unit: string
+  pricing: AddOnPricing
   isActive: boolean
 }
 
-export const EMPTY_ADD_ON: AddOnFormValues = { name: '', description: '', price: '', unit: 'หน่วย', isActive: true }
+export const EMPTY_ADD_ON: AddOnFormValues = { name: '', description: '', price: '', unit: 'หน่วย', pricing: 'PER_STAY', isActive: true }
 
 export const addOnToFormValues = (addOn: any): AddOnFormValues => ({
   name: addOn.name || '',
   description: addOn.description || '',
   price: addOn.price?.toString() || '',
   unit: addOn.unit || 'หน่วย',
+  pricing: addOn.pricing === 'PER_NIGHT' ? 'PER_NIGHT' : 'PER_STAY',
   isActive: addOn.isActive ?? true,
 })
 
@@ -34,6 +37,7 @@ export function addOnPayload(values: AddOnFormValues): { error: string } | { bod
       description: values.description.trim() || undefined,
       price,
       unit: values.unit.trim() || 'หน่วย',
+      pricing: values.pricing,
       isActive: values.isActive,
     },
   }
@@ -133,6 +137,33 @@ export default function AddOnForm({ initialValues, onSubmit, errorMessage }: Pro
             <p className="mt-1 text-xs text-gray-500">เช่น ชั่วโมง, ครั้ง, ชุด (ค่าเริ่มต้น: หน่วย)</p>
           </div>
         </div>
+
+        <fieldset>
+          <legend className={LABEL}>คิดราคา</legend>
+          <div className="flex flex-col sm:flex-row gap-3">
+            {ADD_ON_PRICING.map((pricing) => (
+              <label
+                key={pricing}
+                className={`flex-1 flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${
+                  values.pricing === pricing ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="addon-pricing"
+                  value={pricing}
+                  checked={values.pricing === pricing}
+                  onChange={() => set('pricing', pricing)}
+                  className="w-4 h-4 text-primary-600"
+                />
+                <span className="text-sm font-medium text-gray-900">{ADD_ON_PRICING_LABELS[pricing]}</span>
+              </label>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            ต่อคืน: คิดตามจำนวนคืนที่เข้าพัก เช่น เตียงเสริม 500 บาท พัก 2 คืน = 1,000 บาท
+          </p>
+        </fieldset>
 
         <div>
           <label className="flex items-center gap-2 cursor-pointer">

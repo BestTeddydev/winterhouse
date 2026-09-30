@@ -12,18 +12,8 @@ const nextConfig = {
   },
   // For Docker standalone build
   output: 'standalone',
-  // Ensure native modules are bundled in standalone mode
-  serverExternalPackages: [],
-  // Disable static generation for pages that use useSearchParams
-  experimental: {
-    missingSuspenseWithCSRBailout: false,
-    // Keep the Firebase Admin SDK out of the webpack bundle
-    serverComponentsExternalPackages: ['firebase-admin'],
-  },
-  // Ensure public folder is included in standalone build
-  publicRuntimeConfig: {
-    // This ensures public assets are accessible
-  },
+  // Keep the Firebase Admin SDK out of the webpack bundle
+  serverExternalPackages: ['firebase-admin'],
 }
 
 module.exports = nextConfig

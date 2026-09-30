@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import axios from 'axios'
@@ -24,7 +24,7 @@ import { parseBookingRequest } from './_lib/bookingRequest'
 import { useBookingItems } from './_lib/useBookingItems'
 
 /** Confirms what was picked on the rooms page, collects guest details and continues to payment */
-export default function NewBooking() {
+function NewBooking() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
@@ -103,12 +103,13 @@ export default function NewBooking() {
         ...(campingBlockIds.length && { campingBlockIds, guestCounts }),
         ...(addOnPayload.length && { addOns: addOnPayload }),
       })
-      toast.success('สร้างการจองสำเร็จ')
+      // An unpaid booking of the same stay is continued rather than a new one created
+      toast.success(res.data.continued ? 'อัปเดตการจองเดิมที่ยังไม่ได้ชำระเงินแล้ว' : 'สร้างการจองสำเร็จ')
+      // Stays disabled while the payment page opens, so the form can't be sent twice
       router.push(`/bookings/${res.data._id || res.data.id}/payment`)
     } catch (error: any) {
       console.error('Error creating booking:', error)
       toast.error(error.response?.data?.error || 'ไม่สามารถสร้างการจองได้')
-    } finally {
       setSubmitting(false)
     }
   }
@@ -135,6 +136,7 @@ export default function NewBooking() {
                       addOns={addOnOptions}
                       selected={addOns}
                       total={price.addOns}
+                      nights={price.nights}
                       onToggle={(addOn) => setAddOns((list) => toggleAddOn(list, addOn))}
                       onQuantityChange={(id, quantity) => setAddOns((list) => setAddOnQuantity(list, id, quantity))}
                     />
@@ -167,5 +169,14 @@ export default function NewBooking() {
         </div>
       </main>
     </div>
+  )
+}
+
+// useSearchParams needs a Suspense boundary (Next.js 15), or the page can't be prerendered
+export default function Page() {
+  return (
+    <Suspense>
+      <NewBooking />
+    </Suspense>
   )
 }

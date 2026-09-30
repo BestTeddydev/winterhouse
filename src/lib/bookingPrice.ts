@@ -13,6 +13,23 @@ export function countNights(checkIn: Date, checkOut: Date): number {
   return Math.ceil((checkOut.getTime() - checkIn.getTime()) / DAY_MS)
 }
 
+/** How an add-on is charged: once per booking (BBQ set) or for every night of the stay (extra bed) */
+export const ADD_ON_PRICING = ['PER_STAY', 'PER_NIGHT'] as const
+export type AddOnPricing = (typeof ADD_ON_PRICING)[number]
+
+export const ADD_ON_PRICING_LABELS: Record<AddOnPricing, string> = {
+  PER_STAY: 'ครั้งเดียวต่อการจอง',
+  PER_NIGHT: 'ต่อคืน',
+}
+
+/** Price of a booked add-on; add-ons without a pricing mode (older bookings) are charged once */
+export function addOnTotal(addOn: { price: number; quantity: number; pricing?: string }, nights: number): number {
+  return addOn.price * addOn.quantity * (addOn.pricing === 'PER_NIGHT' ? nights : 1)
+}
+
+export const addOnsTotal = (addOns: Array<{ price: number; quantity: number; pricing?: string }>, nights: number) =>
+  addOns.reduce((sum, addOn) => sum + addOnTotal(addOn, nights), 0)
+
 export interface BookingPriceInput {
   /** Rooms and camping blocks for the whole stay */
   accommodationTotal: number

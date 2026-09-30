@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ADD_ON_PRICING } from '@/lib/bookingPrice'
 import { dateInput, money, objectId, optionalId, optionalIdList, optionalText, pageQuery } from './common'
 
 export const BOOKING_STATUSES = ['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED'] as const
@@ -82,6 +83,7 @@ export const updateBookingSchema = z.object({
         price: z.coerce.number().min(0).optional(),
         quantity: z.coerce.number().int().min(1).default(1),
         unit: z.string().optional(),
+        pricing: z.enum(ADD_ON_PRICING).optional(),
       })
     )
     .optional(),

@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Clock, XCircle } from 'lucide-react'
 import Navbar from '@/components/Navbar'
@@ -20,7 +21,7 @@ function resultStatus(searchParams: URLSearchParams, paymentStatus?: string): Re
   return 'pending'
 }
 
-export default function PaymentResult() {
+function PaymentResult() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { id, booking } = usePaymentBooking()
@@ -180,5 +181,14 @@ export default function PaymentResult() {
         </div>
       </main>
     </div>
+  )
+}
+
+// useSearchParams needs a Suspense boundary (Next.js 15), or the page can't be prerendered
+export default function Page() {
+  return (
+    <Suspense>
+      <PaymentResult />
+    </Suspense>
   )
 }

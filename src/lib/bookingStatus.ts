@@ -11,11 +11,18 @@ export const TONE_CLASSES: Record<Tone, { badge: string; border: string; soft: s
   gray: { badge: 'bg-gray-100 text-gray-800', border: 'border-gray-300', soft: 'text-gray-600 bg-gray-100' },
 }
 
-const BOOKING_TONES: Record<string, Tone> = { PENDING: 'yellow', CONFIRMED: 'green', CANCELLED: 'red', COMPLETED: 'blue' }
+const BOOKING_TONES: Record<string, Tone> = { PENDING: 'yellow', CONFIRMED: 'green', CANCELLED: 'red', COMPLETED: 'blue', EXPIRED: 'gray' }
 const PAYMENT_TONES: Record<string, Tone> = { COMPLETED: 'green', PENDING: 'yellow', PROCESSING: 'yellow', FAILED: 'red' }
 
 export const bookingStatusTone = (status?: string): Tone => BOOKING_TONES[status ?? ''] ?? 'gray'
 export const paymentStatusTone = (status?: string): Tone => PAYMENT_TONES[status ?? ''] ?? 'gray'
+
+/**
+ * Status to show: EXPIRED for an unpaid customer booking whose time to pay ran out (still PENDING
+ * in the database; its rooms are free for others, and the guest can pay again if they still are)
+ */
+export const displayStatus = (booking: { status: string; paymentExpired?: boolean }) =>
+  booking.paymentExpired ? 'EXPIRED' : booking.status
 
 /** Staff wording */
 export const BOOKING_STATUS_LABELS: Record<string, string> = {
@@ -23,6 +30,7 @@ export const BOOKING_STATUS_LABELS: Record<string, string> = {
   CONFIRMED: 'ยืนยันแล้ว',
   COMPLETED: 'เสร็จสิ้น',
   CANCELLED: 'ยกเลิก',
+  EXPIRED: 'หมดเวลาชำระ',
 }
 
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {

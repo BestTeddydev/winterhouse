@@ -18,6 +18,7 @@ export const stripeMock = {
     qrCodeUrl: 'https://buy.stripe.test/plink_test_1',
   })),
   constructWebhookEvent: vi.fn(),
+  closeCheckout: vi.fn(async (_id: string) => {}),
 }
 
 export const lineMock = { sendLineNotification: vi.fn(async (_n: unknown) => true) }

@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { countNights } from '@/lib/bookingPrice'
 
 const LINE_MESSAGING_API_URL = 'https://api.line.me/v2/bot/message/push'
 
@@ -96,7 +97,8 @@ export function formatBookingNotification(booking: any) {
     const addOnsList = booking.addOns.map((addOn: any) => {
       const quantity = addOn.quantity || 1
       const unit = addOn.unit ? ` ${addOn.unit}` : ''
-      return `  • ${addOn.name || 'N/A'} (${quantity}${unit})`
+      const perNight = addOn.pricing === 'PER_NIGHT' ? ` × ${countNights(new Date(booking.checkIn), new Date(booking.checkOut))} คืน` : ''
+      return `  • ${addOn.name || 'N/A'} (${quantity}${unit}${perNight})`
     }).join('\n')
     addOnsDetails = `🎁 ออปชั่นเสริม:\n${addOnsList}\n`
   }
