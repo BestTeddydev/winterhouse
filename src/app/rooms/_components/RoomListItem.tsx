@@ -2,9 +2,10 @@ import type { ReactNode } from 'react'
 import Image from 'next/image'
 import { Calendar, Users, X } from 'lucide-react'
 import { formatPrice } from '@/lib/pricing'
-import { checkOutDate, roomDisplayPrice, roomImages, roomStayPrice } from '../_lib/stay'
+import { checkOutDate, roomDisplayPrice, roomStayPrice } from '../_lib/stay'
 import type { Room, Stay } from '../_lib/types'
 import AmenityIcon from './AmenityIcon'
+import RoomMediaThumbs from './RoomMediaThumbs'
 
 interface Props {
   room: Room
@@ -131,26 +132,7 @@ export default function RoomListItem({
             <>
             {/* Image Gallery */}
             <div className="mb-4">
-              <div className="flex gap-2 overflow-x-auto">
-                {roomImages(room).slice(0, 5).map((image, index) => (
-                  <div
-                    key={index}
-                    className="w-16 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onOpenGallery(index)
-                    }}
-                  >
-                    <Image
-                      src={image}
-                      alt={`${room.name} ${index + 1}`}
-                      width={64}
-                      height={48}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
+              <RoomMediaThumbs room={room} onOpen={onOpenGallery} />
             </div>
 
             {/* Amenities */}

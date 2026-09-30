@@ -1,5 +1,5 @@
 import { badRequest } from '@/server/errors'
-import { uploadToStorage } from '@/lib/storage'
+import { createDirectUpload, uploadToStorage } from '@/lib/storage'
 
 export interface UploadResult {
   url: string
@@ -24,4 +24,15 @@ export async function uploadFile(file: File): Promise<UploadResult> {
   const url = await uploadToStorage(buffer, filename, file.type)
 
   return { url, filename, size: file.size, type: file.type }
+}
+
+// Videos are uploaded by the browser straight to storage (too large to pass through the server)
+export const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime']
+export const MAX_VIDEO_SIZE = 200 * 1024 * 1024 // 200MB
+
+export async function startVideoUpload({ fileName, contentType, size }: { fileName: string; contentType: string; size: number }) {
+  if (!VIDEO_TYPES.includes(contentType)) throw badRequest('ประเภทไฟล์ไม่ถูกต้อง กรุณาอัปโหลดไฟล์วิดีโอ (MP4, WebM หรือ MOV)')
+  if (size > MAX_VIDEO_SIZE) throw badRequest('ไฟล์วิดีโอมีขนาดใหญ่เกินไป (สูงสุด 200MB)')
+  const safeName = fileName.replace(/[^\w.-]+/g, '-').slice(-80)
+  return createDirectUpload(`uploads/videos/${Date.now()}-${safeName}`, contentType, MAX_VIDEO_SIZE)
 }

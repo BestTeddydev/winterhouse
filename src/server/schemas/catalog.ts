@@ -55,6 +55,7 @@ export const roomSchema = z.object({
   description: trimmed('กรุณากรอกคำอธิบาย'),
   imageUrls: imageList.optional(),
   imageUrl: z.string().optional(),
+  videoUrls: z.array(z.string().trim().url('ลิงก์วิดีโอไม่ถูกต้อง')).max(10, 'วิดีโอได้สูงสุด 10 คลิป').optional(),
   price: price('กรุณากรอกราคา'),
   capacity: z.coerce.number({ message: 'กรุณากรอกจำนวนผู้เข้าพัก' }).int().positive('กรุณากรอกจำนวนผู้เข้าพัก'),
   amenities: z.array(z.string().trim()).default([]),

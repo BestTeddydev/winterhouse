@@ -16,7 +16,7 @@ import ImageGalleryModal from './_components/ImageGalleryModal'
 import MapPanel from './_components/MapPanel'
 import RoomList from './_components/RoomList'
 import SelectionSummary from './_components/SelectionSummary'
-import { checkOutDate, isLocked, isNightBooked, isRoomAvailable, roomImages, roomStayPrice } from './_lib/stay'
+import { checkOutDate, isLocked, isNightBooked, isRoomAvailable, roomMedia, roomStayPrice } from './_lib/stay'
 import type { BuildingHotspot, CampingBlock, MapType, Room, RoomAvailability, SelectedCampingBlock } from './_lib/types'
 import { useRoomsData } from './_lib/useRoomsData'
 
@@ -149,7 +149,7 @@ export default function RoomsPage() {
     )
   }
 
-  const galleryImages = viewedRoom ? roomImages(viewedRoom) : []
+  const galleryMedia = viewedRoom ? roomMedia(viewedRoom) : []
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -281,7 +281,7 @@ export default function RoomsPage() {
 
       {viewedRoom && galleryIndex !== null && (
         <ImageGalleryModal
-          images={galleryImages}
+          media={galleryMedia}
           index={galleryIndex}
           onClose={() => setGalleryIndex(null)}
           onIndexChange={setGalleryIndex}

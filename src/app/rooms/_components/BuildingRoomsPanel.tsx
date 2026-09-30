@@ -2,9 +2,10 @@ import type { ReactNode } from 'react'
 import Image from 'next/image'
 import { Calendar, Users, X } from 'lucide-react'
 import { formatPrice } from '@/lib/pricing'
-import { checkOutDate, roomDisplayPrice, roomImages, roomStayPrice } from '../_lib/stay'
+import { checkOutDate, roomDisplayPrice, roomStayPrice } from '../_lib/stay'
 import type { BuildingHotspot, Room, Stay } from '../_lib/types'
 import AmenityIcon from './AmenityIcon'
+import RoomMediaThumbs from './RoomMediaThumbs'
 
 interface Props {
   building: BuildingHotspot
@@ -135,29 +136,8 @@ export default function BuildingRoomsPanel({
                   <div className="border-t pt-4 mt-4">
                     {/* Image Gallery */}
                     <div className="mb-4">
-                      <h6 className="text-sm font-semibold text-gray-900 mb-2">รูปภาพห้องพัก</h6>
-                      <div className="flex gap-2 overflow-x-auto">
-                        {roomImages(room).slice(0, 5).map((image, index) => (
-                          <div
-                            key={index}
-                            className="w-16 h-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => onOpenGallery(index)}
-                          >
-                            <Image
-                              src={image}
-                              alt={`${room.name} ${index + 1}`}
-                              width={64}
-                              height={48}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ))}
-                        {roomImages(room).length > 5 && (
-                          <div className="w-16 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-600 flex-shrink-0">
-                            +{(roomImages(room).length - 5)}
-                          </div>
-                        )}
-                      </div>
+                      <h6 className="text-sm font-semibold text-gray-900 mb-2">รูปภาพและวิดีโอห้องพัก</h6>
+                      <RoomMediaThumbs room={room} onOpen={onOpenGallery} />
                     </div>
 
                     {/* Amenities */}

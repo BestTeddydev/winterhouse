@@ -4,6 +4,7 @@ export interface Room {
   description: string
   imageUrl: string
   imageUrls?: string[]
+  videoUrls?: string[]
   price: number
   pricing?: { weekday: number; weekend: number; holiday: number }
   seasonalPricing?: Array<{

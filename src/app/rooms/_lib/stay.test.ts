@@ -7,6 +7,7 @@ import {
   isNightBooked,
   isRoomAvailable,
   roomImages,
+  roomMedia,
   roomStayPrice,
 } from './stay'
 import type { Room } from './types'
@@ -75,5 +76,20 @@ describe('rooms page stay helpers', () => {
 
   it('lists room images once each (gallery index matches thumbnails)', () => {
     expect(roomImages(room())).toEqual(['a.jpg', 'b.jpg'])
+  })
+})
+
+describe('roomMedia', () => {
+  it('shows the cover photo first, then the video clips, then the other photos', () => {
+    const media = roomMedia({ imageUrl: 'a.jpg', imageUrls: ['a.jpg', 'b.jpg'], videoUrls: ['tour.mp4'] })
+    expect(media).toEqual([
+      { type: 'image', url: 'a.jpg' },
+      { type: 'video', url: 'tour.mp4' },
+      { type: 'image', url: 'b.jpg' },
+    ])
+  })
+
+  it('is just the photos for rooms without videos', () => {
+    expect(roomMedia({ imageUrl: 'a.jpg', imageUrls: ['a.jpg'] })).toEqual([{ type: 'image', url: 'a.jpg' }])
   })
 })

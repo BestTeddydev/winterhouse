@@ -4,6 +4,8 @@ export interface IRoom extends Document {
   name: string
   description: string
   imageUrls: string[]
+  /** Video clips of the room (Firebase Storage download URLs) */
+  videoUrls?: string[]
   price: number // Base price (for backward compatibility)
   pricing: {
     weekday: number   // Monday-Thursday
@@ -39,6 +41,7 @@ const RoomSchema = new Schema<IRoom>({
     required: true,
     trim: true 
   },
+  videoUrls: [{ type: String }],
   imageUrls: [{ 
     type: String, 
     required: true 

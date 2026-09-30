@@ -31,6 +31,8 @@ export interface RoomFormValues {
   amenities: string[]
   isActive: boolean
   hotspots: RoomHotspot[]
+  /** Uploaded as soon as they are picked (they are large), so these are already URLs */
+  videoUrls: string[]
 }
 
 export const EMPTY_SEASON: SeasonDraft = { name: '', startMonth: 1, endMonth: 3, weekday: '', weekend: '', holiday: '' }
@@ -45,6 +47,7 @@ export const EMPTY_ROOM: RoomFormValues = {
   amenities: [],
   isActive: true,
   hotspots: [],
+  videoUrls: [],
 }
 
 const str = (n: unknown) => (n === undefined || n === null ? '' : String(n))
@@ -72,6 +75,7 @@ export function roomToFormValues(room: any): RoomFormValues {
     amenities: room.amenities ?? [],
     isActive: room.isActive ?? true,
     hotspots: room.hotspots ?? [],
+    videoUrls: room.videoUrls ?? [],
   }
 }
 
@@ -103,6 +107,7 @@ export function roomPayload(values: RoomFormValues, images: { urls: string[]; co
     amenities: values.amenities,
     isActive: values.isActive,
     hotspots: values.hotspots,
+    videoUrls: values.videoUrls,
     pricing:
       pricing.weekday || pricing.weekend || pricing.holiday
         ? {

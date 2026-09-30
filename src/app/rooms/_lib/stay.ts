@@ -113,3 +113,12 @@ export function groupRoomsByBuilding(rooms: Room[]) {
 export function roomImages(room: Pick<Room, 'imageUrl' | 'imageUrls'>): string[] {
   return [...new Set([room.imageUrl, ...(room.imageUrls ?? [])].filter(Boolean))]
 }
+
+export type RoomMedia = { type: 'image' | 'video'; url: string }
+
+/** What the room gallery shows: the cover photo, then the video clips (so they are seen), then the other photos */
+export function roomMedia(room: Pick<Room, 'imageUrl' | 'imageUrls' | 'videoUrls'>): RoomMedia[] {
+  const [cover, ...photos] = roomImages(room).map((url): RoomMedia => ({ type: 'image', url }))
+  const videos = (room.videoUrls ?? []).map((url): RoomMedia => ({ type: 'video', url }))
+  return [...(cover ? [cover] : []), ...videos, ...photos]
+}

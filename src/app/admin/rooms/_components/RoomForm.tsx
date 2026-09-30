@@ -7,6 +7,7 @@ import HotspotEditor from '@/components/HotspotEditor'
 import AmenitiesInput from '@/components/admin/AmenitiesInput'
 import CoverImagePreview from '@/components/admin/CoverImagePreview'
 import ImageListEditor from '@/components/admin/ImageListEditor'
+import VideoListEditor from '@/components/admin/VideoListEditor'
 import { useImageList } from '@/components/admin/useImageList'
 import { roomPayload, validateRoomForm, type RoomFormValues } from '../_lib/roomForm'
 import RoomPricingFields from './RoomPricingFields'
@@ -24,6 +25,7 @@ interface Props {
 export default function RoomForm({ mode, initialValues, initialImages, onSubmit }: Props) {
   const [values, setValues] = useState(initialValues)
   const [submitting, setSubmitting] = useState(false)
+  const [uploadingVideo, setUploadingVideo] = useState(false)
   const images = useImageList(initialImages?.urls, initialImages?.cover)
   const set = <K extends keyof RoomFormValues>(key: K, value: RoomFormValues[K]) => setValues((v) => ({ ...v, [key]: value }))
 
@@ -83,6 +85,16 @@ export default function RoomForm({ mode, initialValues, initialImages, onSubmit 
         <ImageListEditor images={images} confirmClear={mode === 'edit'} />
       </div>
 
+      <div>
+        <label className="block text-gray-700 font-medium mb-2">วิดีโอห้องพัก (ไม่บังคับ)</label>
+        <p className="text-sm text-gray-600 mb-4">ลูกค้าจะเห็นวิดีโอต่อจากรูปภาพในหน้าห้องพัก</p>
+        <VideoListEditor
+          value={values.videoUrls}
+          onChange={(videoUrls) => set('videoUrls', videoUrls)}
+          onUploadingChange={setUploadingVideo}
+        />
+      </div>
+
       <CoverImagePreview url={coverUrl} index={images.cover} total={images.items.length} note="รูปนี้จะแสดงในรายการห้องพัก" />
 
       <RoomPricingFields value={values} onChange={(v) => setValues((current) => ({ ...current, ...v }))} />
@@ -131,7 +143,7 @@ export default function RoomForm({ mode, initialValues, initialImages, onSubmit 
       <div className="flex gap-4">
         <button
           type="submit"
-          disabled={submitting || images.uploading}
+          disabled={submitting || images.uploading || uploadingVideo}
           className="flex-1 bg-primary-600 text-white py-3 rounded-lg font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"
         >
           {submitting ? 'กำลังบันทึก...' : mode === 'create' ? `บันทึกห้องพัก (${images.items.length} รูป)` : 'บันทึกการแก้ไข'}

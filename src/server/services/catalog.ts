@@ -39,6 +39,7 @@ export function toRoomListItem(room: any) {
     description: room.description,
     imageUrl: room.imageUrls?.[0] ?? '/placeholder-room.svg',
     imageUrls: room.imageUrls ?? [],
+    videoUrls: room.videoUrls ?? [],
     price: room.price,
     pricing: room.pricing,
     seasonalPricing: room.seasonalPricing ?? [],
