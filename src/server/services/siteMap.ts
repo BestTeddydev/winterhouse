@@ -3,6 +3,7 @@ import Building from '@/models/Building'
 import CampingBlock from '@/models/CampingBlock'
 import Room from '@/models/Room'
 import SiteMap from '@/models/SiteMap'
+import { byDisplayOrder } from './catalog'
 import type { MapType, SaveSiteMapInput } from '../schemas/siteMap'
 
 const DEFAULTS: Record<MapType, { name: string; description: string }> = {
@@ -29,7 +30,7 @@ export async function getSiteMap(type: MapType) {
     type,
     name: siteMap?.name ?? DEFAULTS[type].name,
     description: siteMap?.description ?? DEFAULTS[type].description,
-    hotspots: buildings.map((b: any) => ({
+    hotspots: [...buildings].sort(byDisplayOrder).map((b: any) => ({
       id: b._id,
       x: b.x,
       y: b.y,

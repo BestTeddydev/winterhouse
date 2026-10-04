@@ -8,6 +8,8 @@ export interface IBuilding extends Document {
   facilities: string[]
   x: number
   y: number
+  /** Position in lists (site map editor, rooms page); lower first, unset ones last */
+  sortOrder?: number
   isActive: boolean
   createdAt: Date
   updatedAt: Date
@@ -46,6 +48,7 @@ const BuildingSchema = new Schema<IBuilding>({
     min: 0,
     max: 100
   },
+  sortOrder: { type: Number },
   isActive: { 
     type: Boolean, 
     default: true 

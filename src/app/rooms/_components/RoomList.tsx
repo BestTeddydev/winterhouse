@@ -79,7 +79,7 @@ export default function RoomList({ rooms, stay, hoveredRoomId, viewingRoomId, is
               <span className="text-sm text-gray-600 ml-auto">{ungrouped.length} ห้อง</span>
             </div>
           </div>
-          <div className="space-y-3">{ungrouped.map((room) => item(room, 'calendar'))}</div>
+          <div className="space-y-3">{ungrouped.map((room) => item(room, 'full'))}</div>
         </div>
       )}
     </div>

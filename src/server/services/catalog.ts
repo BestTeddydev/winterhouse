@@ -19,7 +19,7 @@ import type {
 
 // Response shapes for rooms and camping blocks in lists (used by the public room/site map pages)
 
-type BuildingRef = { _id?: string; name?: string; buildingType?: string; x?: number; y?: number } | string | undefined
+type BuildingRef = { _id?: string; name?: string; buildingType?: string; x?: number; y?: number; sortOrder?: number } | string | undefined
 
 const buildingFields = (building: BuildingRef) => {
   const b = typeof building === 'object' ? building : undefined
@@ -29,6 +29,7 @@ const buildingFields = (building: BuildingRef) => {
     buildingType: b?.buildingType,
     buildingX: b?.x,
     buildingY: b?.y,
+    buildingSortOrder: b?.sortOrder,
   }
 }
 
@@ -85,7 +86,7 @@ const ROOM_NOT_FOUND = 'ไม่พบห้องพัก'
 const CAMPING_BLOCK_NOT_FOUND = 'ไม่พบบล็อคกางเต๊นท์'
 const BUILDING_NOT_FOUND = 'ไม่พบอาคาร'
 const ADD_ON_NOT_FOUND = 'ไม่พบอ๊อฟชั่นเสริม'
-const BUILDING_FIELDS = 'name buildingType x y'
+const BUILDING_FIELDS = 'name buildingType x y sortOrder'
 
 type Images = { imageUrl?: string; imageUrls?: string[] }
 
@@ -198,7 +199,25 @@ export const deleteCampingBlock = (id: string) =>
 
 // --- Buildings (site map spots) ---
 
-export const listBuildings = () => Building.find({ isActive: true }).sort({ createdAt: -1 })
+/**
+ * Display order of buildings: by `sortOrder` (set in the site map editor), then the oldest first.
+ * Sorted here rather than in the query: Firestore leaves out documents without the sort field.
+ */
+export function byDisplayOrder(a: { sortOrder?: number; createdAt?: Date }, b: { sortOrder?: number; createdAt?: Date }) {
+  const order = (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity)
+  if (order && !Number.isNaN(order)) return order
+  return new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime()
+}
+
+export const listBuildings = async () => (await Building.find({ isActive: true })).sort(byDisplayOrder)
+
+/** Saves the order of buildings as listed (the site map editor sends the buildings of one map) */
+export async function reorderBuildings(ids: string[]) {
+  const buildings = await Building.find({ _id: { $in: ids } })
+  if (buildings.length !== new Set(ids).size) throw notFound(BUILDING_NOT_FOUND)
+  await Promise.all(ids.map((id, sortOrder) => Building.findByIdAndUpdate(id, { sortOrder })))
+  return { ids }
+}
 
 export const getBuilding = (id: string) => findOr404(Building.findById(id), BUILDING_NOT_FOUND)
 
