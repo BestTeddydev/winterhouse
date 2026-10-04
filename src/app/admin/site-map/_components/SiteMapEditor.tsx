@@ -119,6 +119,25 @@ export default function SiteMapEditor({
     }
   }
 
+  /**
+   * Swaps a building with its neighbour in the list and saves the order. The order is what guests
+   * see (buildings on the rooms page); positions on the map don't change.
+   */
+  const moveHotspot = async (index: number, delta: -1 | 1) => {
+    const target = index + delta
+    if (target < 0 || target >= hotspots.length) return
+    const reordered = [...hotspots]
+    ;[reordered[index], reordered[target]] = [reordered[target], reordered[index]]
+    onChange(() => reordered)
+    try {
+      await axios.put('/api/buildings/order', { ids: reordered.map((h) => h.id) })
+    } catch (error) {
+      console.error('Error saving building order:', error)
+      toast.error('ไม่สามารถบันทึกลำดับอาคารได้')
+      onChange(() => hotspots)
+    }
+  }
+
   const deleteHotspot = async (hotspot: BuildingHotspot) => {
     if (!confirm('ต้องการลบจุดนี้ใช่หรือไม่?')) return
     try {
@@ -295,7 +314,7 @@ export default function SiteMapEditor({
               <p className="text-sm mt-2">คลิกปุ่ม &quot;เพิ่ม{spotLabel}&quot; เพื่อเริ่มต้น</p>
             </div>
           ) : (
-            hotspots.map((hotspot) => (
+            hotspots.map((hotspot, index) => (
               <HotspotCard
                 key={hotspot.id}
                 hotspot={hotspot}
@@ -307,6 +326,8 @@ export default function SiteMapEditor({
                 allBlocks={availableCampingBlocks}
                 onSelect={() => setSelectedId(hotspot.id)}
                 onDelete={() => deleteHotspot(hotspot)}
+                onMoveUp={index > 0 ? () => moveHotspot(index, -1) : undefined}
+                onMoveDown={index < hotspots.length - 1 ? () => moveHotspot(index, 1) : undefined}
                 onSave={(fields) => saveBuilding(hotspot.id, fields)}
                 onToggleRoom={(roomId) => toggleRoom(hotspot, roomId)}
                 onToggleBlock={(blockId) => toggleCampingBlock(hotspot, blockId)}

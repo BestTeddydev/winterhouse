@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Edit, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Edit, Trash2 } from 'lucide-react'
 import type { BuildingHotspot } from '@/lib/siteMap'
 
 type Item = { id: string; name: string }
@@ -21,6 +21,9 @@ interface HotspotCardProps {
   allBlocks: Item[]
   onSelect: () => void
   onDelete: () => void
+  /** Moves the building up/down in the display order; absent at the top/bottom */
+  onMoveUp?: () => void
+  onMoveDown?: () => void
   onSave: (fields: BuildingFields) => void
   onToggleRoom: (roomId: string) => void
   onToggleBlock: (blockId: string) => void
@@ -40,6 +43,8 @@ export default function HotspotCard({
   allBlocks,
   onSelect,
   onDelete,
+  onMoveUp,
+  onMoveDown,
   onSave,
   onToggleRoom,
   onToggleBlock,
@@ -62,9 +67,31 @@ export default function HotspotCard({
             <p className="text-xs text-gray-600">{type?.label}</p>
           </div>
         </div>
-        <button type="button" onClick={onDelete} className="text-red-500 hover:text-red-700 transition-colors">
-          <Trash2 size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onMoveUp}
+            disabled={!onMoveUp}
+            aria-label="เลื่อนขึ้น"
+            title="เลื่อนขึ้น"
+            className="p-1 rounded text-gray-500 hover:text-primary-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            <ChevronUp size={20} />
+          </button>
+          <button
+            type="button"
+            onClick={onMoveDown}
+            disabled={!onMoveDown}
+            aria-label="เลื่อนลง"
+            title="เลื่อนลง"
+            className="p-1 rounded text-gray-500 hover:text-primary-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            <ChevronDown size={20} />
+          </button>
+          <button type="button" onClick={onDelete} aria-label="ลบ" className="ml-1 p-1 text-red-500 hover:text-red-700 transition-colors">
+            <Trash2 size={20} />
+          </button>
+        </div>
       </div>
 
       {selected ? (

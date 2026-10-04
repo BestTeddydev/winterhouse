@@ -96,16 +96,27 @@ export function roomStayPrice(room: Room, { checkInDate, nights }: Stay): number
 
 /** Rooms grouped by building name (rooms without a building listed separately) */
 export function groupRoomsByBuilding(rooms: Room[]) {
-  const grouped: Record<string, { buildingName: string; buildingType?: string; rooms: Room[] }> = {}
+  const groups: Record<string, { buildingName: string; buildingType?: string; sortOrder?: number; rooms: Room[] }> = {}
   const ungrouped: Room[] = []
   for (const room of rooms) {
     if (!room.buildingName) {
       ungrouped.push(room)
       continue
     }
-    grouped[room.buildingName] ??= { buildingName: room.buildingName, buildingType: room.buildingType, rooms: [] }
-    grouped[room.buildingName].rooms.push(room)
+    groups[room.buildingName] ??= {
+      buildingName: room.buildingName,
+      buildingType: room.buildingType,
+      sortOrder: room.buildingSortOrder,
+      rooms: [],
+    }
+    groups[room.buildingName].rooms.push(room)
   }
+  // Buildings in the order set on the site map editor; ones never ordered keep their place, after those
+  const ordered = Object.values(groups)
+    .map((group, i) => ({ group, i }))
+    .sort((a, b) => (a.group.sortOrder ?? Infinity) - (b.group.sortOrder ?? Infinity) || a.i - b.i)
+  const grouped: typeof groups = {}
+  for (const { group } of ordered) grouped[group.buildingName] = group
   return { grouped, ungrouped }
 }
 

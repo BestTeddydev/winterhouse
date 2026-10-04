@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Calendar, Users, X } from 'lucide-react'
 import { formatPrice } from '@/lib/pricing'
 import { checkOutDate, roomDisplayPrice, roomStayPrice } from '../_lib/stay'
@@ -133,6 +134,14 @@ export default function RoomListItem({
             {/* Image Gallery */}
             <div className="mb-4">
               <RoomMediaThumbs room={room} onOpen={onOpenGallery} />
+              {/* The room's own page (photos, videos, prices); also how search engines find it */}
+              <Link
+                href={`/rooms/${room.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="inline-block mt-2 text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline"
+              >
+                ดูรายละเอียดห้อง
+              </Link>
             </div>
 
             {/* Amenities */}

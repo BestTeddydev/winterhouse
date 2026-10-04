@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
 import AtvSection from './_home/AtvSection'
 import CafeSection from './_home/CafeSection'
@@ -8,6 +9,8 @@ import NearbyAttractionsSection from './_home/NearbyAttractionsSection'
 import SiteFooter from './_home/SiteFooter'
 import StructuredData from './_home/StructuredData'
 import WhyChooseUsSection from './_home/WhyChooseUsSection'
+
+export const metadata: Metadata = { alternates: { canonical: '/' } }
 
 export default function Home() {
   return (

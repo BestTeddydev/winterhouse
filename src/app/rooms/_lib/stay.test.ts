@@ -74,6 +74,17 @@ describe('rooms page stay helpers', () => {
     expect(ungrouped.map((r) => r.id)).toEqual(['r2'])
   })
 
+  it('lists buildings in the order set on the site map editor', () => {
+    const { grouped } = groupRoomsByBuilding([
+      room({ id: 'a', buildingName: 'Late', buildingSortOrder: 2 }),
+      room({ id: 'b', buildingName: 'Unordered' }),
+      room({ id: 'c', buildingName: 'First', buildingSortOrder: 0 }),
+      room({ id: 'd', buildingName: 'Late', buildingSortOrder: 2 }),
+    ])
+    expect(Object.keys(grouped)).toEqual(['First', 'Late', 'Unordered'])
+    expect(grouped.Late.rooms.map((r) => r.id)).toEqual(['a', 'd'])
+  })
+
   it('lists room images once each (gallery index matches thumbnails)', () => {
     expect(roomImages(room())).toEqual(['a.jpg', 'b.jpg'])
   })

@@ -24,6 +24,8 @@ export interface Room {
   buildingType?: string
   buildingX?: number
   buildingY?: number
+  /** The building's place in the order set on the site map editor */
+  buildingSortOrder?: number
 }
 
 export interface CampingBlock {

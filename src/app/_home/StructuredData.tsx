@@ -12,7 +12,7 @@ export default function StructuredData() {
             "alternateName": "บ้านลมหนาว วังน้ำเขียว",
             "description": "คาเฟ่และห้องพักสุดพิเศษที่วังน้ำเขียว พร้อมลานกางเต้นท์ในบรรยากาศธรรมชาติ",
             "url": "https://baanlomnow.com",
-            "logo": "https://baanlomnow.com/logo.png",
+            "logo": "https://baanlomnow.com/logo.jpeg",
             "image": "https://baanlomnow.com/background.jpg",
             "telephone": "064-553-5691",
             "email": "banlomnowcafeandcamping@gmail.com",
@@ -29,7 +29,7 @@ export default function StructuredData() {
               "longitude": "101.8"
             },
             "openingHours": "Mo-Su 07:00-22:00",
-            "priceRange": "$$",
+            "priceRange": "฿฿",
             "amenityFeature": [
               {
                 "@type": "LocationFeatureSpecification",

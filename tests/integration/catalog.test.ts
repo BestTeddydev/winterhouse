@@ -3,6 +3,7 @@ import * as addOnsRoute from '@/app/api/addons/route'
 import * as addOnRoute from '@/app/api/addons/[id]/route'
 import * as buildingsRoute from '@/app/api/buildings/route'
 import * as buildingRoute from '@/app/api/buildings/[id]/route'
+import * as buildingOrderRoute from '@/app/api/buildings/order/route'
 import * as campingBlocksRoute from '@/app/api/camping-blocks/route'
 import * as campingBlockRoute from '@/app/api/camping-blocks/[id]/route'
 import * as roomsRoute from '@/app/api/rooms/route'
@@ -238,5 +239,46 @@ describe('owner', () => {
       expect((await call(buildingsRoute.POST, 'POST', { body: { name: 'B', description: 'd', x: 5, y: 5 } })).status).toBe(403)
       expect((await call(siteMapRoute.POST, 'POST', { body: { imageUrl: 'map.jpg' } })).status).toBe(403)
     }
+  })
+})
+
+describe('building display order', () => {
+  const building = (name: string, buildingType = 'accommodation') =>
+    Building.create({ name, description: 'd', buildingType, x: 1, y: 1 })
+
+  it('saves the order from the site map editor and lists buildings in it', async () => {
+    const [a, b, c] = [await building('A'), await building('B'), await building('C')]
+    const room = await createRoom({ buildingId: a._id })
+
+    signInAs(await createUser())
+    expect((await call(buildingOrderRoute.PUT, 'PUT', { body: { ids: [c._id, a._id, b._id] } })).status).toBe(403)
+
+    signInAs(await createUser({ role: 'OWNER' }))
+    expect((await call(buildingOrderRoute.PUT, 'PUT', { body: { ids: [c._id, a._id, b._id] } })).status).toBe(200)
+
+    const map = await call(siteMapRoute.GET, 'GET', { query: { type: 'accommodation' } })
+    expect(map.body.hotspots.map((h: any) => h.buildingName)).toEqual(['C', 'A', 'B'])
+    expect((await call(buildingsRoute.GET, 'GET')).body.map((x: any) => x.name)).toEqual(['C', 'A', 'B'])
+    // The rooms page groups rooms by building in this order
+    const rooms = await call(roomsRoute.GET, 'GET')
+    expect(rooms.body.find((r: any) => r.id === room._id).buildingSortOrder).toBe(1)
+  })
+
+  it('lists buildings never ordered after the ordered ones, oldest first', async () => {
+    const old = await building('Old')
+    const ordered = await building('Ordered')
+    await Building.findByIdAndUpdate(ordered._id, { sortOrder: 0 })
+    const newest = await building('Newest')
+
+    const map = await call(siteMapRoute.GET, 'GET', { query: { type: 'accommodation' } })
+    expect(map.body.hotspots.map((h: any) => h.id)).toEqual([ordered._id, old._id, newest._id])
+  })
+
+  it('refuses unknown buildings without changing anything', async () => {
+    const a = await building('A')
+    signInAs(await createUser({ role: 'ADMIN' }))
+    const res = await call(buildingOrderRoute.PUT, 'PUT', { body: { ids: [a._id, '000000000000000000000000'] } })
+    expect(res.status).toBe(404)
+    expect((await Building.findById(a._id)).sortOrder).toBeUndefined()
   })
 })
