@@ -42,6 +42,31 @@ describe('GET /api/owner/dashboard', () => {
     const res = await call(dashboardRoute.GET, 'GET', { query: { date: 'nope' } })
     expect(res.body).toMatchObject({ date: day(0), by: 'createdAt', bookings: [] })
   })
+
+  it('lists and sums the bookings of a period of days', async () => {
+    signInAs(await createUser({ role: 'OWNER' }))
+    await createBooking({ checkIn: day(3), checkOut: day(4), totalPrice: 1000 }, { status: 'COMPLETED', paidAmount: 1000 })
+    await createBooking({ checkIn: day(5), checkOut: day(6), totalPrice: 2000, status: 'PENDING' }, { paidAmount: 0 })
+    await createBooking({ checkIn: day(6), checkOut: day(7), totalPrice: 500, status: 'CANCELLED' })
+    await createBooking({ checkIn: day(20), checkOut: day(21), totalPrice: 9000 }) // outside
+
+    const res = await call(dashboardRoute.GET, 'GET', { query: { from: day(3), to: day(7), by: 'checkIn' } })
+
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ from: day(3), to: day(7) })
+    expect(res.body.bookings.map((b: any) => b.totalPrice).sort()).toEqual([1000, 2000, 500])
+    // Cancelled ones are counted apart; revenue is what is confirmed or paid
+    expect(res.body.period).toEqual({ bookings: 2, cancelled: 1, revenue: 1000, received: 1000 })
+    expect(res.body.checkIns).toHaveLength(2)
+    expect(res.body.checkOuts.map((b: any) => b.totalPrice)).toEqual([1000, 2000])
+  })
+
+  it('turns a reversed period around and refuses periods over a year', async () => {
+    signInAs(await createUser({ role: 'ADMIN' }))
+    const reversed = await call(dashboardRoute.GET, 'GET', { query: { from: day(5), to: day(1) } })
+    expect(reversed.body).toMatchObject({ from: day(5), to: day(5) })
+    expect((await call(dashboardRoute.GET, 'GET', { query: { from: day(-400), to: day(0) } })).status).toBe(400)
+  })
 })
 
 describe('GET /api/bookings/upcoming', () => {

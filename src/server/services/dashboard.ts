@@ -40,26 +40,52 @@ export function dashboardStats(bookings: LightBooking[], paidPaymentIds: Set<str
   }
 }
 
-const onDay = (field: string, day: { start: Date; end: Date }) => ({ [field]: { $gte: day.start, $lt: day.end } })
+const within = (field: string, period: { start: Date; end: Date }) => ({ [field]: { $gte: period.start, $lt: period.end } })
 const display = async (query: Record<string, unknown>, sort: Record<string, 1 | -1>) =>
   ((await populateForDisplay(Booking.find(query).sort(sort))) as any[]).map(toBookingResponse)
 
-/** Owner overview: overall stats plus the check-ins, check-outs and bookings of one Thai day */
-export async function ownerDashboard({ date, by }: OwnerDashboardQuery) {
-  const day = bangkokDayRange(date)
+export interface PeriodSummary {
+  /** Bookings of the period (made or checking in then, as chosen), cancelled ones not counted */
+  bookings: number
+  cancelled: number
+  /** Value of the confirmed or paid ones */
+  revenue: number
+  /** What guests have actually paid on the period's bookings */
+  received: number
+}
+
+/** Totals of the bookings listed for a period (the response shape of the bookings pages) */
+export function periodSummary(bookings: Array<{ status: string; totalPrice?: number; payment?: { status?: string; paidAmount?: number } }>): PeriodSummary {
+  const active = bookings.filter((b) => b.status !== 'CANCELLED')
+  const earning = bookings.filter((b) => b.status === 'CONFIRMED' || b.status === 'COMPLETED' || b.payment?.status === 'COMPLETED')
+  return {
+    bookings: active.length,
+    cancelled: bookings.length - active.length,
+    revenue: earning.reduce((sum, b) => sum + (b.totalPrice || 0), 0),
+    received: bookings.reduce((sum, b) => sum + (b.payment?.paidAmount || 0), 0),
+  }
+}
+
+/** Owner overview: overall stats plus the check-ins, check-outs and bookings of a period of Thai days */
+export async function ownerDashboard({ from, to, by }: OwnerDashboardQuery) {
+  const period = { start: bangkokDayRange(from).start, end: bangkokDayRange(to).end }
   const [light, paid, checkIns, checkOuts, bookings] = await Promise.all([
     Booking.find({}).select('status totalPrice createdAt paymentId').lean().exec() as Promise<LightBooking[]>,
     Payment.find({ status: 'COMPLETED' }).select('_id').lean().exec() as Promise<Array<{ _id: string }>>,
-    display(onDay('checkIn', day), { checkIn: 1 }),
-    display(onDay('checkOut', day), { checkOut: 1 }),
-    display(onDay(by, day), { [by]: -1 }),
+    display(within('checkIn', period), { checkIn: 1 }),
+    display(within('checkOut', period), { checkOut: 1 }),
+    display(within(by, period), { [by]: -1 }),
   ])
   const active = (b: any) => b.status !== 'CANCELLED'
 
   return {
-    date,
+    from,
+    to,
+    // Older clients asked for one day
+    date: from,
     by,
     stats: dashboardStats(light, new Set(paid.map((p) => p._id))),
+    period: periodSummary(bookings),
     checkIns: checkIns.filter(active),
     checkOuts: checkOuts.filter(active),
     bookings,
@@ -85,7 +111,7 @@ export async function adminDashboard() {
   const today = bangkokDateKey()
   const day = bangkokDayRange(today)
   const [owner, stayingCandidates, rooms, activeRooms, addOns, activeAddOns, pendingAttendance, todayAttendance] = await Promise.all([
-    ownerDashboard({ date: today, by: 'createdAt' }),
+    ownerDashboard({ from: today, to: today, by: 'createdAt' }),
     Booking.find({ checkOut: { $gte: day.start } }).select('_id checkIn status').lean().exec() as Promise<
       Array<{ _id: string; checkIn: Date; status: string }>
     >,

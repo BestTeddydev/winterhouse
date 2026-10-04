@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   discountPatch,
+  inBuildingOrder,
   priceBreakdown,
   selectionPayload,
   selectionsFromBooking,
@@ -115,5 +116,19 @@ describe('booking <-> form', () => {
     expect(selections.rooms[1]).toMatchObject({ id: 'r2', name: 'Gone', price: 900, imageUrl: 'x.jpg' })
     expect(selections.campingBlocks).toEqual([{ block, guestCount: 3 }])
     expect(selections.addOns).toEqual([{ addOnId: 'k', name: 'K', price: 100, quantity: 1, unit: undefined, pricing: 'PER_STAY' }])
+  })
+})
+
+describe('inBuildingOrder', () => {
+  it('lists rooms by the order of their buildings, keeping the order within a building', () => {
+    const rooms = [
+      { id: 'b1', buildingSortOrder: 2 },
+      { id: 'none1' },
+      { id: 'a1', buildingSortOrder: 0 },
+      { id: 'b2', buildingSortOrder: 2 },
+      { id: 'none2' },
+      { id: 'a2', buildingSortOrder: 0 },
+    ]
+    expect(inBuildingOrder(rooms).map((r) => r.id)).toEqual(['a1', 'a2', 'b1', 'b2', 'none1', 'none2'])
   })
 })

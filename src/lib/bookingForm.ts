@@ -10,6 +10,8 @@ export interface BookableRoom {
   capacity: number
   imageUrl?: string
   imageUrls?: string[]
+  /** Order of the room's building, set on the site map editor */
+  buildingSortOrder?: number
   [key: string]: unknown
 }
 
@@ -21,6 +23,8 @@ export interface BookableCampingBlock {
   minCapacity?: number
   maxCapacity: number
   imageUrl?: string
+  /** Order of the block's camping spot, set on the site map editor */
+  buildingSortOrder?: number
 }
 
 export interface AddOnOption {
@@ -64,6 +68,17 @@ export interface Catalog {
 }
 
 // --- selections ----------------------------------------------------------------------
+
+/**
+ * Rooms / camping blocks in the order of their buildings (set on the site map editor). Within a
+ * building, and for those in no ordered building (listed after), the order they came in is kept.
+ */
+export function inBuildingOrder<T extends { buildingSortOrder?: number }>(items: T[]): T[] {
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => (a.item.buildingSortOrder ?? Infinity) - (b.item.buildingSortOrder ?? Infinity) || a.index - b.index)
+    .map(({ item }) => item)
+}
 
 export const toggleRoom = (rooms: BookableRoom[], room: BookableRoom) =>
   rooms.some((r) => r.id === room.id) ? rooms.filter((r) => r.id !== room.id) : [...rooms, room]

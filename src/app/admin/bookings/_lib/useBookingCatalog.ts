@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import type { Catalog } from '@/lib/bookingForm'
+import { inBuildingOrder, type Catalog } from '@/lib/bookingForm'
 
 const isCancel = (error: any) => error?.name === 'AbortError' || error?.code === 'ERR_CANCELED'
 
@@ -30,7 +30,8 @@ export function useBookingCatalog(enabled: boolean): Catalog | null {
       get('/api/camping-blocks', 'ไม่สามารถโหลดข้อมูลบล็อคกางเต๊นท์ได้'),
       get('/api/addons?activeOnly=true'),
     ])
-      .then(([rooms, campingBlocks, addOns]) => setCatalog({ rooms, campingBlocks, addOns }))
+      // In the order the buildings were arranged on the site map, like the rooms page
+      .then(([rooms, campingBlocks, addOns]) => setCatalog({ rooms: inBuildingOrder(rooms), campingBlocks: inBuildingOrder(campingBlocks), addOns }))
       .catch(() => {}) // cancelled
 
     return () => controller.abort()
