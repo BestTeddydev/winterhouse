@@ -402,13 +402,20 @@ export async function updateBooking(id: string, input: UpdateBookingInput) {
     throw badRequest('วันเช็คเอาท์ต้องมากกว่าวันเช็คอิน')
   }
 
+  const roomIds: string[] = next.roomIds?.length ? next.roomIds : next.roomId ? [next.roomId] : []
+
+  // The per-room prices also list the booking's rooms (availability reads them), so they follow
+  // any change of rooms or dates; otherwise a room moved out of the booking would stay taken
+  if (['roomId', 'roomIds', 'checkIn', 'checkOut'].some((f) => f in update)) {
+    update.rooms = await stayPrices(roomIds, checkIn, checkOut)
+  }
+
   // Changing dates or rooms of an active booking must not double-book
   const finalStatus = next.status as string
   const changesInventory = ['checkIn', 'checkOut', 'roomId', 'roomIds', 'campingBlockId', 'campingBlockIds', 'status'].some(
     (f) => f in update
   )
   if (changesInventory && (finalStatus === 'CONFIRMED' || finalStatus === 'PENDING')) {
-    const roomIds = next.roomIds?.length ? next.roomIds : next.roomId ? [next.roomId] : []
     const blockIds = next.campingBlockIds?.length ? next.campingBlockIds : next.campingBlockId ? [next.campingBlockId] : []
     const [rooms, blocks] = await Promise.all([
       roomIds.length ? Room.find({ _id: { $in: roomIds } }).select('name').lean() : [],
@@ -427,6 +434,16 @@ export async function updateBooking(id: string, input: UpdateBookingInput) {
   }
 
   return updated
+}
+
+/** Price of each room for the whole stay, in the shape bookings keep it (`rooms`) */
+async function stayPrices(roomIds: string[], checkIn: Date, checkOut: Date) {
+  if (!roomIds.length) return []
+  const rooms = await Room.find({ _id: { $in: roomIds } })
+  return roomIds.flatMap((roomId) => {
+    const room = rooms.find((r: any) => String(r._id) === String(roomId))
+    return room ? [{ roomId, price: calculateRoomPriceRange(room, checkIn, checkOut).totalPrice }] : []
+  })
 }
 
 /**
