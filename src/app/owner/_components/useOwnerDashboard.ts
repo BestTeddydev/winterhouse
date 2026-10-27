@@ -18,6 +18,7 @@ interface Dashboard {
 export function useOwnerDashboard(enabled: boolean, { from, to }: Period, by: DayField) {
   const [data, setData] = useState<Dashboard | null>(null)
   const [loading, setLoading] = useState(true)
+  const [version, setVersion] = useState(0)
 
   useEffect(() => {
     if (!enabled) return
@@ -35,7 +36,7 @@ export function useOwnerDashboard(enabled: boolean, { from, to }: Period, by: Da
         if (!controller.signal.aborted) setLoading(false)
       })
     return () => controller.abort()
-  }, [enabled, from, to, by])
+  }, [enabled, from, to, by, version])
 
-  return { data, loading }
+  return { data, loading, reload: () => setVersion((v) => v + 1) }
 }

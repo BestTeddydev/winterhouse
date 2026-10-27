@@ -128,6 +128,22 @@ describe('POST /api/payments/webhook', () => {
     expect((await Booking.findById(booking._id)).status).toBe('CONFIRMED')
   })
 
+  it('waits for a PromptPay checkout that completed unpaid, then confirms it when paid', async () => {
+    const { booking, payment } = await createBooking({ status: 'PENDING' }, { stripeSessionId: 'cs_test_1' })
+    stripeMock.constructWebhookEvent.mockReturnValue(checkoutEvent({ id: 'cs_test_1', payment_status: 'unpaid' }))
+    expect((await postWebhook()).status).toBe(200)
+    expect((await Booking.findById(booking._id)).status).toBe('PENDING')
+    expect((await Payment.findById(payment._id)).status).not.toBe('COMPLETED')
+
+    stripeMock.constructWebhookEvent.mockReturnValue({
+      ...checkoutEvent({ id: 'cs_test_1', payment_status: 'paid' }),
+      type: 'checkout.session.async_payment_succeeded',
+    })
+    expect((await postWebhook()).status).toBe(200)
+    expect((await Booking.findById(booking._id)).status).toBe('CONFIRMED')
+    expect((await Payment.findById(payment._id)).status).toBe('COMPLETED')
+  })
+
   it('ignores duplicate deliveries of the same event (no double counting)', async () => {
     const { payment } = await createBooking(
       { paymentType: 'PARTIAL', totalPrice: 3000 },

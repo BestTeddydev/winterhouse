@@ -4,6 +4,7 @@ import { AlertCircle, Calendar, CheckCircle, Clock, Mail, Phone, User, XCircle }
 import { TONE_CLASSES, bookingStatusTone, type Tone } from '@/lib/bookingStatus'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { bookingImage, stayName } from '@/lib/bookingDisplay'
+import BookingActions from '@/app/admin/bookings/_list/BookingActions'
 
 const STATUS_ICONS: Record<Tone, typeof Clock> = { green: CheckCircle, yellow: Clock, blue: CheckCircle, red: XCircle, gray: AlertCircle }
 const SMALL_ICON = 'w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0'
@@ -29,65 +30,80 @@ function Line({ icon: Icon, children, className = 'flex items-center gap-2' }: {
   )
 }
 
-/** A booking in the owner's day lists; `detailed` adds email, creation time and payment status */
-export default function DayBookingCard({ booking, detailed = false }: { booking: any; detailed?: boolean }) {
+interface Props {
+  booking: any
+  /** Adds email, creation time and payment status */
+  detailed?: boolean
+  /** Shows edit / confirm / complete / cancel buttons under the booking */
+  onStatusChange?: (id: string, status: string) => void
+}
+
+/** A booking in the owner's day lists */
+export default function DayBookingCard({ booking, detailed = false, onStatusChange }: Props) {
   const image = bookingImage(booking)
   return (
-    <Link href={`/admin/bookings/${booking.id}/edit`} className="block p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-        <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 relative rounded-lg overflow-hidden flex-shrink-0">
-            <Image src={image.src} alt={image.alt} fill className="object-cover" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-              <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{stayName(booking)}</h3>
-              <StatusPill status={booking.status} />
+    <div className="border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+      <Link href={`/admin/bookings/${booking.id}/edit`} className="block p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 relative rounded-lg overflow-hidden flex-shrink-0">
+              <Image src={image.src} alt={image.alt} fill className="object-cover" />
             </div>
-            <div className="space-y-1 text-xs sm:text-sm text-gray-600">
-              {detailed ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <User className={SMALL_ICON} />
-                  <span className="truncate">{booking.guestName}</span>
-                  {booking.guestEmail && (
-                    <>
-                      <Mail className={`${SMALL_ICON} ml-1`} />
-                      <span className="truncate">{booking.guestEmail}</span>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <Line icon={User}>{booking.guestName}</Line>
-              )}
-              <Line icon={Phone}>{booking.guestPhone}</Line>
-              {detailed ? (
-                <>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Calendar className={SMALL_ICON} />
-                    <span className="text-primary-600 font-medium truncate">สร้างเมื่อ: {formatDateTime(booking.createdAt)}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{stayName(booking)}</h3>
+                <StatusPill status={booking.status} />
+              </div>
+              <div className="space-y-1 text-xs sm:text-sm text-gray-600">
+                {detailed ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <User className={SMALL_ICON} />
+                    <span className="truncate">{booking.guestName}</span>
+                    {booking.guestEmail && (
+                      <>
+                        <Mail className={`${SMALL_ICON} ml-1`} />
+                        <span className="truncate">{booking.guestEmail}</span>
+                      </>
+                    )}
                   </div>
-                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-2">
+                ) : (
+                  <Line icon={User}>{booking.guestName}</Line>
+                )}
+                <Line icon={Phone}>{booking.guestPhone}</Line>
+                {detailed ? (
+                  <>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Calendar className={SMALL_ICON} />
+                      <span className="text-primary-600 font-medium truncate">สร้างเมื่อ: {formatDateTime(booking.createdAt)}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-2">
+                      <Line icon={Clock}>เช็คอิน: {formatDateTime(booking.checkIn)}</Line>
+                      <Line icon={Calendar}>เช็คเอาท์: {formatDateTime(booking.checkOut)}</Line>
+                    </div>
+                  </>
+                ) : (
+                  <>
                     <Line icon={Clock}>เช็คอิน: {formatDateTime(booking.checkIn)}</Line>
                     <Line icon={Calendar}>เช็คเอาท์: {formatDateTime(booking.checkOut)}</Line>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Line icon={Clock}>เช็คอิน: {formatDateTime(booking.checkIn)}</Line>
-                  <Line icon={Calendar}>เช็คเอาท์: {formatDateTime(booking.checkOut)}</Line>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
+          <div className="text-left sm:text-right flex-shrink-0 sm:ml-4">
+            <p className="text-base sm:text-lg font-bold text-primary-600">{formatCurrency(booking.totalPrice)}</p>
+            <p className="text-xs sm:text-sm text-gray-500">#{booking.id?.slice(0, 8)}</p>
+            {detailed && booking.payment?.status && (
+              <p className={`text-xs mt-1 ${booking.payment.status === 'COMPLETED' ? 'text-green-600' : 'text-yellow-600'}`}>{booking.payment.status}</p>
+            )}
+          </div>
         </div>
-        <div className="text-left sm:text-right flex-shrink-0 sm:ml-4">
-          <p className="text-base sm:text-lg font-bold text-primary-600">{formatCurrency(booking.totalPrice)}</p>
-          <p className="text-xs sm:text-sm text-gray-500">#{booking.id?.slice(0, 8)}</p>
-          {detailed && booking.payment?.status && (
-            <p className={`text-xs mt-1 ${booking.payment.status === 'COMPLETED' ? 'text-green-600' : 'text-yellow-600'}`}>{booking.payment.status}</p>
-          )}
+      </Link>
+      {onStatusChange && (
+        <div className="px-3 sm:px-4 pb-3 sm:pb-4">
+          <BookingActions booking={booking} onStatusChange={onStatusChange} />
         </div>
-      </div>
-    </Link>
+      )}
+    </div>
   )
 }

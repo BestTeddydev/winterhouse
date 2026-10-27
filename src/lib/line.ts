@@ -132,7 +132,7 @@ ${bookingDetails}${addOnsDetails}ผู้จอง: ${booking.guestName}
 ${booking.discount > 0 ? `ส่วนลด: ${booking.discount}%` : ''}
 ${booking.discountAmount > 0 ? `ส่วนลด: ฿${booking.discountAmount.toLocaleString()}` : ''}
 
-📊 สถานะ: ${booking.status === 'CONFIRMED' ? '✅ ยืนยันแล้ว' : booking.status === 'PENDING' ? '⏳ รอดำเนินการ' : booking.status}
+📊 สถานะ: ${statusText(booking.status)}
 
 🆔 เลขที่การจอง: ${booking._id?.toString().slice(-8) || 'N/A'}
 
@@ -213,3 +213,52 @@ ${isPartialPayment && !isRemainingPayment ? '📝 หมายเหตุ: ก�
   `.trim()
 }
 
+
+const STATUS_TEXT: Record<string, string> = {
+  PENDING: '⏳ รอดำเนินการ',
+  CONFIRMED: '✅ ยืนยันแล้ว',
+  COMPLETED: '🏁 เสร็จสิ้น',
+  CANCELLED: '❌ ยกเลิก',
+}
+
+const CUSTOMER_STATUS_NOTE: Record<string, string> = {
+  PENDING: 'การจองของคุณถูกเปลี่ยนเป็นสถานะรอดำเนินการ',
+  CONFIRMED: 'การจองของคุณได้รับการยืนยันแล้ว 🎉',
+  COMPLETED: 'ขอบคุณที่มาพักกับเรา หวังว่าจะได้ต้อนรับคุณอีกครั้ง 🙏',
+  CANCELLED: 'การจองของคุณถูกยกเลิกแล้ว',
+}
+
+export const statusText = (status: string) => STATUS_TEXT[status] ?? status
+
+/** Owner note above the booking summary when staff change a booking's status */
+export function formatStatusChangeNote(from: string, to: string) {
+  return `🔔 มีการเปลี่ยนสถานะการจอง\n${statusText(from)} → ${statusText(to)}`
+}
+
+/** Short message for the customer when staff change the status of their booking */
+export function formatCustomerStatusMessage(booking: any) {
+  const items = [
+    ...(booking.roomIds?.length ? booking.roomIds : booking.roomId ? [booking.roomId] : []),
+    ...(booking.campingBlockIds?.length ? booking.campingBlockIds : booking.campingBlockId ? [booking.campingBlockId] : []),
+  ]
+    .map((item: any) => item?.name)
+    .filter(Boolean)
+    .join(', ')
+  const date = (d: Date) => new Date(d).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
+
+  return `
+🔔 อัพเดทสถานะการจอง บ้านลมหนาวคาเฟ่ แอนด์ แคมป์ปิ้ง
+
+${CUSTOMER_STATUS_NOTE[booking.status] ?? ''}
+📊 สถานะ: ${statusText(booking.status)}
+
+📋 รายละเอียดการจอง:
+${items ? `🏠 ${items}\n` : ''}เช็คอิน: ${date(booking.checkIn)}
+เช็คเอาท์: ${date(booking.checkOut)}
+🆔 เลขที่การจอง: ${booking._id?.toString().slice(-8) || 'N/A'}
+
+📞 หากมีคำถาม กรุณาติดต่อเราได้ที่:
+📧 ${process.env.ADMIN_EMAIL || 'baanlomnowcafeandcamping@gmail.com'}
+📱 ${process.env.ADMIN_PHONE || '064-553-5691, 064-554-6591'}
+  `.trim()
+}

@@ -20,7 +20,7 @@ import {
   newHoldExpiry,
   StayRange,
 } from './availability'
-import { notifyOwnersOfBooking } from './notifications'
+import { notifyBookingStatusChange, notifyOwnersOfBooking } from './notifications'
 
 const ROOM_FIELDS = 'name description price capacity imageUrls'
 const CAMPING_BLOCK_FIELDS = 'name description pricePerPerson minCapacity maxCapacity imageUrls'
@@ -432,6 +432,8 @@ export async function updateBooking(id: string, input: UpdateBookingInput) {
   if (existing.paymentId && (input.paymentStatus || input.totalPrice !== undefined)) {
     await Payment.findByIdAndUpdate(existing.paymentId, await paymentUpdate(existing, input))
   }
+
+  if (updated && status && status !== existing.status) void notifyBookingStatusChange(updated, existing.status)
 
   return updated
 }

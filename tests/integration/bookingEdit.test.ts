@@ -4,7 +4,7 @@ import * as bookingRoute from '@/app/api/bookings/[id]/route'
 import Booking from '@/models/Booking'
 import { createRoom, createUser, day } from '../support/factories'
 import { call } from '../support/http'
-import { signInAs } from '../support/mocks'
+import { lineMock, signInAs } from '../support/mocks'
 
 const guest = { guestName: 'Somchai', guestEmail: 's@example.com', guestPhone: '0800000000' }
 const stay = { checkIn: day(10), checkOut: day(12) }
@@ -49,5 +49,50 @@ describe('moving a booking to another room', () => {
     expect((await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay, roomId: a1._id } })).status).toBe(201)
     signInAs(await createUser({ email: 'other@example.com' }))
     expect((await call(bookingsRoute.POST, 'POST', { body: { ...guest, checkIn: day(21), checkOut: day(22), roomId: a1._id } })).status).toBe(409)
+  })
+})
+
+describe('changing a booking status', () => {
+  const recipients = () => lineMock.sendLineNotification.mock.calls.map(([n]) => (n as { userId: string }).userId)
+
+  it('notifies owners and the customer who booked it', async () => {
+    const room = await createRoom()
+    await createUser({ role: 'OWNER', email: 'owner@example.com', lineUserId: 'Uowner' })
+    signInAs(await createUser({ lineUserId: 'Ucustomer' }))
+    const booking = await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay, roomId: room._id } })
+    expect(booking.status).toBe(201)
+
+    signInAs(await createUser({ role: 'ADMIN', email: 'admin@example.com', lineUserId: 'Uadmin' }))
+    const res = await call(bookingRoute.PUT, 'PUT', { params: { id: booking.body._id }, body: { status: 'CONFIRMED' } })
+    expect(res.status).toBe(200)
+    await new Promise((r) => setTimeout(r, 200)) // notifications are sent in the background
+
+    expect(recipients().sort()).toEqual(['Ucustomer', 'Uowner'])
+    const ownerMessage = lineMock.sendLineNotification.mock.calls.find(([n]) => (n as { userId: string }).userId === 'Uowner')
+    expect((ownerMessage![0] as { message: string }).message).toContain('รอดำเนินการ → ✅ ยืนยันแล้ว')
+  })
+
+  it('notifies only owners for a booking staff made', async () => {
+    const room = await createRoom()
+    await createUser({ role: 'OWNER', email: 'owner@example.com', lineUserId: 'Uowner' })
+    signInAs(await createUser({ role: 'ADMIN', lineUserId: 'Uadmin' }))
+    const booking = await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay, roomId: room._id, bookingStatus: 'CONFIRMED' } })
+    lineMock.sendLineNotification.mockClear()
+
+    await call(bookingRoute.PUT, 'PUT', { params: { id: booking.body._id }, body: { status: 'CANCELLED' } })
+    await new Promise((r) => setTimeout(r, 200))
+    expect(recipients()).toEqual(['Uowner'])
+  })
+
+  it('sends nothing when the status stays the same', async () => {
+    const room = await createRoom()
+    await createUser({ role: 'OWNER', email: 'owner@example.com', lineUserId: 'Uowner' })
+    signInAs(await createUser({ role: 'ADMIN' }))
+    const booking = await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay, roomId: room._id, bookingStatus: 'CONFIRMED' } })
+    lineMock.sendLineNotification.mockClear()
+
+    await call(bookingRoute.PUT, 'PUT', { params: { id: booking.body._id }, body: { status: 'CONFIRMED', guestName: 'New' } })
+    await new Promise((r) => setTimeout(r, 200))
+    expect(lineMock.sendLineNotification).not.toHaveBeenCalled()
   })
 })
