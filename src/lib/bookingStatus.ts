@@ -1,5 +1,20 @@
 // Colours and labels of booking / payment statuses, shared by the booking pages.
 
+import { bangkokDateKey } from './dates'
+
+/**
+ * Statuses that keep a booking's rooms/blocks from other guests (besides PENDING bookings still on
+ * hold). COMPLETED counts too: a booking marked completed too early must never free its room.
+ */
+export const OCCUPYING_STATUSES = ['CONFIRMED', 'COMPLETED']
+
+/**
+ * COMPLETED means the guest has left: allowed from the check-out date (Thai date) on.
+ * Stay dates are UTC midnight of the Thai date ("YYYY-MM-DD" or ISO).
+ */
+export const canComplete = (checkOut: string | Date, today = bangkokDateKey()) =>
+  new Date(checkOut).toISOString().slice(0, 10) <= today
+
 export type Tone = 'yellow' | 'green' | 'red' | 'blue' | 'gray'
 
 /** Tailwind classes per tone (spelled out so Tailwind keeps them) */

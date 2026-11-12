@@ -20,7 +20,9 @@ import BookingNotFound from './_components/BookingNotFound'
 import BookingSummary from './_components/BookingSummary'
 import GuestFields, { type GuestDetails } from './_components/GuestFields'
 import PaymentTypeOptions from './_components/PaymentTypeOptions'
-import { parseBookingRequest } from './_lib/bookingRequest'
+import SameStayNotice from './_components/SameStayNotice'
+import { bookingQuery, parseBookingRequest, type BookingRequest } from './_lib/bookingRequest'
+import { sameDates, separateBookings, unpaidBookingOf, withBooking, withoutItem, type StayBooking } from './_lib/sameStay'
 import { useBookingItems } from './_lib/useBookingItems'
 
 /** Confirms what was picked on the rooms page, collects guest details and continues to payment */
@@ -37,6 +39,11 @@ function NewBooking() {
   const [addOnOptions, setAddOnOptions] = useState<AddOnOption[]>([])
   const [addOns, setAddOns] = useState<SelectedAddOn[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [myBookings, setMyBookings] = useState<StayBooking[]>([])
+  // The guest's unpaid booking of this stay: this booking goes into it (more rooms, other rooms or dates)
+  const unpaid = request ? unpaidBookingOf(myBookings, request) : null
+  const separate = request ? separateBookings(myBookings, request, unpaid) : []
+  const showRequest = (next: BookingRequest) => router.replace(`/bookings/new?${bookingQuery(next)}`)
 
   useEffect(() => {
     if (status === 'loading') return
@@ -59,6 +66,35 @@ function NewBooking() {
   useEffect(() => {
     if (items === false) toast.error('ไม่สามารถโหลดข้อมูลห้องพักหรือบล็อคกางเต๊นท์ได้')
   }, [items])
+
+  // The guest's own bookings, to find other bookings of the same stay (staff list everyone's)
+  useEffect(() => {
+    if (session?.user?.role !== 'CUSTOMER') return
+    axios
+      .get('/api/bookings', { params: { limit: 100, sortBy: 'createdAt', sortOrder: 'desc' } })
+      .then((res) => setMyBookings(res.data.bookings ?? []))
+      .catch((error) => console.error('Error fetching bookings:', error))
+  }, [session?.user?.role])
+
+  // Booking more for the same dates: the unpaid booking's rooms/blocks stay in it, next to the new ones
+  useEffect(() => {
+    if (request && unpaid && !request.addTo && sameDates(unpaid, request)) showRequest(withBooking(request, unpaid))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once the unpaid booking is known
+  }, [unpaid?.id, request?.addTo])
+
+  // Changing the unpaid booking: start from its guest details, add-ons and payment type
+  useEffect(() => {
+    if (!unpaid) return
+    setGuest((g) => ({
+      guestName: unpaid.guestName || g.guestName,
+      guestEmail: unpaid.guestEmail || g.guestEmail,
+      guestPhone: unpaid.guestPhone || g.guestPhone,
+      specialRequests: unpaid.specialRequests || g.specialRequests,
+    }))
+    if (unpaid.addOns?.length) setAddOns(unpaid.addOns)
+    if (unpaid.paymentType === 'PARTIAL' || unpaid.paymentType === 'FULL') setPaymentType(unpaid.paymentType)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per unpaid booking
+  }, [unpaid?.id])
 
   if (!request || items === null) {
     return (
@@ -102,6 +138,7 @@ function NewBooking() {
         ...(roomIds.length && { roomIds }),
         ...(campingBlockIds.length && { campingBlockIds, guestCounts }),
         ...(addOnPayload.length && { addOns: addOnPayload }),
+        ...(unpaid && { continueBookingId: unpaid.id }),
       })
       // An unpaid booking of the same stay is continued rather than a new one created
       toast.success(res.data.continued ? 'อัปเดตการจองเดิมที่ยังไม่ได้ชำระเงินแล้ว' : 'สร้างการจองสำเร็จ')
@@ -120,6 +157,8 @@ function NewBooking() {
 
       <main className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8 text-gray-900">ยืนยันการจอง</h1>
+
+        <SameStayNotice request={request} unpaid={unpaid} separate={separate} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
@@ -164,6 +203,7 @@ function NewBooking() {
               checkOut={request.checkOut}
               price={price}
               paymentType={paymentType}
+              onRemove={(kind, id) => showRequest(withoutItem(request, kind, id))}
             />
           </div>
         </div>

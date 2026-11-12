@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as checkInRoute from '@/app/api/employee/attendance/checkin/route'
 import * as bookingsRoute from '@/app/api/bookings/route'
 import * as bookingRoute from '@/app/api/bookings/[id]/route'
+import * as publicStaysRoute from '@/app/api/bookings/public/route'
+import * as availabilityRoute from '@/app/api/rooms/[id]/availability/route'
 import * as buildingRoute from '@/app/api/buildings/[id]/route'
 import * as campingBlocksRoute from '@/app/api/camping-blocks/route'
 import * as campingBlockRoute from '@/app/api/camping-blocks/[id]/route'
@@ -141,6 +143,8 @@ describe('bookings', () => {
     const customer = await createUser()
     signInAs(customer)
     const first = await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay(10, 2), roomId: room._id } })
+    // Another guest: the same guest's second booking of the stay would go into the first one
+    signInAs(await createUser({ email: 'second@example.com' }))
     const second = await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay(10, 2), roomId: other._id } })
 
     signInAs(await createUser({ role: 'ADMIN' }))
@@ -149,10 +153,39 @@ describe('bookings', () => {
 
     signInAs(customer)
     expect((await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay(10, 2), roomId: room._id } })).status).toBe(201)
+    signInAs(await createUser({ email: 'third@example.com' }))
     expect((await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay(10, 2), roomId: other._id } })).status).toBe(201)
     // ...but the moved booking holds its new dates (for another guest)
     signInAs(await createUser({ email: 'other@example.com' }))
     expect((await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay(21, 1), roomId: other._id } })).status).toBe(409)
+  })
+
+  it('keeps the room of a booking marked completed before the stay (A3, 6 Dec 2026)', async () => {
+    const room = await createRoom()
+    signInAs(await createUser({ role: 'ADMIN' }))
+    const manual = await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay(10, 1), roomIds: [room._id], isManualBooking: true } })
+    expect(manual.status).toBe(201)
+    // Bookings marked completed early before the API refused it
+    await Booking.findByIdAndUpdate(manual.body._id, { status: 'COMPLETED' })
+
+    signInAs(await createUser({ email: 'other@example.com' }))
+    expect((await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay(10, 1), roomIds: [room._id] } })).status).toBe(409)
+    const availability = await call(availabilityRoute.GET, 'GET', { params: { id: room._id } })
+    expect(availability.body.availability[day(10)]).toBe('booked')
+    const publicStays = await call(publicStaysRoute.GET, 'GET', {})
+    expect(publicStays.body.map((b: { _id: string }) => b._id)).toContain(manual.body._id)
+  })
+
+  it('lets staff mark a booking completed only from its check-out date', async () => {
+    const room = await createRoom()
+    signInAs(await createUser({ role: 'ADMIN' }))
+    const upcoming = await call(bookingsRoute.POST, 'POST', { body: { ...guest, ...stay(10, 1), roomIds: [room._id], isManualBooking: true } })
+    const early = await call(bookingRoute.PUT, 'PUT', { params: { id: upcoming.body._id }, body: { status: 'COMPLETED' } })
+    expect(early.status).toBe(400)
+    expect((await Booking.findById(upcoming.body._id)).status).toBe('CONFIRMED')
+
+    const { booking: ended } = await createBooking({ status: 'CONFIRMED', checkIn: day(-2), checkOut: day(0) })
+    expect((await call(bookingRoute.PUT, 'PUT', { params: { id: ended._id }, body: { status: 'COMPLETED' } })).status).toBe(200)
   })
 
   it('does not charge twice for a room listed twice', async () => {

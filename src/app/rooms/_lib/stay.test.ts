@@ -50,6 +50,8 @@ describe('rooms page stay helpers', () => {
     const booking = { roomId: 'r1', status: 'CONFIRMED', checkIn: '2030-01-11', checkOut: '2030-01-13' }
     expect(isRoomAvailable(room(), stay, [booking], null)).toBe(false)
     expect(isRoomAvailable(room(), stay, [{ ...booking, status: 'PENDING' }], null)).toBe(true)
+    // Marked completed too early: still the guest's room
+    expect(isRoomAvailable(room(), stay, [{ ...booking, status: 'COMPLETED' }], null)).toBe(false)
     expect(isRoomAvailable(room(), stay, [{ ...booking, checkIn: '2030-01-12', checkOut: '2030-01-14' }], null)).toBe(true)
   })
 

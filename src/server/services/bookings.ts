@@ -1,6 +1,7 @@
 import type { Session } from 'next-auth'
 import { addOnsTotal, calculateBookingTotal, countNights, upfrontAmount } from '@/lib/bookingPrice'
 import { bangkokDateKey, bangkokDayRange } from '@/lib/dates'
+import { canComplete } from '@/lib/bookingStatus'
 import { calculateRoomPriceRange } from '@/lib/pricing'
 import AddOn from '@/models/AddOn'
 import Booking from '@/models/Booking'
@@ -11,15 +12,7 @@ import { findSessionUser, isStaff, assertOwnerOrStaff } from '../auth'
 import { badRequest, notFound } from '../errors'
 import type { CreateBookingInput, ListBookingsQuery, ManualBookingInput, UpdateBookingInput } from '../schemas/bookings'
 import { closeCheckout } from '@/lib/stripe'
-import {
-  assertAvailable,
-  bookingCampingBlockIds,
-  bookingRoomIds,
-  claimStay,
-  holdEndsAt,
-  newHoldExpiry,
-  StayRange,
-} from './availability'
+import { assertAvailable, claimStay, holdEndsAt, newHoldExpiry, StayRange } from './availability'
 import { notifyBookingStatusChange, notifyOwnersOfBooking } from './notifications'
 
 const ROOM_FIELDS = 'name description price capacity imageUrls'
@@ -115,22 +108,35 @@ async function loadAddOns(selections: CreateBookingInput['addOns'] = [], allowIn
   })
 }
 
+/** A customer's own booking that can still be changed (pending, nothing paid yet), with its payment; null otherwise */
+async function asUnpaidBooking(booking: any) {
+  if (booking.status !== 'PENDING' || booking.createdBy || booking.isManualBooking) return null
+  const payment = booking.paymentId ? await Payment.findById(booking.paymentId) : null
+  if (payment && (payment.status === 'COMPLETED' || (payment.paidAmount || 0) > 0)) return null
+  return { booking, payment }
+}
+
 /**
- * The customer's unpaid booking of (part of) the same stay, if any. Customers who leave the payment
- * page and book again continue that booking, instead of leaving an abandoned one behind.
+ * The customer's unpaid booking of (part of) the same stay, if any. Until it is paid, everything
+ * the customer books for that stay (more rooms, other rooms, other dates) goes into this one
+ * booking, instead of leaving several unpaid ones behind. Paid bookings are never changed.
  */
-async function findUnpaidBooking(userId: string, roomIds: string[], blockIds: string[], range: StayRange) {
+async function findUnpaidBooking(userId: string, range: StayRange) {
   const pending = await Booking.find({ userId, status: 'PENDING' }).sort({ createdAt: -1 })
   for (const booking of pending) {
-    if (booking.createdBy || booking.isManualBooking) continue
     if (!(booking.checkIn < range.checkOut && booking.checkOut > range.checkIn)) continue
-    const shared = bookingRoomIds(booking).some((id) => roomIds.includes(id)) || bookingCampingBlockIds(booking).some((id) => blockIds.includes(id))
-    if (!shared) continue
-    const payment = booking.paymentId ? await Payment.findById(booking.paymentId) : null
-    if (payment && (payment.status === 'COMPLETED' || (payment.paidAmount || 0) > 0)) continue
-    return { booking, payment }
+    const unpaid = await asUnpaidBooking(booking)
+    if (unpaid) return unpaid
   }
   return null
+}
+
+/** The unpaid booking a customer chose to add rooms to (the form sends the old and new selection together) */
+async function findBookingToAddTo(userId: string, bookingId: string) {
+  const booking = await Booking.findById(bookingId)
+  const unpaid = booking && String(booking.userId) === String(userId) ? await asUnpaidBooking(booking) : null
+  if (!unpaid) throw badRequest('ไม่สามารถรวมกับการจองเดิมได้ (ชำระเงินแล้วหรือถูกยกเลิก) กรุณาจองใหม่อีกครั้ง')
+  return unpaid
 }
 
 /**
@@ -168,7 +174,11 @@ export async function createBooking(input: CreateBookingInput, session: Session)
     loadAddOns(input.addOns, staff),
   ])
 
-  const unpaid = staff ? null : await findUnpaidBooking(user._id, roomIds, campingSelections.map((c) => c.id), range)
+  const unpaid = staff
+    ? null
+    : input.continueBookingId
+      ? await findBookingToAddTo(user._id, input.continueBookingId)
+      : await findUnpaidBooking(user._id, range)
 
   const inventory = { rooms, campingBlocks: camping.map((c) => c.block) }
   await assertAvailable(inventory, range, { excludeBookingId: unpaid?.booking._id })
@@ -402,6 +412,12 @@ export async function updateBooking(id: string, input: UpdateBookingInput) {
     throw badRequest('วันเช็คเอาท์ต้องมากกว่าวันเช็คอิน')
   }
 
+  // Completed = the guest has left. Marking it earlier used to free the room for other guests.
+  const finalStatus = next.status as string
+  if (finalStatus === 'COMPLETED' && ('status' in update || 'checkOut' in update) && !canComplete(checkOut)) {
+    throw badRequest(`ตั้งสถานะเสร็จสิ้นได้ตั้งแต่วันเช็คเอาท์ (${dateKey(checkOut)}) เป็นต้นไป`)
+  }
+
   const roomIds: string[] = next.roomIds?.length ? next.roomIds : next.roomId ? [next.roomId] : []
 
   // The per-room prices also list the booking's rooms (availability reads them), so they follow
@@ -411,11 +427,10 @@ export async function updateBooking(id: string, input: UpdateBookingInput) {
   }
 
   // Changing dates or rooms of an active booking must not double-book
-  const finalStatus = next.status as string
   const changesInventory = ['checkIn', 'checkOut', 'roomId', 'roomIds', 'campingBlockId', 'campingBlockIds', 'status'].some(
     (f) => f in update
   )
-  if (changesInventory && (finalStatus === 'CONFIRMED' || finalStatus === 'PENDING')) {
+  if (changesInventory && ['CONFIRMED', 'COMPLETED', 'PENDING'].includes(finalStatus)) {
     const blockIds = next.campingBlockIds?.length ? next.campingBlockIds : next.campingBlockId ? [next.campingBlockId] : []
     const [rooms, blocks] = await Promise.all([
       roomIds.length ? Room.find({ _id: { $in: roomIds } }).select('name').lean() : [],

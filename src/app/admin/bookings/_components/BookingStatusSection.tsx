@@ -7,6 +7,8 @@ export type PaymentStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 
 interface Props {
   bookingStatus: BookingStatus
   paymentStatus: PaymentStatus
+  /** False before the check-out date: the guest hasn't left yet */
+  canComplete: boolean
   onBookingStatusChange: (value: BookingStatus) => void
   onPaymentStatusChange: (value: PaymentStatus) => void
 }
@@ -25,9 +27,14 @@ export default function BookingStatusSection(props: Props) {
           >
             <option value="PENDING">รอดำเนินการ</option>
             <option value="CONFIRMED">ยืนยันแล้ว</option>
-            <option value="COMPLETED">เสร็จสิ้น</option>
+            <option value="COMPLETED" disabled={!props.canComplete && props.bookingStatus !== 'COMPLETED'}>
+              {props.canComplete ? 'เสร็จสิ้น' : 'เสร็จสิ้น (ได้ตั้งแต่วันเช็คเอาท์)'}
+            </option>
             <option value="CANCELLED">ยกเลิก</option>
           </select>
+          {props.bookingStatus === 'COMPLETED' && !props.canComplete && (
+            <p className="mt-1 text-sm text-red-600">ยังไม่ถึงวันเช็คเอาท์ กรุณาเปลี่ยนเป็น "ยืนยันแล้ว" ห้องจึงจะไม่ถูกจองซ้ำ</p>
+          )}
         </div>
 
         <div>

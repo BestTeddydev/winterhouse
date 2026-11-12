@@ -32,7 +32,7 @@ export default function BookingActions({ booking, onStatusChange, compact = fals
         <Edit className={icon} />
         {label('แก้ไข')}
       </Link>
-      {nextStatuses(booking.status).map((status) => {
+      {nextStatuses(booking).map((status) => {
         const action = ACTIONS[status]
         return (
           <button key={status} type="button" onClick={() => onStatusChange(booking.id, status)} className={`${button} ${action.color}`}>

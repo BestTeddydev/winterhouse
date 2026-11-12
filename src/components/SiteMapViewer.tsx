@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import MapCanvas from '@/components/MapCanvas'
 import { MapPin } from 'lucide-react'
+import { OCCUPYING_STATUSES } from '@/lib/bookingStatus'
 import type { BuildingHotspot } from '@/lib/siteMap'
 
 interface SiteMapViewerProps {
@@ -124,7 +125,7 @@ export default function SiteMapViewer({
         let isBooked = false
         if (roomBookings) {
           isBooked = roomBookings.some((booking: any) => {
-            if (!['PENDING', 'CONFIRMED'].includes(booking.status)) return false
+            if (!['PENDING', ...OCCUPYING_STATUSES].includes(booking.status)) return false
             
             // Check single camping block
             const bookingBlockId = booking.campingBlockId?._id?.toString() || booking.campingBlockId?.toString() || booking.campingBlockId
@@ -216,7 +217,7 @@ export default function SiteMapViewer({
           }
           
           if (!isForThisRoom) return false
-          if (!['PENDING', 'CONFIRMED'].includes(booking.status)) return false
+          if (!['PENDING', ...OCCUPYING_STATUSES].includes(booking.status)) return false
           
           const bookingCheckIn = new Date(booking.checkIn)
           const bookingCheckOut = new Date(booking.checkOut)
@@ -241,7 +242,7 @@ export default function SiteMapViewer({
             })
           }
           
-          return isForThisRoom && ['PENDING', 'CONFIRMED'].includes(booking.status)
+          return isForThisRoom && ['PENDING', ...OCCUPYING_STATUSES].includes(booking.status)
         })
       }
       

@@ -26,8 +26,12 @@ describe('booking list helpers', () => {
   })
 
   it('offers only valid status changes', () => {
-    expect(nextStatuses('PENDING')).toEqual(['CONFIRMED', 'CANCELLED'])
-    expect(nextStatuses('CANCELLED')).toEqual([])
+    const checkOut = '2026-12-07'
+    expect(nextStatuses({ status: 'PENDING', checkOut })).toEqual(['CONFIRMED', 'CANCELLED'])
+    expect(nextStatuses({ status: 'CANCELLED', checkOut })).toEqual([])
+    // Completed only once the guest has left
+    expect(nextStatuses({ status: 'CONFIRMED', checkOut }, '2026-12-06')).toEqual(['CANCELLED'])
+    expect(nextStatuses({ status: 'CONFIRMED', checkOut }, '2026-12-07')).toEqual(['COMPLETED', 'CANCELLED'])
   })
 })
 

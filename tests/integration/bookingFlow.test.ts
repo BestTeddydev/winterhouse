@@ -75,6 +75,69 @@ describe('booking again before paying', () => {
   })
 })
 
+describe('adding rooms to an unpaid booking', () => {
+  it('puts the new room into the unpaid booking of the same stay (one booking, one payment)', async () => {
+    const [a3, a4] = [await createRoom({ name: 'A3' }), await createRoom({ name: 'A4' })]
+    signInAs(await createUser())
+    const first = await book({ ...stay(10, 1), roomIds: [a3._id] })
+    await pay(first.body._id)
+
+    const merged = await book({ ...stay(10, 1), roomIds: [a3._id, a4._id], continueBookingId: first.body._id })
+    expect(merged.status).toBe(200)
+    expect(merged.body._id).toBe(first.body._id)
+    expect(merged.body.rooms.map((r: { _id: string }) => r._id).sort()).toEqual([a3._id, a4._id].sort())
+    expect(await Booking.countDocuments({})).toBe(1)
+    // The checkout opened for A3 alone can no longer be paid
+    expect(stripeMock.closeCheckout).toHaveBeenCalledWith('cs_test_1')
+    expect((await Payment.findById(merged.body.paymentId._id ?? merged.body.paymentId)).totalAmount).toBe(merged.body.totalPrice)
+  })
+
+  it('uses the one unpaid booking when the guest books another room, or other dates, of the stay', async () => {
+    const [a3, a4] = [await createRoom({ name: 'A3' }), await createRoom({ name: 'A4' })]
+    signInAs(await createUser())
+    const first = await book({ ...stay(10, 1), roomIds: [a3._id] })
+
+    // Another room for the same night, without saying which booking: still the same booking
+    const more = await book({ ...stay(10, 1), roomIds: [a3._id, a4._id] })
+    expect(more.body._id).toBe(first.body._id)
+    // Other dates overlapping the stay
+    const moved = await book({ ...stay(10, 2), roomIds: [a4._id] })
+    expect(moved.body._id).toBe(first.body._id)
+    expect(moved.body.rooms.map((r: { _id: string }) => r._id)).toEqual([a4._id])
+    expect(await Booking.countDocuments({})).toBe(1)
+    // ...and the room it no longer has is free again
+    signInAs(await createUser({ email: 'other@example.com' }))
+    expect((await book({ ...stay(10, 1), roomIds: [a3._id] })).status).toBe(201)
+  })
+
+  it('books separately once the first booking is paid', async () => {
+    const [a3, a4] = [await createRoom({ name: 'A3' }), await createRoom({ name: 'A4' })]
+    signInAs(await createUser())
+    const first = await book({ ...stay(10, 1), roomIds: [a3._id] })
+    await Payment.findByIdAndUpdate(first.body.paymentId._id ?? first.body.paymentId, { status: 'COMPLETED', paidAmount: 1000 })
+    await Booking.findByIdAndUpdate(first.body._id, { status: 'CONFIRMED' })
+
+    const second = await book({ ...stay(10, 1), roomIds: [a4._id] })
+    expect(second.status).toBe(201)
+    expect(second.body._id).not.toBe(first.body._id)
+    expect((await Booking.findById(first.body._id)).roomIds).toEqual([a3._id])
+  })
+
+  it('refuses to add to a paid booking or to someone else\'s', async () => {
+    const [a3, a4] = [await createRoom({ name: 'A3' }), await createRoom({ name: 'A4' })]
+    const customer = await createUser()
+    signInAs(customer)
+    const first = await book({ ...stay(10, 1), roomIds: [a3._id] })
+    await Payment.findByIdAndUpdate(first.body.paymentId._id ?? first.body.paymentId, { status: 'COMPLETED', paidAmount: 1000 })
+    expect((await book({ ...stay(10, 1), roomIds: [a3._id, a4._id], continueBookingId: first.body._id })).status).toBe(400)
+
+    const unpaid = await book({ ...stay(20, 1), roomIds: [a3._id] })
+    signInAs(await createUser({ email: 'other@example.com' }))
+    expect((await book({ ...stay(20, 1), roomIds: [a4._id], continueBookingId: unpaid.body._id })).status).toBe(400)
+    expect(await Booking.countDocuments({})).toBe(2)
+  })
+})
+
 describe('paying', () => {
   it('holds the room again while the guest pays', async () => {
     const room = await createRoom()

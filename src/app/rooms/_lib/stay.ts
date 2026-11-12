@@ -1,5 +1,6 @@
 // Pure helpers for the rooms page: prices, availability and locks for the selected stay.
 import type { IRoom } from '@/models/Room'
+import { OCCUPYING_STATUSES } from '@/lib/bookingStatus'
 import { formatPrice, getDayType, getDayTypeLabel, getRoomPriceForDate, parseLocalDate } from '@/lib/pricing'
 import type { Room, RoomAvailability, Stay } from './types'
 
@@ -33,7 +34,7 @@ export function bookingIncludesRoom(booking: BookingLike, roomId: string, { incl
   return includeRoomsArray && !!booking.rooms?.some((r) => idOf(r.roomId) === roomId)
 }
 
-/** Whether a room is free for the whole stay (confirmed bookings only) */
+/** Whether a room is free for the whole stay (confirmed/completed bookings only) */
 export function isRoomAvailable(room: Room, stay: Stay, bookings: BookingLike[], roomAvailability: RoomAvailability | null) {
   if (!stay.checkInDate) return true
   const start = new Date(stay.checkInDate)
@@ -44,7 +45,7 @@ export function isRoomAvailable(room: Room, stay: Stay, bookings: BookingLike[],
     return !roomAvailability.bookings.some((b) => overlaps(start, end, b.checkIn, b.checkOut))
   }
   return !bookings.some(
-    (b) => b.status === 'CONFIRMED' && bookingIncludesRoom(b, room.id) && overlaps(start, end, b.checkIn, b.checkOut)
+    (b) => OCCUPYING_STATUSES.includes(b.status ?? '') && bookingIncludesRoom(b, room.id) && overlaps(start, end, b.checkIn, b.checkOut)
   )
 }
 
@@ -61,7 +62,7 @@ export function isNightBooked(date: string, roomId: string, bookings: BookingLik
   const day = new Date(date)
   const booked = bookings.some(
     (b) =>
-      ['PENDING', 'CONFIRMED'].includes(b.status ?? '') &&
+      ['PENDING', ...OCCUPYING_STATUSES].includes(b.status ?? '') &&
       bookingIncludesRoom(b, roomId, { includeRoomsArray: false }) &&
       day >= new Date(b.checkIn) &&
       day < new Date(b.checkOut)

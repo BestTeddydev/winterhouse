@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { MapPin, Tent } from 'lucide-react'
+import { canComplete } from '@/lib/bookingStatus'
 import { bangkokDateKey } from '@/lib/dates'
 import { priceBreakdown, selectionPayload, selectionsFromBooking, type Catalog, type PricingInputs } from '@/lib/bookingForm'
 import { useBookingDraft } from '../_lib/useBookingDraft'
@@ -170,6 +171,7 @@ export default function EditBookingForm({ id, booking, catalog }: { id: string; 
           <BookingStatusSection
             bookingStatus={draft.bookingStatus}
             paymentStatus={draft.paymentStatus}
+            canComplete={!!draft.checkOut && canComplete(draft.checkOut)}
             onBookingStatusChange={(v) => set('bookingStatus', v)}
             onPaymentStatusChange={(v) => set('paymentStatus', v)}
           />

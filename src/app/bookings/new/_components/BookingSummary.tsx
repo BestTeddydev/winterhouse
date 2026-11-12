@@ -1,6 +1,7 @@
 import { addOnTotal, upfrontAmount, type PaymentType } from '@/lib/bookingPrice'
 import { addOnLine } from '@/lib/bookingDisplay'
 import { campingBlockPrice, roomStayPrice, type BookableRoom, type PriceBreakdown, type SelectedAddOn, type SelectedCampingBlock } from '@/lib/bookingForm'
+import { X } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 
 interface Props {
@@ -11,12 +12,14 @@ interface Props {
   checkOut: string
   price: PriceBreakdown
   paymentType: PaymentType
+  /** Takes a room/block out of the booking (offered while it has more than one) */
+  onRemove?: (kind: 'room' | 'block', id: string) => void
 }
 
 const thaiDate = (day: string) => new Date(day).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })
 
 /** Sticky summary of the stay and what the guest pays now */
-export default function BookingSummary({ rooms, campingBlocks, addOns, checkIn, checkOut, price, paymentType }: Props) {
+export default function BookingSummary({ rooms, campingBlocks, addOns, checkIn, checkOut, price, paymentType, onRemove }: Props) {
   const { nights } = price
   const subtotal = price.accommodation + price.addOns
   const vat = price.total - subtotal
@@ -25,6 +28,7 @@ export default function BookingSummary({ rooms, campingBlocks, addOns, checkIn, 
   // One room on its own is described in full; otherwise rooms are listed by name
   const singleRoom = rooms.length === 1 && campingBlocks.length === 0 ? rooms[0] : null
   const roomsTotal = rooms.reduce((sum, room) => sum + roomStayPrice(room, checkIn, checkOut), 0)
+  const remove = onRemove && rooms.length + campingBlocks.length > 1 ? onRemove : undefined
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 sticky top-4">
@@ -37,7 +41,10 @@ export default function BookingSummary({ rooms, campingBlocks, addOns, checkIn, 
             <div className="space-y-2">
               {campingBlocks.map((item) => (
                 <div key={item.block.id} className="bg-green-50 p-3 rounded-lg border border-green-200">
-                  <p className="font-medium text-gray-900 text-sm">{item.block.name}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium text-gray-900 text-sm">{item.block.name}</p>
+                    {remove && <RemoveButton label={item.block.name} onClick={() => remove('block', item.block.id)} />}
+                  </div>
                   <p className="text-xs text-gray-600 mt-1">
                     {item.guestCount} คน × {formatCurrency(item.block.pricePerPerson)}/คน
                   </p>
@@ -48,7 +55,10 @@ export default function BookingSummary({ rooms, campingBlocks, addOns, checkIn, 
         )}
         {singleBlock && (
           <>
-            <h3 className="font-semibold text-gray-900">{singleBlock.block.name}</h3>
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold text-gray-900">{singleBlock.block.name}</h3>
+              {remove && <RemoveButton label={singleBlock.block.name} onClick={() => remove('block', singleBlock.block.id)} />}
+            </div>
             <p className="text-gray-800 text-sm">{singleBlock.block.description}</p>
             <div className="mt-2 text-sm text-gray-600">
               <span className="font-medium">จำนวนคน: {singleBlock.guestCount} คน</span>
@@ -67,8 +77,9 @@ export default function BookingSummary({ rooms, campingBlocks, addOns, checkIn, 
               <h3 className="font-semibold text-gray-900 mb-2">{rooms.length} ห้องพัก</h3>
               <div className="space-y-2">
                 {rooms.map((room) => (
-                  <div key={room.id} className="bg-gray-50 p-3 rounded-lg">
+                  <div key={room.id} className="bg-gray-50 p-3 rounded-lg flex items-start justify-between gap-2">
                     <p className="font-medium text-gray-900 text-sm">{room.name}</p>
+                    {remove && <RemoveButton label={room.name} onClick={() => remove('room', room.id)} />}
                   </div>
                 ))}
               </div>
@@ -146,6 +157,20 @@ export default function BookingSummary({ rooms, campingBlocks, addOns, checkIn, 
         )}
       </div>
     </div>
+  )
+}
+
+function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`ลบ ${label} ออกจากการจอง`}
+      className="flex-shrink-0 flex items-center gap-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 rounded px-1.5 py-0.5"
+    >
+      <X className="w-3.5 h-3.5" />
+      ลบ
+    </button>
   )
 }
 

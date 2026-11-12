@@ -26,6 +26,8 @@ export const createBookingSchema = z
     specialRequests: optionalText(),
     paymentType: z.enum(['FULL', 'PARTIAL'], { message: 'ประเภทการชำระเงินไม่ถูกต้อง' }).default('FULL'),
     addOns: z.array(addOnSelection).optional(),
+    /** Customers: add this selection to their own unpaid booking (it then holds everything), paid once */
+    continueBookingId: optionalId('Booking ID'),
     // Staff only (ignored for customers)
     totalPrice: money('ราคารวม').optional(),
     discount: z.coerce.number().min(0).max(100).optional(),

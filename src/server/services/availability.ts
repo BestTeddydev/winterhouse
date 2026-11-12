@@ -1,3 +1,4 @@
+import { OCCUPYING_STATUSES } from '@/lib/bookingStatus'
 import Booking from '@/models/Booking'
 import CampingBlock from '@/models/CampingBlock'
 import CampingBlockBlock from '@/models/CampingBlockBlock'
@@ -66,9 +67,9 @@ export function holdEndsAt(booking: BookingRefs): number {
   return booking.createdAt ? new Date(booking.createdAt).getTime() + PAYMENT_HOLD_MINUTES * 60_000 : 0
 }
 
-/** Whether the booking keeps its rooms/blocks from others */
+/** Whether the booking keeps its rooms/blocks from others: confirmed or completed, or pending and still on hold */
 export const occupies = (booking: BookingRefs, now = new Date()) =>
-  booking.status === 'CONFIRMED' || (booking.status === 'PENDING' && holdEndsAt(booking) > now.getTime())
+  OCCUPYING_STATUSES.includes(booking.status) || (booking.status === 'PENDING' && holdEndsAt(booking) > now.getTime())
 
 const OCCUPANCY_FIELDS =
   '_id status checkIn checkOut createdAt holdExpiresAt createdBy isManualBooking roomId roomIds rooms campingBlockId campingBlockIds'
@@ -78,10 +79,10 @@ export function overlapFilter({ checkIn, checkOut }: StayRange) {
   return { $and: [{ checkIn: { $lt: checkOut } }, { checkOut: { $gt: checkIn } }] }
 }
 
-/** Bookings overlapping the stay that occupy their rooms/blocks: confirmed ones and held pending ones */
+/** Bookings overlapping the stay that occupy their rooms/blocks: confirmed/completed ones and held pending ones */
 export async function findOccupyingBookings(range: StayRange, { excludeBookingId, now = new Date() }: Options = {}) {
   const bookings: BookingRefs[] = await Booking.find({
-    status: { $in: ['CONFIRMED', 'PENDING'] },
+    status: { $in: [...OCCUPYING_STATUSES, 'PENDING'] },
     ...overlapFilter(range),
   })
     .select(OCCUPANCY_FIELDS)
@@ -219,13 +220,13 @@ export async function getRoomAvailability(roomId: string, from: Date, to: Date) 
 }
 
 /**
- * Confirmed stays that haven't ended yet (dates and rooms/blocks only, no guest data),
+ * Confirmed (or completed) stays that haven't ended yet (dates and rooms/blocks only, no guest data),
  * used by the public room and site map pages to show availability.
  */
 export async function listPublicStays() {
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
-  const bookings = await Booking.find({ status: 'CONFIRMED', checkOut: { $gt: yesterday } })
+  const bookings = await Booking.find({ status: { $in: OCCUPYING_STATUSES }, checkOut: { $gt: yesterday } })
     .select('roomId roomIds rooms campingBlockId campingBlockIds checkIn checkOut status')
     .lean()
   return bookings.map((booking: { _id: string }) => ({ ...booking, id: booking._id }))
