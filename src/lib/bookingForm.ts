@@ -70,14 +70,24 @@ export interface Catalog {
 // --- selections ----------------------------------------------------------------------
 
 /**
- * Rooms / camping blocks in the order of their buildings (set on the site map editor). Within a
- * building, and for those in no ordered building (listed after), the order they came in is kept.
+ * Rooms / camping blocks listed like the rooms page: grouped by building, the buildings in the
+ * order set on the site map editor (never-ordered ones after, in the order they came in), and
+ * those in no building last. Within a group the order they came in is kept.
  */
-export function inBuildingOrder<T extends { buildingSortOrder?: number }>(items: T[]): T[] {
-  return items
-    .map((item, index) => ({ item, index }))
-    .sort((a, b) => (a.item.buildingSortOrder ?? Infinity) - (b.item.buildingSortOrder ?? Infinity) || a.index - b.index)
-    .map(({ item }) => item)
+export function inBuildingOrder<T extends { buildingName?: unknown; buildingSortOrder?: number }>(items: T[]): T[] {
+  const groups = new Map<unknown, { sortOrder: number; items: T[] }>()
+  const ungrouped: T[] = []
+  for (const item of items) {
+    if (!item.buildingName) {
+      ungrouped.push(item)
+      continue
+    }
+    if (!groups.has(item.buildingName)) groups.set(item.buildingName, { sortOrder: item.buildingSortOrder ?? Infinity, items: [] })
+    groups.get(item.buildingName)!.items.push(item)
+  }
+  // Array sort is stable, so buildings with the same (or no) order keep the order they came in
+  const ordered = [...groups.values()].sort((a, b) => a.sortOrder - b.sortOrder)
+  return [...ordered.flatMap((group) => group.items), ...ungrouped]
 }
 
 export const toggleRoom = (rooms: BookableRoom[], room: BookableRoom) =>

@@ -120,15 +120,18 @@ describe('booking <-> form', () => {
 })
 
 describe('inBuildingOrder', () => {
-  it('lists rooms by the order of their buildings, keeping the order within a building', () => {
+  it('groups rooms by building like the rooms page: ordered buildings, then unordered ones, then no building', () => {
     const rooms = [
-      { id: 'b1', buildingSortOrder: 2 },
+      { id: 'b1', buildingName: 'B', buildingSortOrder: 2 },
       { id: 'none1' },
-      { id: 'a1', buildingSortOrder: 0 },
-      { id: 'b2', buildingSortOrder: 2 },
+      { id: 'x1', buildingName: 'X' },
+      { id: 'a1', buildingName: 'A', buildingSortOrder: 0 },
+      { id: 'y1', buildingName: 'Y' },
+      { id: 'b2', buildingName: 'B', buildingSortOrder: 2 },
+      { id: 'x2', buildingName: 'X' },
       { id: 'none2' },
-      { id: 'a2', buildingSortOrder: 0 },
+      { id: 'a2', buildingName: 'A', buildingSortOrder: 0 },
     ]
-    expect(inBuildingOrder(rooms).map((r) => r.id)).toEqual(['a1', 'a2', 'b1', 'b2', 'none1', 'none2'])
+    expect(inBuildingOrder(rooms).map((r) => r.id)).toEqual(['a1', 'a2', 'b1', 'b2', 'x1', 'x2', 'y1', 'none1', 'none2'])
   })
 })
